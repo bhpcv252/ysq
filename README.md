@@ -56,9 +56,21 @@ formatting dependency.
 
 - C++20 compiler with `std::format` (GCC 13+, Clang 17+, or MSVC 19.29+)
 - CMake 3.20+
-- GPU and driver with OpenGL 4.3+ — for the visualizer and the OpenGL compute
-  backend; the simulation core and its tests run CPU-only
-- CUDA Toolkit and/or Vulkan SDK (optional, for those GPU compute backends)
+
+**No GPU is required.** The CPU compute backend is the reference implementation,
+so the engine and its full test suite build and run on any machine. Everything
+below is optional acceleration, selected at runtime with a fallback to CPU:
+
+| Optional            | Enables                                                 |
+| ------------------- | ------------------------------------------------------- |
+| OpenGL 4.1+ driver  | The real-time visualizer                                 |
+| OpenGL 4.3+ driver  | The OpenGL compute backend (compute shaders are 4.3)     |
+| CUDA Toolkit        | The CUDA compute backend (NVIDIA only)                   |
+| Vulkan SDK          | The Vulkan compute backend (via MoltenVK on macOS)       |
+
+macOS caps OpenGL at 4.1, so the visualizer works there but the OpenGL compute
+backend does not. See [docs/architecture.md](docs/architecture.md) for how
+backend selection and fallback work per platform.
 
 ## Building
 
@@ -73,6 +85,18 @@ If you already cloned without submodules:
 
 ```sh
 git submodule update --init --recursive
+```
+
+### Options
+
+| Option                   | Default | Effect                                          |
+| ------------------------ | ------- | ----------------------------------------------- |
+| `YSQ_BUILD_TESTS`        | `ON`    | Build the test suite                             |
+| `YSQ_BUILD_GRAPHICS`     | `ON`    | Build against GLFW, GLAD and Dear ImGui. `OFF` drops them entirely, for headless and CI builds. |
+| `YSQ_WARNINGS_AS_ERRORS` | `OFF`   | Treat warnings as errors. CI builds with this on. |
+
+```sh
+cmake -B build -DYSQ_BUILD_GRAPHICS=OFF   # headless: no graphics dependencies
 ```
 
 ## Running
@@ -100,7 +124,10 @@ of accuracy, a units dimension check. Integration tests cover combinations — a
 symplectic integrator with Newtonian gravity holding a stable orbit, or spacetime
 with optics reproducing a known deflection angle. End-to-end tests run whole
 applications headless and assert physical invariants such as energy and momentum
-conservation.
+conservation. Smoke tests sit below all of that and cover the build itself: that
+each vendored dependency actually links and that build options took effect.
+
+Everything runs CPU-only and needs no GPU, no window and no display.
 
 ## Project structure
 
@@ -119,11 +146,18 @@ presentation layer, drawing on `Platform` and `Math`. `Applications` sit on top.
 Nothing lower depends on anything higher. A headless visual run uses an offscreen
 context; the simulation core and tests need no graphics context at all.
 
+The tree below is the target layout. Modules appear as they are implemented, so
+not all of it exists yet.
+
 ```
 ysq/
 ├── CMakeLists.txt
 ├── README.md
 ├── LICENSE
+├── .clang-format
+├── .github/workflows/ci.yml
+├── cmake/
+│   └── YsqWarnings.cmake       Shared warning sets
 ├── docs/
 │   ├── README.md
 │   ├── architecture.md
@@ -145,6 +179,7 @@ ysq/
 │   ├── Core/
 │   │   ├── README.md
 │   │   ├── CMakeLists.txt
+│   │   ├── Version.hpp.in          Version, generated from the CMake project version
 │   │   ├── Logger.hpp              Thin wrapper over spdlog
 │   │   ├── Timer.hpp
 │   │   ├── Clock.hpp               Simulation time vs. wall-clock
@@ -287,8 +322,13 @@ ysq/
 └── tests/
     ├── README.md
     ├── CMakeLists.txt
+    ├── smoke/                      Build wiring: dependencies link, options took effect
+    │   ├── CMakeLists.txt
+    │   ├── spdlog_format.cpp
+    │   └── graphics_link.cpp
     ├── unit/                       Isolated module tests
     │   ├── CMakeLists.txt
+    │   ├── core_version.cpp
     │   ├── math_vector.cpp
     │   ├── math_integrators.cpp
     │   ├── units_dimensions.cpp

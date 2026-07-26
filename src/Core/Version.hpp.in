@@ -1,0 +1,29 @@
+#pragma once
+
+// Generated from Version.hpp.in. Edit that file, not this one.
+
+#include <string>
+
+namespace ysq {
+
+struct Version {
+    int major;
+    int minor;
+    int patch;
+
+    friend constexpr bool operator==(const Version&, const Version&) = default;
+};
+
+/// Engine version, injected from the CMake project version.
+[[nodiscard]] constexpr Version version() noexcept {
+    // clang-format off
+    // Formatting is disabled here because clang-format rewrites @VAR@ into
+    // @VAR @, which breaks configure_file substitution silently.
+    return Version{@PROJECT_VERSION_MAJOR@, @PROJECT_VERSION_MINOR@, @PROJECT_VERSION_PATCH@};
+    // clang-format on
+}
+
+/// Version formatted as "major.minor.patch".
+[[nodiscard]] std::string versionString();
+
+}  // namespace ysq

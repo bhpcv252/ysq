@@ -1,0 +1,45 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(YSQ
+    VERSION 0.1.0
+    DESCRIPTION "Yotta Spacetime Quantities: a C++ engine for simulating and visualizing physical systems"
+    LANGUAGES CXX C)
+
+# C is enabled for GLAD's generated loader, the only C source in the tree.
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+option(YSQ_BUILD_TESTS "Build the YSQ test suite" ON)
+option(YSQ_BUILD_GRAPHICS "Build graphics-dependent modules (GLFW, GLAD, Dear ImGui)" ON)
+option(YSQ_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+# src/ is the include root, so every include is module-qualified:
+#   #include <Core/Version.hpp>
+# Generated headers mirror the same layout, so a configured header resolves
+# exactly like a checked-in one.
+set(YSQ_SOURCE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(YSQ_GENERATED_INCLUDE_DIR ${CMAKE_BINARY_DIR}/generated)
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+include(YsqWarnings)
+
+add_subdirectory(third_party)
+add_subdirectory(src)
+
+if(YSQ_BUILD_TESTS)
+    # enable_testing() must run at top level for `ctest --test-dir build` to
+    # find anything from the build root.
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+
+message(STATUS "YSQ ${PROJECT_VERSION}")
+message(STATUS "  tests:    ${YSQ_BUILD_TESTS}")
+message(STATUS "  graphics: ${YSQ_BUILD_GRAPHICS}")
