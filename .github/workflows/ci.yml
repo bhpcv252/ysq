@@ -31,12 +31,16 @@ jobs:
         with:
           submodules: recursive
 
-      # GLFW needs the X11 development headers to build its Linux backend.
+      # GLFW 3.4 builds both the X11 and Wayland backends on Linux by default.
+      # xorg-dev covers X11; Wayland additionally needs the wayland-scanner
+      # binary (libwayland-bin) plus the wayland-client and xkbcommon headers.
+      # The Wayland protocol XMLs are vendored in glfw/deps/wayland, so the
+      # wayland-protocols package is not required.
       - name: Install GLFW build dependencies
         if: runner.os == 'Linux' && matrix.graphics == 'ON'
         run: |
           sudo apt-get update
-          sudo apt-get install -y xorg-dev
+          sudo apt-get install -y xorg-dev libwayland-dev libwayland-bin libxkbcommon-dev
 
       - name: Configure
         run: >

@@ -72,6 +72,18 @@ macOS caps OpenGL at 4.1, so the visualizer works there but the OpenGL compute
 backend does not. See [docs/architecture.md](docs/architecture.md) for how
 backend selection and fallback work per platform.
 
+### Linux build dependencies
+
+GLFW builds both the X11 and Wayland backends, and needs their development
+packages present at build time. On Debian and Ubuntu:
+
+```sh
+sudo apt install xorg-dev libwayland-dev libwayland-bin libxkbcommon-dev
+```
+
+Windows and macOS need nothing beyond a compiler and CMake. A headless build
+(`-DYSQ_BUILD_GRAPHICS=OFF`) needs none of these on any platform.
+
 ## Building
 
 ```sh
