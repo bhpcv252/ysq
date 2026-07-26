@@ -54,8 +54,13 @@ formatting dependency.
 
 ## Requirements
 
-- C++20 compiler with `std::format` (GCC 13+, Clang 17+, or MSVC 19.29+)
+- C++20 compiler with `std::format` (GCC 13+, Clang 17+, or MSVC 19.32+)
 - CMake 3.20+
+
+`Core/Logger.hpp` takes its format strings as `std::format_string`, so a bad
+format string is a compile error rather than a runtime throw. That name is
+`P2508`, which MSVC exposes from 19.32 (VS 2022 17.2); `<format>` alone arrived
+earlier, at 19.29.
 
 **No GPU is required.** The CPU compute backend is the reference implementation,
 so the engine and its full test suite build and run on any machine. Everything
@@ -192,11 +197,11 @@ ysq/
 │   │   ├── README.md
 │   │   ├── CMakeLists.txt
 │   │   ├── Version.hpp.in          Version, generated from the CMake project version
-│   │   ├── Logger.hpp              Thin wrapper over spdlog
-│   │   ├── Timer.hpp
-│   │   ├── Clock.hpp               Simulation time vs. wall-clock
+│   │   ├── Logger.hpp              Facade over spdlog; spdlog stays out of the header
+│   │   ├── Timer.hpp               Wall-clock stopwatch
+│   │   ├── Clock.hpp               Simulation time: fixed steps, time scale, pause
 │   │   ├── UUID.hpp
-│   │   ├── Event.hpp
+│   │   ├── Event.hpp               Type-keyed event bus
 │   │   └── Config.hpp
 │   │
 │   ├── Math/
@@ -341,6 +346,12 @@ ysq/
     ├── unit/                       Isolated module tests
     │   ├── CMakeLists.txt
     │   ├── core_version.cpp
+    │   ├── core_logger.cpp
+    │   ├── core_timer.cpp
+    │   ├── core_clock.cpp
+    │   ├── core_uuid.cpp
+    │   ├── core_event.cpp
+    │   ├── core_config.cpp
     │   ├── math_vector.cpp
     │   ├── math_integrators.cpp
     │   ├── units_dimensions.cpp
@@ -349,6 +360,7 @@ ysq/
     │   └── optics_frequencyshift.cpp
     ├── integration/                Cross-module behavior
     │   ├── CMakeLists.txt
+    │   ├── core_runtime.cpp        Config + Logger + Clock + Timer + Event + UUID
     │   ├── orbit_stability.cpp     Gravity + symplectic integrator
     │   ├── lensing_deflection.cpp  Spacetime + optics
     │   └── nbody_energy.cpp        Barnes-Hut + conservation
@@ -362,7 +374,7 @@ ysq/
 
 | Module         | Contents                                                                                                                                                                                                                                             |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Core`         | Logging, timing (sim and wall-clock), UUIDs, events, configuration                                                                                                                                                                                   |
+| `Core`         | Logging (spdlog behind a facade), timing (simulation and wall-clock), UUIDs, events, configuration                                                                                                                                                                                   |
 | `Math`         | Vectors, matrices, quaternions, complex/dual numbers, tensors, statistics, interpolation, calculus, ODE interface and integrators (Euler, RK4, adaptive, symplectic)                                                                                 |
 | `Units`        | Length, mass, time, velocity, acceleration, force, energy, temperature, luminosity as dimensioned quantities (scalar or vector), built on `Math`                                                                                                     |
 | `Platform`     | Window, GL context, and input, wrapping GLFW                                                                                                                                                                                                         |
