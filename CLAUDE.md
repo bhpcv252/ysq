@@ -67,6 +67,28 @@ appropriate), and updating any affected docs (`README.md`, module `README.md`,
 confirm both pass, and fix anything that fails before reporting back. Run the build
 and tests yourself — don't hand the commands back to the human.
 
+## Committing
+
+**Never commit, amend, tag, or push. The human does that.** This holds even after
+a task is finished and verified, and even when asked to "finish up" or "wrap up".
+
+When the work is done, output exactly three things and nothing else:
+
+1. A `cd` command to the repository root.
+2. The commit message.
+3. The PR description, filled in from `.github/pull_request_template.md`.
+
+Always use that template. Keep every section filled in; if a section does not
+apply, say so in one line rather than deleting the heading. No filler, no
+restating the diff, no unnecessary blank lines.
+
+Commit messages follow conventional commits with a scope, e.g.
+`feat(physics): add Schwarzschild metric`, `chore(root): wire up CTest`.
+
+**Never write Claude, Anthropic, or any AI attribution anywhere.** Not in commit
+messages, not in `Co-Authored-By` trailers, not in PR descriptions, not in code
+comments, not in docs.
+
 ## Build and test
 
 ```sh

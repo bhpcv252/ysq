@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # graphics=OFF is not redundant: it is what keeps "the core needs no GPU and
+    # no graphics dependencies" a tested claim rather than an aspiration.
+    # Windows is here because the README promises MSVC support and the MSVC
+    # warning set in cmake/YsqWarnings.cmake is otherwise never compiled.
+    name: ${{ matrix.os }} / graphics=${{ matrix.graphics }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Quoted: YAML 1.1 reads bare ON/OFF as booleans, which would break the
+        # `matrix.graphics == 'ON'` comparison below and skip the X11 install.
+        graphics: ["ON", "OFF"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # GLFW needs the X11 development headers to build its Linux backend.
+      - name: Install GLFW build dependencies
+        if: runner.os == 'Linux' && matrix.graphics == 'ON'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorg-dev
+
+      - name: Configure
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DYSQ_BUILD_GRAPHICS=${{ matrix.graphics }}
+          -DYSQ_WARNINGS_AS_ERRORS=ON
+
+      # --config is required by the multi-config Visual Studio generator, which
+      # otherwise ignores CMAKE_BUILD_TYPE and builds Debug. It is a no-op for
+      # the single-config generators used on Linux and macOS.
+      - name: Build
+        run: cmake --build build --config RelWithDebInfo --parallel
+
+      # Everything here is CPU-only and needs no display, so the runners need no
+      # GPU and no virtual framebuffer.
+      - name: Test
+        run: ctest --test-dir build -C RelWithDebInfo --output-on-failure
