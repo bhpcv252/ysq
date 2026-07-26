@@ -1,0 +1,17 @@
+# Build output
+build*/
+cmake-build-*/
+
+# CMake / tooling artifacts
+CMakeUserPresets.json
+compile_commands.json
+.cache/
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*~
+
+# macOS
+.DS_Store
