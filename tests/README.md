@@ -4,7 +4,7 @@ CTest + GoogleTest. Built by default; disable with `-DYSQ_BUILD_TESTS=OFF`.
 
 ```sh
 ctest --test-dir build
-ctest --test-dir build --output-on-failure -R CoreVersion
+ctest --test-dir build --output-on-failure -R CoreClock
 ```
 
 One executable per test file, registered with `gtest_discover_tests`, so each
@@ -19,7 +19,10 @@ One executable per test file, registered with `gtest_discover_tests`, so each
 | `integration/` | Modules in combination                                            |
 | `e2e/`         | Whole applications, headless, asserting physical invariants       |
 
-`integration/` and `e2e/` arrive with the modules they exercise.
+`e2e/` arrives with the applications it exercises. `integration/` currently holds
+`core_runtime.cpp`, which drives `Config`, `Logger`, `Clock`, `Timer`, `Event` and
+`UUID` through one fixed-step run: the wiring an application will do in `main()`,
+tested here because `Core` has no application to host it yet.
 
 Everything here runs CPU-only and needs no GPU, no window and no display. The
 CPU compute backend is the reference implementation, so correctness is testable
