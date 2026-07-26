@@ -2,3 +2,4 @@
 # Dependencies flow one way: nothing lower depends on anything higher.
 
 add_subdirectory(Core)
+add_subdirectory(Math)

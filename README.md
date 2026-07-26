@@ -136,8 +136,8 @@ Tests live under `tests/` and run through CTest (built by default; disable with
 ctest --test-dir build
 ```
 
-Unit tests cover modules in isolation — a vector rotation, an integrator's order
-of accuracy, a units dimension check. Integration tests cover combinations — a
+Unit tests cover modules in isolation — a vector rotation, an integrator's
+observed order of accuracy, a units dimension check. Integration tests cover combinations — a
 symplectic integrator with Newtonian gravity holding a stable orbit, or spacetime
 with optics reproducing a known deflection angle. End-to-end tests run whole
 applications headless and assert physical invariants such as energy and momentum
@@ -207,6 +207,7 @@ ysq/
 │   ├── Math/
 │   │   ├── README.md
 │   │   ├── CMakeLists.txt
+│   │   ├── Scalar.hpp              The Numeric concept, constants, tolerances
 │   │   ├── Vector2.hpp
 │   │   ├── Vector3.hpp
 │   │   ├── Vector4.hpp
@@ -222,6 +223,7 @@ ysq/
 │   │   ├── Calculus.hpp            Numerical differentiation and integration
 │   │   ├── ODE.hpp                 ODE system interface: dy/dt = f(t, y)
 │   │   ├── CoordinateSystems.hpp
+│   │   ├── Format.hpp              std::formatter for every Math type
 │   │   └── Integrators/            Methods that advance an ODE
 │   │       ├── Euler.hpp
 │   │       ├── RK4.hpp
@@ -339,10 +341,13 @@ ysq/
 └── tests/
     ├── README.md
     ├── CMakeLists.txt
+    ├── support/                    Test-only helpers, outside the engine
+    │   └── MathApprox.hpp          Approximate comparison and printing for Math values
     ├── smoke/                      Build wiring: dependencies link, options took effect
     │   ├── CMakeLists.txt
     │   ├── spdlog_format.cpp
-    │   └── graphics_link.cpp
+    │   ├── graphics_link.cpp
+    │   └── math_strict_warnings.cpp  Math's templates under the strict warning set
     ├── unit/                       Isolated module tests
     │   ├── CMakeLists.txt
     │   ├── core_version.cpp
@@ -353,7 +358,17 @@ ysq/
     │   ├── core_event.cpp
     │   ├── core_config.cpp
     │   ├── math_vector.cpp
-    │   ├── math_integrators.cpp
+    │   ├── math_matrix.cpp
+    │   ├── math_quaternion.cpp
+    │   ├── math_complex.cpp
+    │   ├── math_dual.cpp
+    │   ├── math_tensor.cpp
+    │   ├── math_statistics.cpp
+    │   ├── math_interpolation.cpp
+    │   ├── math_calculus.cpp
+    │   ├── math_coordinates.cpp
+    │   ├── math_ode.cpp
+    │   ├── math_integrators.cpp    Observed order of every method
     │   ├── units_dimensions.cpp
     │   ├── physics_gravity.cpp
     │   ├── spacetime_geodesic.cpp
@@ -361,6 +376,7 @@ ysq/
     ├── integration/                Cross-module behavior
     │   ├── CMakeLists.txt
     │   ├── core_runtime.cpp        Config + Logger + Clock + Timer + Event + UUID
+    │   ├── math_kepler.cpp         Integrators + vectors + coordinates + statistics
     │   ├── orbit_stability.cpp     Gravity + symplectic integrator
     │   ├── lensing_deflection.cpp  Spacetime + optics
     │   └── nbody_energy.cpp        Barnes-Hut + conservation
