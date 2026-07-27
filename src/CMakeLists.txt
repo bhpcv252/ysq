@@ -4,3 +4,10 @@
 add_subdirectory(Core)
 add_subdirectory(Math)
 add_subdirectory(Units)
+
+# Platform wraps GLFW and GLAD, so it exists only in a graphics build. Nothing
+# in the simulation core may depend on it; that is what keeps a headless build
+# a real configuration rather than a claim.
+if(YSQ_BUILD_GRAPHICS)
+    add_subdirectory(Platform)
+endif()

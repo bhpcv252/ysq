@@ -89,6 +89,11 @@ sudo apt install xorg-dev libwayland-dev libwayland-bin libxkbcommon-dev
 Windows and macOS need nothing beyond a compiler and CMake. A headless build
 (`-DYSQ_BUILD_GRAPHICS=OFF`) needs none of these on any platform.
 
+Optionally, `libosmesa6` provides an OpenGL context on a machine with no display
+at all, in software. It is loaded at run time rather than linked, so it is not
+needed to build; without it, `Platform`'s headless backend has no context to
+give and the one test that wants one skips.
+
 ## Building
 
 ```sh
@@ -112,6 +117,7 @@ git submodule update --init --recursive
 | `YSQ_BUILD_COMPILE_FAIL_TESTS` | `ON` | Build the tests that assert something does *not* compile. Each costs a nested compiler invocation. |
 | `YSQ_BUILD_GRAPHICS`     | `ON`    | Build against GLFW, GLAD and Dear ImGui. `OFF` drops them entirely, for headless and CI builds. |
 | `YSQ_WARNINGS_AS_ERRORS` | `OFF`   | Treat warnings as errors. CI builds with this on. |
+| `YSQ_REQUIRE_HEADLESS_GL` | `OFF`  | Fail rather than skip when no headless OpenGL context can be created. For machines known to have OSMesa; CI sets it on the one job that does. |
 
 ```sh
 cmake -B build -DYSQ_BUILD_GRAPHICS=OFF   # headless: no graphics dependencies
@@ -152,7 +158,11 @@ only of programs that compile cannot check a guarantee like that. Those live in
 positive form of the same construct in an ordinary test, since a failing build
 proves nothing on its own about *why* it failed.
 
-Everything runs CPU-only and needs no GPU, no window and no display.
+Everything runs CPU-only and needs no GPU, no window and no display. The one
+exception is the OpenGL context test, which still needs no display: it uses a
+software context where there is no display server, and skips where even that is
+unavailable. Configure with `-DYSQ_REQUIRE_HEADLESS_GL=ON` to make those skips
+failures. See [tests/README.md](tests/README.md).
 
 ## Project structure
 
@@ -257,8 +267,9 @@ ysq/
 │   ├── Platform/
 │   │   ├── README.md
 │   │   ├── CMakeLists.txt
+│   │   ├── Platform.hpp            Windowing system lifetime and backend
 │   │   ├── Window.hpp              Window and GL context (GLFW)
-│   │   └── Input.hpp
+│   │   └── Input.hpp               Keyboard and mouse, sampled per frame
 │   │
 │   ├── Compute/
 │   │   ├── README.md
@@ -385,6 +396,8 @@ ysq/
     │   ├── units_conversions.cpp
     │   ├── units_vector.cpp
     │   ├── units_format.cpp
+    │   ├── platform_input.cpp      Key mapping and per-frame edges, no window
+    │   ├── platform_window.cpp     Settings a window refuses, no context
     │   ├── physics_gravity.cpp
     │   ├── spacetime_geodesic.cpp
     │   └── optics_frequencyshift.cpp
@@ -395,6 +408,7 @@ ysq/
     │   ├── core_runtime.cpp        Config + Logger + Clock + Timer + Event + UUID
     │   ├── math_kepler.cpp         Integrators + vectors + coordinates + statistics
     │   ├── units_kinematics.cpp    Units across the Math integrator boundary
+    │   ├── platform_context.cpp    A real GL context, onscreen or headless
     │   ├── orbit_stability.cpp     Gravity + symplectic integrator
     │   ├── lensing_deflection.cpp  Spacetime + optics
     │   └── nbody_energy.cpp        Barnes-Hut + conservation

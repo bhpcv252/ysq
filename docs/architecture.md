@@ -100,6 +100,38 @@ Rendering is a separate axis and is not constrained the same way. OpenGL 4.1 is
 sufficient for the real-time rasterized visualizer with ImGui panels, so macOS is
 a first-class rendering target.
 
+### The headless context
+
+A GPU compute backend needs a context, and so does any offscreen render. Neither
+needs a display, and CI has none, so `Platform` has to be able to produce a
+context on a machine with no display server running at all.
+
+GLFW 3.4 selects its backend at run time, and one of them is `Null`: no display
+server, no window, and contexts created in software by OSMesa. It is never
+auto-selected and must be asked for by name, which is what makes it a deliberate
+headless mode rather than a silent fallback that hides a broken display.
+
+```
+Win32 / Cocoa / Wayland / X11   a display, a window, a driver context
+Null                            no display, OSMesa software context
+```
+
+OSMesa is loaded at run time rather than linked, so it is a runtime dependency
+that is simply absent on most machines. When it is absent, context creation
+fails cleanly and nothing that did not want a context is affected. It also
+refuses forward-compatible contexts, which are on by default because macOS needs
+them, so `Platform` drops that flag on the `Null` backend: forward compatibility
+only removes deprecated functionality, so a context without it can do strictly
+more, and this is the difference between a headless context and none.
+
+**One loader.** GLAD's entry points are process-wide globals describing whichever
+context was made current last, so two contexts from different drivers cannot both
+be live and a shutdown invalidates them all. `Window` reloads them on every
+context change and forgets them when the context they came from is destroyed.
+This is why the GL version floor is enforced in `Platform` rather than in
+`third_party`: the loader is generated for 4.6, and a request above that cannot
+be resolved however enthusiastically a driver answers it.
+
 ### Precision
 
 Consumer GPUs are poor at `float64`, often between 1/32 and 1/64 of `float32`
@@ -146,6 +178,13 @@ without a Windows job both the claim and the code behind it would be untested.
 
 Everything CI runs is CPU-only and needs no display, so no runner needs a GPU or
 a virtual framebuffer.
+
+The context test is the one thing whose outcome depends on the machine, and it
+skips where no context can exist. A test that skips on all six jobs tests
+nothing, so the Linux `graphics=ON` job installs OSMesa and configures with
+`YSQ_REQUIRE_HEADLESS_GL=ON`, which turns a skip there into a failure. That is
+the job where the headless path is a promise; on the other five it is merely
+likely.
 
 ### Warnings
 

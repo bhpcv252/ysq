@@ -12,3 +12,17 @@ ysq_add_test(test_math_kepler SOURCES math_kepler.cpp
 # conversion boundary is where Physics will live.
 ysq_add_test(test_units_kinematics SOURCES units_kinematics.cpp
     LIBS ysq::Units ysq::Math ysq::TestSupport)
+
+# A real OpenGL context, which is the one thing in the suite that depends on the
+# machine rather than only on the code. It skips where no context can exist.
+#
+# A compile definition rather than an environment variable read at run time:
+# std::getenv is deprecated by MSVC, and the project builds with warnings as
+# errors, so reading it would cost either a suppression or a per-compiler
+# wrapper for a value that is fixed for the whole run anyway.
+if(YSQ_BUILD_GRAPHICS)
+    ysq_add_test(test_platform_context SOURCES platform_context.cpp
+        LIBS ysq::Platform glfw)
+    target_compile_definitions(test_platform_context PRIVATE
+        $<$<BOOL:${YSQ_REQUIRE_HEADLESS_GL}>:YSQ_REQUIRE_HEADLESS_GL>)
+endif()
