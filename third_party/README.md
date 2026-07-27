@@ -42,6 +42,12 @@ That loader is file-local to `imgui_impl_opengl3.cpp`, so it cannot collide with
 GLAD, and it is the configuration upstream actually tests. Overriding it with
 `IMGUI_IMPL_OPENGL_LOADER_CUSTOM` is possible but buys nothing.
 
+**GLFW** is built with every backend its host supports, including `Null`, which
+needs no display and creates its OpenGL contexts through OSMesa. OSMesa is
+dlopened at run time (`libOSMesa.so.8` and friends), so it is neither a build
+dependency nor linked; where it is absent, context creation on that backend
+fails and nothing else is affected. `Platform` is what chooses the backend.
+
 **GLAD** entry points are all runtime-resolved function pointers, so nothing
 links against a system OpenGL library. The context provider supplies the loader:
 

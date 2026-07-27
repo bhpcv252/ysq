@@ -16,6 +16,12 @@ option(YSQ_BUILD_COMPILE_FAIL_TESTS
     "Build the tests that assert something does not compile" ON)
 option(YSQ_BUILD_GRAPHICS "Build graphics-dependent modules (GLFW, GLAD, Dear ImGui)" ON)
 option(YSQ_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+# Whether an OpenGL context can be created is a property of the machine, so the
+# context test skips where none can exist. A file of tests that always skip
+# tests nothing, so on a machine known to have OSMesa this turns those skips
+# into failures. CI sets it on the one job that qualifies.
+option(YSQ_REQUIRE_HEADLESS_GL
+    "Fail rather than skip when no headless OpenGL context can be created" OFF)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -46,3 +52,6 @@ message(STATUS "YSQ ${PROJECT_VERSION}")
 message(STATUS "  tests:        ${YSQ_BUILD_TESTS}")
 message(STATUS "  compile-fail: ${YSQ_BUILD_COMPILE_FAIL_TESTS}")
 message(STATUS "  graphics:     ${YSQ_BUILD_GRAPHICS}")
+if(YSQ_BUILD_GRAPHICS)
+    message(STATUS "  require GL:   ${YSQ_REQUIRE_HEADLESS_GL}")
+endif()

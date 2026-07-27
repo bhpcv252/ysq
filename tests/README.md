@@ -25,8 +25,9 @@ One executable per test file, registered with `gtest_discover_tests`, so each
 `core_runtime.cpp`, which drives `Config`, `Logger`, `Clock`, `Timer`, `Event`
 and `UUID` through one fixed-step run; `math_kepler.cpp`, which puts six `Math`
 headers on a two-body orbit and checks the conserved quantities and Kepler's
-third law come out; and `units_kinematics.cpp`, which takes a dimensioned
-scenario across the boundary into a `Math` integrator and back.
+third law come out; `units_kinematics.cpp`, which takes a dimensioned scenario
+across the boundary into a `Math` integrator and back; and
+`platform_context.cpp`, which opens a real OpenGL context and uses it.
 
 `support/MathApprox.hpp` supplies `EXPECT_VEC_NEAR`, `EXPECT_MAT_APPROX` and
 friends. `EXPECT_NEAR` is the wrong tool for a `Math` value twice over: it
@@ -48,6 +49,9 @@ on any machine; GPU backends are validated against it within tolerance rather
 than for exact equality, since they generally run `float32` where the reference
 runs `float64`.
 
+The one test that wants a real OpenGL context is `integration/platform_context.cpp`,
+and it does not need a display either. See the platform tests below.
+
 ## Smoke tests
 
 These exist because a dependency that is checked out, configured and compiled
@@ -68,6 +72,54 @@ in something unrelated.
   and `-Wdouble-promotion` has nothing to say above single precision.
 - `units_strict_warnings.cpp` is the same check for `Units`, which is INTERFACE
   for the same reason and so cannot carry the flags either.
+
+## Platform tests
+
+`Platform` is the only module whose subject matter is partly the machine, so its
+tests are split by what they need.
+
+`unit/platform_input.cpp` needs nothing at all. `InputState` takes events and
+answers questions and knows nothing about GLFW, so the test plays the part of
+the window: key mapping round-trips, the press/hold/release edges, auto-repeat,
+focus loss, cursor deltas and scroll accumulation are all exercised with no
+window in existence. It links `glfw` alongside the module, deliberately: the
+mapping is only worth asserting against the codes it actually has to match.
+
+`unit/platform_window.cpp` runs on the `Null` backend, which is compiled in
+everywhere and needs no display, and stops before creating a context. It covers
+the reference counting and the settings a window refuses, which are checked
+before the windowing system is asked anything and so fail identically on every
+machine.
+
+`integration/platform_context.cpp` opens a real context, and whether one can
+exist is a property of the machine rather than of the code. Each test tries the
+native backend, falls back to `Null` (whose contexts come from OSMesa in
+software), and skips if neither yields one.
+
+**A file of tests that always skip is a file that tests nothing**, so
+`-DYSQ_REQUIRE_HEADLESS_GL=ON` turns every skip in it into a failure:
+
+```sh
+sudo apt install libosmesa6
+cmake -B build -DYSQ_REQUIRE_HEADLESS_GL=ON
+cmake --build build && ctest --test-dir build -R PlatformContext
+```
+
+CI sets it on the Linux `graphics=ON` job, the one runner where OSMesa is
+installed and a context is therefore guaranteed. Everywhere else the skip stands,
+because there is nothing the test could do about a machine with no rasteriser.
+
+It is a build option rather than an environment variable read at run time
+because MSVC deprecates `std::getenv` and the project builds with warnings as
+errors, so reading one would cost a suppression or a per-compiler wrapper for a
+value that cannot change during a run anyway.
+
+Two things there are deliberately not covered. Nothing delivers a synthetic key
+event, because no backend available here can send one, so the hop from the GLFW
+callback into `InputState` is untested; `EveryInputCallbackIsRegistered` covers
+the failure that would otherwise be invisible, which is a callback never being
+installed. And `setCursorMode` and `contentScale` are called but not asserted on,
+since the `Null` backend has neither a cursor nor a monitor to answer for them.
 
 ## Compile-failure tests
 

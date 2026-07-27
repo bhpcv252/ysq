@@ -36,18 +36,31 @@ jobs:
       # binary (libwayland-bin) plus the wayland-client and xkbcommon headers.
       # The Wayland protocol XMLs are vendored in glfw/deps/wayland, so the
       # wayland-protocols package is not required.
+      #
+      # libosmesa6 is a runtime dependency, not a build one: GLFW's Null
+      # backend dlopens it to create an OpenGL context with no display at all.
+      # This is the only runner where a context is guaranteed, which is why
+      # YSQ_REQUIRE_HEADLESS_GL is set below for exactly this job.
       - name: Install GLFW build dependencies
         if: runner.os == 'Linux' && matrix.graphics == 'ON'
         run: |
           sudo apt-get update
           sudo apt-get install -y xorg-dev libwayland-dev libwayland-bin libxkbcommon-dev
+          sudo apt-get install -y libosmesa6
 
+      # YSQ_REQUIRE_HEADLESS_GL is on for exactly one job. Whether an OpenGL
+      # context can exist is a property of the machine, so the context test
+      # falls back to the Null backend and skips if even that yields nothing.
+      # Only this runner has OSMesa, so only here is the headless context a
+      # promise rather than a hope; without it the file could skip on all six
+      # jobs and quietly stop testing anything.
       - name: Configure
         run: >
           cmake -B build
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
           -DYSQ_BUILD_GRAPHICS=${{ matrix.graphics }}
           -DYSQ_WARNINGS_AS_ERRORS=ON
+          -DYSQ_REQUIRE_HEADLESS_GL=${{ (runner.os == 'Linux' && matrix.graphics == 'ON') && 'ON' || 'OFF' }}
 
       # --config is required by the multi-config Visual Studio generator, which
       # otherwise ignores CMAKE_BUILD_TYPE and builds Debug. It is a no-op for
@@ -56,6 +69,7 @@ jobs:
         run: cmake --build build --config RelWithDebInfo --parallel
 
       # Everything here is CPU-only and needs no display, so the runners need no
-      # GPU and no virtual framebuffer.
+      # GPU and no virtual framebuffer. The one test that wants an OpenGL
+      # context gets one without a display too; see the Configure step.
       - name: Test
         run: ctest --test-dir build -C RelWithDebInfo --output-on-failure

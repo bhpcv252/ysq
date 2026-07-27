@@ -50,3 +50,13 @@ ysq_add_test(test_units_vector SOURCES units_vector.cpp
     LIBS ysq::Units ysq::TestSupport)
 ysq_add_test(test_units_format SOURCES units_format.cpp
     LIBS ysq::Units ysq::TestSupport)
+
+# Platform exists only in a graphics build. Both tests link glfw as well as the
+# module: the module keeps GLFW out of its headers, and these assert the mapping
+# onto GLFW's own constants, so the test needs what the module hides.
+if(YSQ_BUILD_GRAPHICS)
+    ysq_add_test(test_platform_input SOURCES platform_input.cpp
+        LIBS ysq::Platform glfw)
+    ysq_add_test(test_platform_window SOURCES platform_window.cpp
+        LIBS ysq::Platform glfw)
+endif()
