@@ -35,3 +35,18 @@ ysq_add_test(test_math_ode SOURCES math_ode.cpp
     LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_integrators SOURCES math_integrators.cpp
     LIBS ysq::Math ysq::TestSupport)
+
+# Units links ysq::Units for the module itself and ysq::TestSupport only for
+# the tests/ include root, which is what makes <support/UnitsApprox.hpp>
+# resolve. TestSupport deliberately does not link Units: a Math-only test
+# should not acquire a dependency on it.
+ysq_add_test(test_units_dimensions SOURCES units_dimensions.cpp
+    LIBS ysq::Units ysq::TestSupport)
+ysq_add_test(test_units_quantity SOURCES units_quantity.cpp
+    LIBS ysq::Units ysq::TestSupport)
+ysq_add_test(test_units_conversions SOURCES units_conversions.cpp
+    LIBS ysq::Units ysq::TestSupport)
+ysq_add_test(test_units_vector SOURCES units_vector.cpp
+    LIBS ysq::Units ysq::TestSupport)
+ysq_add_test(test_units_format SOURCES units_format.cpp
+    LIBS ysq::Units ysq::TestSupport)

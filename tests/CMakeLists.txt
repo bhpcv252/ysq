@@ -32,3 +32,9 @@ endfunction()
 add_subdirectory(unit)
 add_subdirectory(integration)
 add_subdirectory(smoke)
+
+# Targets that are expected to fail to compile. Off by default only if asked:
+# each one costs a nested compiler invocation, which is noticeable on Windows.
+if(YSQ_BUILD_COMPILE_FAIL_TESTS)
+    add_subdirectory(compile_fail)
+endif()

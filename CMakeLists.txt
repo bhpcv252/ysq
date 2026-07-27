@@ -12,6 +12,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(YSQ_BUILD_TESTS "Build the YSQ test suite" ON)
+option(YSQ_BUILD_COMPILE_FAIL_TESTS
+    "Build the tests that assert something does not compile" ON)
 option(YSQ_BUILD_GRAPHICS "Build graphics-dependent modules (GLFW, GLAD, Dear ImGui)" ON)
 option(YSQ_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 
@@ -41,5 +43,6 @@ if(YSQ_BUILD_TESTS)
 endif()
 
 message(STATUS "YSQ ${PROJECT_VERSION}")
-message(STATUS "  tests:    ${YSQ_BUILD_TESTS}")
-message(STATUS "  graphics: ${YSQ_BUILD_GRAPHICS}")
+message(STATUS "  tests:        ${YSQ_BUILD_TESTS}")
+message(STATUS "  compile-fail: ${YSQ_BUILD_COMPILE_FAIL_TESTS}")
+message(STATUS "  graphics:     ${YSQ_BUILD_GRAPHICS}")

@@ -17,14 +17,16 @@ One executable per test file, registered with `gtest_discover_tests`, so each
 | `smoke/`       | The build itself: dependencies link, options took effect          |
 | `unit/`        | One module in isolation                                           |
 | `integration/` | Modules in combination                                            |
+| `compile_fail/`| Constructs that must **not** compile                              |
 | `e2e/`         | Whole applications, headless, asserting physical invariants       |
 | `support/`     | Test-only helpers, header-only, outside the engine                |
 
 `e2e/` arrives with the applications it exercises. `integration/` holds
 `core_runtime.cpp`, which drives `Config`, `Logger`, `Clock`, `Timer`, `Event`
-and `UUID` through one fixed-step run, and `math_kepler.cpp`, which puts six
-`Math` headers on a two-body orbit and checks the conserved quantities and
-Kepler's third law come out.
+and `UUID` through one fixed-step run; `math_kepler.cpp`, which puts six `Math`
+headers on a two-body orbit and checks the conserved quantities and Kepler's
+third law come out; and `units_kinematics.cpp`, which takes a dimensioned
+scenario across the boundary into a `Math` integrator and back.
 
 `support/MathApprox.hpp` supplies `EXPECT_VEC_NEAR`, `EXPECT_MAT_APPROX` and
 friends. `EXPECT_NEAR` is the wrong tool for a `Math` value twice over: it
@@ -32,6 +34,13 @@ compares one scalar, so a matrix has to be checked element by element with a
 failure message that names neither matrix, and its tolerance is absolute, which
 is meaningless once magnitudes leave the neighbourhood of 1. Link it with
 `LIBS ysq::TestSupport`.
+
+`support/UnitsApprox.hpp` does the same for dimensioned quantities, with the
+tolerance itself a quantity, so `EXPECT_QUANTITY_NEAR(orbit, analytic, 1.0_km)`
+reads as it should and a length tolerance on a mass comparison does not compile.
+It is a separate header rather than part of `MathApprox.hpp` so that a test
+exercising only `Math` does not acquire a dependency on `Units`; `TestSupport`
+supplies the `tests/` include root, and the test links `ysq::Units` itself.
 
 Everything here runs CPU-only and needs no GPU, no window and no display. The
 CPU compute backend is the reference implementation, so correctness is testable
@@ -57,6 +66,36 @@ in something unrelated.
   which `docs/architecture.md` rules out, so the check lives here. The explicit
   instantiations are the point: an uninstantiated template is barely checked,
   and `-Wdouble-promotion` has nothing to say above single precision.
+- `units_strict_warnings.cpp` is the same check for `Units`, which is INTERFACE
+  for the same reason and so cannot carry the flags either.
+
+## Compile-failure tests
+
+`Units` guarantees that adding a distance to a mass will not build. A suite made
+only of programs that compile cannot check a guarantee like that.
+
+The primary check is still an ordinary test: `unit/units_dimensions.cpp`
+evaluates named concepts with `static_assert`, which is free and portable.
+**Write them as concepts, never as a bare `requires` at namespace scope.**
+Outside a template there is no substitution, so Clang reports an invalid
+requirement as a hard error instead of evaluating the requires-expression to
+false, and the file fails to compile. GCC is laxer, so the obvious spelling
+passes locally and fails in CI.
+
+`compile_fail/` is the second line: real targets, `EXCLUDE_FROM_ALL`, built by a
+nested `cmake --build` inside a CTest test marked `WILL_FAIL`. Two properties of
+that mechanism matter when adding a case.
+
+`WILL_FAIL` only checks for a nonzero exit code, so a source with a typo in it
+also "passes". Nothing there is trustworthy alone. Every case is paired with its
+positive form in `units_dimensions.cpp`, and that pairing is the guarantee: the
+positive proves the construct is otherwise valid, the negative proves the
+dimension is what rejects it. Matching the diagnostic text instead was
+considered and rejected, since GCC, Clang and MSVC word these differently.
+
+Each test starts a build in the shared tree, so they carry `RESOURCE_LOCK` to
+keep `ctest -j` from running several at once. Turn the category off with
+`-DYSQ_BUILD_COMPILE_FAIL_TESTS=OFF`.
 
 ## Adding a test
 
