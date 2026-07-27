@@ -171,3 +171,9 @@ is clean locally fails in CI.
 A well-built `Units` module prevents much of this structurally, since a `Length`
 and a `Time` will not implicitly convert to each other or to a raw number at all.
 Strong types catch at the design level what warnings catch at the compile level.
+
+`Units` is header-only and so cannot carry the strict set on its own target, for
+the same reason `Math` cannot: on an `INTERFACE` target the flags reach every
+consumer's own sources. Both apply it instead in a smoke test that includes
+every header and instantiates the templates, since an uninstantiated template is
+barely checked at all.

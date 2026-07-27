@@ -109,6 +109,7 @@ git submodule update --init --recursive
 | Option                   | Default | Effect                                          |
 | ------------------------ | ------- | ----------------------------------------------- |
 | `YSQ_BUILD_TESTS`        | `ON`    | Build the test suite                             |
+| `YSQ_BUILD_COMPILE_FAIL_TESTS` | `ON` | Build the tests that assert something does *not* compile. Each costs a nested compiler invocation. |
 | `YSQ_BUILD_GRAPHICS`     | `ON`    | Build against GLFW, GLAD and Dear ImGui. `OFF` drops them entirely, for headless and CI builds. |
 | `YSQ_WARNINGS_AS_ERRORS` | `OFF`   | Treat warnings as errors. CI builds with this on. |
 
@@ -143,6 +144,13 @@ with optics reproducing a known deflection angle. End-to-end tests run whole
 applications headless and assert physical invariants such as energy and momentum
 conservation. Smoke tests sit below all of that and cover the build itself: that
 each vendored dependency actually links and that build options took effect.
+
+Compile-failure tests are the one category that asserts an absence. `Units`
+guarantees that adding a distance to a mass will not build, and a test suite made
+only of programs that compile cannot check a guarantee like that. Those live in
+`tests/compile_fail/` as targets marked `WILL_FAIL`, each paired with the
+positive form of the same construct in an ordinary test, since a failing build
+proves nothing on its own about *why* it failed.
 
 Everything runs CPU-only and needs no GPU, no window and no display.
 
@@ -234,15 +242,17 @@ ysq/
 │   │   ├── README.md
 │   │   ├── CMakeLists.txt
 │   │   ├── Unit.hpp                Dimensioned-quantity machinery (scalar or vector)
-│   │   ├── Length.hpp
-│   │   ├── Mass.hpp
-│   │   ├── Time.hpp
+│   │   ├── Constants.hpp           The seven constants that define the SI
+│   │   ├── Length.hpp              Length, area, volume, wave number
+│   │   ├── Mass.hpp                Mass and densities
+│   │   ├── Time.hpp                Time, frequency, angular velocity
 │   │   ├── Velocity.hpp
-│   │   ├── Acceleration.hpp
-│   │   ├── Force.hpp
-│   │   ├── Energy.hpp
-│   │   ├── Temperature.hpp
-│   │   └── Luminosity.hpp
+│   │   ├── Acceleration.hpp        Acceleration and jerk
+│   │   ├── Force.hpp               Force, momentum, torque, pressure
+│   │   ├── Energy.hpp              Energy, power, action
+│   │   ├── Temperature.hpp         Temperature, heat capacity, entropy
+│   │   ├── Luminosity.hpp          Radiometry and photometry
+│   │   └── Format.hpp              std::formatter for every quantity
 │   │
 │   ├── Platform/
 │   │   ├── README.md
@@ -347,7 +357,8 @@ ysq/
     │   ├── CMakeLists.txt
     │   ├── spdlog_format.cpp
     │   ├── graphics_link.cpp
-    │   └── math_strict_warnings.cpp  Math's templates under the strict warning set
+    │   ├── math_strict_warnings.cpp  Math's templates under the strict warning set
+    │   └── units_strict_warnings.cpp The same for Units
     ├── unit/                       Isolated module tests
     │   ├── CMakeLists.txt
     │   ├── core_version.cpp
@@ -369,14 +380,21 @@ ysq/
     │   ├── math_coordinates.cpp
     │   ├── math_ode.cpp
     │   ├── math_integrators.cpp    Observed order of every method
-    │   ├── units_dimensions.cpp
+    │   ├── units_dimensions.cpp    The algebra, and what must not compile
+    │   ├── units_quantity.cpp
+    │   ├── units_conversions.cpp
+    │   ├── units_vector.cpp
+    │   ├── units_format.cpp
     │   ├── physics_gravity.cpp
     │   ├── spacetime_geodesic.cpp
     │   └── optics_frequencyshift.cpp
+    ├── compile_fail/               Targets that must not compile (CTest WILL_FAIL)
+    │   └── CMakeLists.txt
     ├── integration/                Cross-module behavior
     │   ├── CMakeLists.txt
     │   ├── core_runtime.cpp        Config + Logger + Clock + Timer + Event + UUID
     │   ├── math_kepler.cpp         Integrators + vectors + coordinates + statistics
+    │   ├── units_kinematics.cpp    Units across the Math integrator boundary
     │   ├── orbit_stability.cpp     Gravity + symplectic integrator
     │   ├── lensing_deflection.cpp  Spacetime + optics
     │   └── nbody_energy.cpp        Barnes-Hut + conservation
@@ -392,7 +410,7 @@ ysq/
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Core`         | Logging (spdlog behind a facade), timing (simulation and wall-clock), UUIDs, events, configuration                                                                                                                                                                                   |
 | `Math`         | Vectors, matrices, quaternions, complex/dual numbers, tensors, statistics, interpolation, calculus, ODE interface and integrators (Euler, RK4, adaptive, symplectic)                                                                                 |
-| `Units`        | Length, mass, time, velocity, acceleration, force, energy, temperature, luminosity as dimensioned quantities (scalar or vector), built on `Math`                                                                                                     |
+| `Units`        | Dimensioned quantities (scalar or vector) over the seven SI base dimensions: length, mass, time, velocity, acceleration, force, energy, temperature, luminosity, and the derived quantities the physics is written in, plus the constants that define the SI. Built on `Math` |
 | `Platform`     | Window, GL context, and input, wrapping GLFW                                                                                                                                                                                                         |
 | `Compute`      | Backend `Physics` dispatches to: a CPU reference implementation plus GPU acceleration (OpenGL compute shaders, CUDA, Vulkan)                                                                                                                         |
 | `Physics`      | Mechanics; relativistic spacetime (Minkowski, Schwarzschild, Kerr, FLRW) with a geodesic solver; gravity (Newtonian, post-Newtonian, Barnes-Hut summation); electromagnetism; fluids; thermodynamics; optics (propagation, lensing, frequency shift) |

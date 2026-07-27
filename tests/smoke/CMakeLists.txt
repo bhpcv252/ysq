@@ -10,6 +10,12 @@ ysq_add_test(test_math_strict_warnings STRICT
     SOURCES math_strict_warnings.cpp
     LIBS ysq::Math)
 
+# The same for Units, which is INTERFACE for the same reason and so cannot
+# carry the strict set either. See src/Units/CMakeLists.txt.
+ysq_add_test(test_units_strict_warnings STRICT
+    SOURCES units_strict_warnings.cpp
+    LIBS ysq::Units)
+
 if(YSQ_BUILD_GRAPHICS)
     ysq_add_test(test_graphics_link SOURCES graphics_link.cpp LIBS glad imgui)
 endif()
