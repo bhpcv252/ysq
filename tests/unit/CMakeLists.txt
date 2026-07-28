@@ -60,3 +60,6 @@ if(YSQ_BUILD_GRAPHICS)
     ysq_add_test(test_platform_window SOURCES platform_window.cpp
         LIBS ysq::Platform glfw)
 endif()
+
+ysq_add_test(test_compute_cpu SOURCES compute_cpu.cpp LIBS ysq::Compute)
+ysq_add_test(test_compute_backend SOURCES compute_backend.cpp LIBS ysq::Compute)

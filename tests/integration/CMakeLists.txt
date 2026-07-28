@@ -26,3 +26,9 @@ if(YSQ_BUILD_GRAPHICS)
     target_compile_definitions(test_platform_context PRIVATE
         $<$<BOOL:${YSQ_REQUIRE_HEADLESS_GL}>:YSQ_REQUIRE_HEADLESS_GL>)
 endif()
+
+# Runs every backend that reports itself available against the CPU reference.
+# On a machine with no GPU and no CUDA/Vulkan SDK this exercises CPU only and
+# says so via GTEST_SKIP rather than passing on having checked nothing.
+ysq_add_test(test_compute_backends_agree SOURCES compute_backends_agree.cpp
+    LIBS ysq::Compute)

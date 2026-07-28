@@ -22,6 +22,11 @@ option(YSQ_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 # into failures. CI sets it on the one job that qualifies.
 option(YSQ_REQUIRE_HEADLESS_GL
     "Fail rather than skip when no headless OpenGL context can be created" OFF)
+# CUDA and Vulkan are detected, not vendored: unlike third_party/, an absent
+# toolkit or SDK is not an error, so these mean "use it if found" rather than
+# "require it". See src/Compute/CMakeLists.txt.
+option(YSQ_BUILD_COMPUTE_CUDA "Build the CUDA compute backend if the toolkit is found" ON)
+option(YSQ_BUILD_COMPUTE_VULKAN "Build the Vulkan compute backend if the SDK is found" ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
