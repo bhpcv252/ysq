@@ -199,8 +199,8 @@ double exerciseTheCatalogue() {
 
     acc += (1.0_m + 1.0_km + 1.0_cm + 1.0_mm + 1.0_au + 1.0_pc + 1.0_ly).value();
     acc += (1.0_kg + 1.0_g + 1.0_Msun + 1.0_Mearth).value();
-    acc += (1.0_s + 1.0_ms + 1.0_min + 1.0_h + 1.0_day + 1.0_yr + 1.0_Myr + 1.0_Gyr)
-               .value();
+    acc +=
+        (1.0_s + 1.0_ms + 1.0_min + 1.0_h + 1.0_day + 1.0_yr + 1.0_Myr + 1.0_Gyr).value();
     acc += (1.0_Hz).value() + (1.0_mps + 1.0_kmps).value();
     acc += (1.0_mps2 + 1.0_g0).value();
     acc += (1.0_N).value() + (1.0_Pa + 1.0_bar).value();

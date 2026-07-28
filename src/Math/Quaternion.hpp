@@ -56,8 +56,8 @@ struct Quaternion {
         return {T{0}, T{0}, T{0}, T{0}};
     }
 
-    [[nodiscard]] static constexpr Quaternion fromScalarVector(
-        T scalar, const Vector3<T>& vector) noexcept {
+    [[nodiscard]] static constexpr Quaternion
+    fromScalarVector(T scalar, const Vector3<T>& vector) noexcept {
         return {scalar, vector.x, vector.y, vector.z};
     }
 
@@ -117,8 +117,8 @@ struct Quaternion {
                     (m(1, 2) + m(2, 1)) / s};
         }
         const T s = sqrt(T{1} + m(2, 2) - m(0, 0) - m(1, 1)) * T{2};
-        return {(m(1, 0) - m(0, 1)) / s, (m(0, 2) + m(2, 0)) / s,
-                (m(1, 2) + m(2, 1)) / s, s / T{4}};
+        return {(m(1, 0) - m(0, 1)) / s, (m(0, 2) + m(2, 0)) / s, (m(1, 2) + m(2, 1)) / s,
+                s / T{4}};
     }
 
     constexpr Quaternion& operator+=(const Quaternion& other) noexcept {
@@ -160,23 +160,21 @@ struct Quaternion {
         return *this;
     }
 
-    [[nodiscard]] friend constexpr Quaternion operator+(
-        const Quaternion& q) noexcept {
+    [[nodiscard]] friend constexpr Quaternion operator+(const Quaternion& q) noexcept {
         return q;
     }
 
-    [[nodiscard]] friend constexpr Quaternion operator-(
-        const Quaternion& q) noexcept {
+    [[nodiscard]] friend constexpr Quaternion operator-(const Quaternion& q) noexcept {
         return {-q.w, -q.x, -q.y, -q.z};
     }
 
-    [[nodiscard]] friend constexpr Quaternion operator+(
-        const Quaternion& a, const Quaternion& b) noexcept {
+    [[nodiscard]] friend constexpr Quaternion operator+(const Quaternion& a,
+                                                        const Quaternion& b) noexcept {
         return {a.w + b.w, a.x + b.x, a.y + b.y, a.z + b.z};
     }
 
-    [[nodiscard]] friend constexpr Quaternion operator-(
-        const Quaternion& a, const Quaternion& b) noexcept {
+    [[nodiscard]] friend constexpr Quaternion operator-(const Quaternion& a,
+                                                        const Quaternion& b) noexcept {
         return {a.w - b.w, a.x - b.x, a.y - b.y, a.z - b.z};
     }
 
@@ -185,8 +183,8 @@ struct Quaternion {
         return {q.w * scalar, q.x * scalar, q.y * scalar, q.z * scalar};
     }
 
-    [[nodiscard]] friend constexpr Quaternion operator*(
-        T scalar, const Quaternion& q) noexcept {
+    [[nodiscard]] friend constexpr Quaternion operator*(T scalar,
+                                                        const Quaternion& q) noexcept {
         return q * scalar;
     }
 
@@ -197,8 +195,8 @@ struct Quaternion {
 
     /// The Hamilton product. Not commutative: `a * b` applies b first, then a,
     /// the same way matrix composition reads.
-    [[nodiscard]] friend constexpr Quaternion operator*(
-        const Quaternion& a, const Quaternion& b) noexcept {
+    [[nodiscard]] friend constexpr Quaternion operator*(const Quaternion& a,
+                                                        const Quaternion& b) noexcept {
         return {a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
                 a.w * b.x + a.x * b.w + a.y * b.z - a.z * b.y,
                 a.w * b.y - a.x * b.z + a.y * b.w + a.z * b.x,
@@ -227,8 +225,7 @@ struct EulerZYX {
 };
 
 template <Numeric T>
-[[nodiscard]] constexpr T dot(const Quaternion<T>& a,
-                              const Quaternion<T>& b) noexcept {
+[[nodiscard]] constexpr T dot(const Quaternion<T>& a, const Quaternion<T>& b) noexcept {
     return a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
@@ -384,16 +381,14 @@ template <Numeric T>
 template <Numeric T>
 [[nodiscard]] auto angleBetween(const Quaternion<T>& a, const Quaternion<T>& b) {
     const Quaternion<T> relative = conjugate(normalized(a)) * normalized(b);
-    return T{2} *
-           detail::atan2Of(length(relative.xyz()), detail::absOf(relative.w));
+    return T{2} * detail::atan2Of(length(relative.xyz()), detail::absOf(relative.w));
 }
 
 /// Normalised linear interpolation. Cheap, and follows the shortest arc, but
 /// its angular rate is not constant: it lingers at the ends and hurries
 /// through the middle.
 template <Numeric T>
-[[nodiscard]] Quaternion<T> nlerp(const Quaternion<T>& a, const Quaternion<T>& b,
-                                  T t) {
+[[nodiscard]] Quaternion<T> nlerp(const Quaternion<T>& a, const Quaternion<T>& b, T t) {
     const Quaternion<T> target = (dot(a, b) < T{0}) ? -b : b;
     return normalized(a * (T{1} - t) + target * t);
 }
@@ -405,8 +400,7 @@ template <Numeric T>
 /// sin(theta) would divide by nearly zero and the two agree to well within the
 /// error that division would introduce anyway.
 template <Numeric T>
-[[nodiscard]] Quaternion<T> slerp(const Quaternion<T>& a, const Quaternion<T>& b,
-                                  T t) {
+[[nodiscard]] Quaternion<T> slerp(const Quaternion<T>& a, const Quaternion<T>& b, T t) {
     using std::acos;
     using std::sin;
 

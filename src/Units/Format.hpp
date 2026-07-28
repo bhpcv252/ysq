@@ -32,7 +32,7 @@
 
 namespace ysq::detail {
 
-inline constexpr const char* kBaseUnitSymbols[7] = {"m", "kg", "s",  "A",
+inline constexpr const char* kBaseUnitSymbols[7] = {"m", "kg",  "s", "A",
                                                     "K", "mol", "cd"};
 
 /// Writes a signed integer without going through std::format, so the whole

@@ -72,16 +72,14 @@ struct Matrix4 {
 
     [[nodiscard]] static constexpr Matrix4 zero() noexcept { return {}; }
 
-    [[nodiscard]] static constexpr Matrix4 fromColumns(const Column& c0,
-                                                       const Column& c1,
+    [[nodiscard]] static constexpr Matrix4 fromColumns(const Column& c0, const Column& c1,
                                                        const Column& c2,
                                                        const Column& c3) noexcept {
         return Matrix4{std::array<Column, 4>{{c0, c1, c2, c3}}};
     }
 
     /// Takes its arguments the way a matrix is written on paper.
-    [[nodiscard]] static constexpr Matrix4 fromRows(const Column& r0,
-                                                    const Column& r1,
+    [[nodiscard]] static constexpr Matrix4 fromRows(const Column& r0, const Column& r1,
                                                     const Column& r2,
                                                     const Column& r3) noexcept {
         return fromColumns({r0.x, r1.x, r2.x, r3.x}, {r0.y, r1.y, r2.y, r3.y},
@@ -98,8 +96,8 @@ struct Matrix4 {
                            {T{0}, T{0}, d.z, T{0}}, {T{0}, T{0}, T{0}, d.w});
     }
 
-    [[nodiscard]] static constexpr Matrix4 translation(
-        const Vector3<T>& offset) noexcept {
+    [[nodiscard]] static constexpr Matrix4
+    translation(const Vector3<T>& offset) noexcept {
         Matrix4 result = identity();
         result.columns[3] = Column::point(offset);
         return result;
@@ -110,20 +108,17 @@ struct Matrix4 {
     }
 
     /// Embeds a 3x3 linear transform, leaving the translation at zero.
-    [[nodiscard]] static constexpr Matrix4 fromLinear(
-        const Matrix3<T>& linear) noexcept {
-        return fromColumns(Column::direction(linear.columns[0]),
-                           Column::direction(linear.columns[1]),
-                           Column::direction(linear.columns[2]),
-                           {T{0}, T{0}, T{0}, T{1}});
+    [[nodiscard]] static constexpr Matrix4 fromLinear(const Matrix3<T>& linear) noexcept {
+        return fromColumns(
+            Column::direction(linear.columns[0]), Column::direction(linear.columns[1]),
+            Column::direction(linear.columns[2]), {T{0}, T{0}, T{0}, T{1}});
     }
 
-    [[nodiscard]] static constexpr Matrix4 fromLinearTranslation(
-        const Matrix3<T>& linear, const Vector3<T>& offset) noexcept {
+    [[nodiscard]] static constexpr Matrix4
+    fromLinearTranslation(const Matrix3<T>& linear, const Vector3<T>& offset) noexcept {
         return fromColumns(Column::direction(linear.columns[0]),
                            Column::direction(linear.columns[1]),
-                           Column::direction(linear.columns[2]),
-                           Column::point(offset));
+                           Column::direction(linear.columns[2]), Column::point(offset));
     }
 
     [[nodiscard]] static Matrix4 rotationX(T angle) {
@@ -145,8 +140,7 @@ struct Matrix4 {
 
     /// Right-handed view matrix: maps `eye` to the origin and the direction
     /// toward `center` onto -Z, which is where OpenGL's eye space looks.
-    [[nodiscard]] static Matrix4 lookAt(const Vector3<T>& eye,
-                                        const Vector3<T>& center,
+    [[nodiscard]] static Matrix4 lookAt(const Vector3<T>& eye, const Vector3<T>& center,
                                         const Vector3<T>& up) {
         const Vector3<T> forward = normalized(center - eye);
         const Vector3<T> side = normalized(cross(forward, up));
@@ -162,28 +156,24 @@ struct Matrix4 {
     ///
     /// The plane arguments are nearPlane and farPlane rather than near and far
     /// because the Windows headers define those two as macros.
-    [[nodiscard]] static Matrix4 perspective(T fovY, T aspect, T nearPlane,
-                                             T farPlane) {
+    [[nodiscard]] static Matrix4 perspective(T fovY, T aspect, T nearPlane, T farPlane) {
         using std::tan;
         const T focal = T{1} / tan(fovY / T{2});
         const T range = nearPlane - farPlane;
-        return fromRows({focal / aspect, T{0}, T{0}, T{0}},
-                        {T{0}, focal, T{0}, T{0}},
+        return fromRows({focal / aspect, T{0}, T{0}, T{0}}, {T{0}, focal, T{0}, T{0}},
                         {T{0}, T{0}, (farPlane + nearPlane) / range,
                          (T{2} * farPlane * nearPlane) / range},
                         {T{0}, T{0}, T{-1}, T{0}});
     }
 
-    [[nodiscard]] static constexpr Matrix4 orthographic(T left, T right, T bottom,
-                                                        T top, T nearPlane,
-                                                        T farPlane) noexcept {
+    [[nodiscard]] static constexpr Matrix4
+    orthographic(T left, T right, T bottom, T top, T nearPlane, T farPlane) noexcept {
         const T width = right - left;
         const T height = top - bottom;
         const T depth = farPlane - nearPlane;
         return fromRows({T{2} / width, T{0}, T{0}, -(right + left) / width},
                         {T{0}, T{2} / height, T{0}, -(top + bottom) / height},
-                        {T{0}, T{0}, T{-2} / depth,
-                         -(farPlane + nearPlane) / depth},
+                        {T{0}, T{0}, T{-2} / depth, -(farPlane + nearPlane) / depth},
                         {T{0}, T{0}, T{0}, T{1}});
     }
 
@@ -225,8 +215,7 @@ struct Matrix4 {
     }
 
     [[nodiscard]] friend constexpr Matrix4 operator-(const Matrix4& m) noexcept {
-        return fromColumns(-m.columns[0], -m.columns[1], -m.columns[2],
-                           -m.columns[3]);
+        return fromColumns(-m.columns[0], -m.columns[1], -m.columns[2], -m.columns[3]);
     }
 
     [[nodiscard]] friend constexpr Matrix4 operator+(const Matrix4& a,
@@ -276,8 +265,7 @@ struct Matrix4 {
 
 template <Numeric T>
 [[nodiscard]] constexpr Matrix4<T> transpose(const Matrix4<T>& m) noexcept {
-    return Matrix4<T>::fromRows(m.columns[0], m.columns[1], m.columns[2],
-                                m.columns[3]);
+    return Matrix4<T>::fromRows(m.columns[0], m.columns[1], m.columns[2], m.columns[3]);
 }
 
 template <Numeric T>
@@ -329,10 +317,8 @@ template <Numeric T>
 /// that it is the adjugate is worth more than the multiplies.
 template <Numeric T>
 [[nodiscard]] constexpr T determinant(const Matrix4<T>& m) noexcept {
-    return m(0, 0) * detail::cofactorOf(m, 0, 0) +
-           m(0, 1) * detail::cofactorOf(m, 0, 1) +
-           m(0, 2) * detail::cofactorOf(m, 0, 2) +
-           m(0, 3) * detail::cofactorOf(m, 0, 3);
+    return m(0, 0) * detail::cofactorOf(m, 0, 0) + m(0, 1) * detail::cofactorOf(m, 0, 1) +
+           m(0, 2) * detail::cofactorOf(m, 0, 2) + m(0, 3) * detail::cofactorOf(m, 0, 3);
 }
 
 /// The transpose of the cofactor matrix. adjugate(m) * m == determinant(m) * I
@@ -353,8 +339,8 @@ template <Numeric T>
 /// measurement or from a metric rather than from a transform you built, prefer
 /// solve(), which pivots.
 template <Numeric T>
-[[nodiscard]] constexpr std::optional<Matrix4<T>> tryInverse(
-    const Matrix4<T>& m) noexcept {
+[[nodiscard]] constexpr std::optional<Matrix4<T>>
+tryInverse(const Matrix4<T>& m) noexcept {
     const T det = determinant(m);
     // Finiteness as well as non-zero. A determinant that overflowed used to
     // pass both of the old checks and then divide the adjugate down to a zero
@@ -385,8 +371,7 @@ template <Numeric T>
 
 /// Solves M x = b by elimination with partial pivoting. nullopt if singular.
 template <Numeric T>
-[[nodiscard]] std::optional<Vector4<T>> solve(const Matrix4<T>& m,
-                                              const Vector4<T>& b) {
+[[nodiscard]] std::optional<Vector4<T>> solve(const Matrix4<T>& m, const Vector4<T>& b) {
     return detail::solveByElimination(m, b);
 }
 
@@ -400,8 +385,8 @@ template <Numeric T>
 
 /// Applies a transform to a direction: translation ignored.
 template <Numeric T>
-[[nodiscard]] constexpr Vector3<T> transformDirection(
-    const Matrix4<T>& m, const Vector3<T>& v) noexcept {
+[[nodiscard]] constexpr Vector3<T> transformDirection(const Matrix4<T>& m,
+                                                      const Vector3<T>& v) noexcept {
     return (m * Vector4<T>::direction(v)).xyz();
 }
 

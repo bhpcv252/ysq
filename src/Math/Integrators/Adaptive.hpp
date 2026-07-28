@@ -42,13 +42,12 @@ public:
     static constexpr int embeddedOrder = 4;
 
     template <OdeSystem<State> System>
-    void step(const System& system, Scalar time, const State& state, Scalar h,
-              State& out, State& error) {
+    void step(const System& system, Scalar time, const State& state, Scalar h, State& out,
+              State& error) {
         computeStages(system, time, state, h);
 
-        out = state + (m_k1 * b1() + m_k3 * b3() + m_k4 * b4() + m_k5 * b5() +
-                       m_k6 * b6()) *
-                          h;
+        out = state +
+              (m_k1 * b1() + m_k3 * b3() + m_k4 * b4() + m_k5 * b5() + m_k6 * b6()) * h;
 
         // The seventh stage lands on the new state, which is what makes it
         // reusable as the next step's first.
@@ -87,8 +86,7 @@ public:
 
 private:
     template <OdeSystem<State> System>
-    void computeStages(const System& system, Scalar time, const State& state,
-                       Scalar h) {
+    void computeStages(const System& system, Scalar time, const State& state, Scalar h) {
         if (m_hasCache && m_cachedTime == time) {
             m_k1 = m_cachedDerivative;
         } else {
@@ -105,13 +103,12 @@ private:
         m_scratch = state + (m_k1 * a41() + m_k2 * a42() + m_k3 * a43()) * h;
         m_k4 = system(time + h * c4(), m_scratch);
 
-        m_scratch = state + (m_k1 * a51() + m_k2 * a52() + m_k3 * a53() +
-                             m_k4 * a54()) *
-                                h;
+        m_scratch =
+            state + (m_k1 * a51() + m_k2 * a52() + m_k3 * a53() + m_k4 * a54()) * h;
         m_k5 = system(time + h * c5(), m_scratch);
 
-        m_scratch = state + (m_k1 * a61() + m_k2 * a62() + m_k3 * a63() +
-                             m_k4 * a64() + m_k5 * a65()) *
+        m_scratch = state + (m_k1 * a61() + m_k2 * a62() + m_k3 * a63() + m_k4 * a64() +
+                             m_k5 * a65()) *
                                 h;
         m_k6 = system(time + h, m_scratch);
 

@@ -60,8 +60,7 @@ TEST(UnitsFormat, QuantitiesThatShareADimensionPrintIdentically) {
     // the type system genuinely cannot separate; see src/Units/README.md.
     EXPECT_EQ(std::format("{}", Torque{1.0}), std::format("{}", Energy{1.0}));
     EXPECT_EQ(std::format("{}", Entropy{1.0}), std::format("{}", HeatCapacity{1.0}));
-    EXPECT_EQ(std::format("{}", AngularVelocity{1.0}),
-              std::format("{}", Frequency{1.0}));
+    EXPECT_EQ(std::format("{}", AngularVelocity{1.0}), std::format("{}", Frequency{1.0}));
 }
 
 TEST(UnitsFormat, DimensionlessCarriesNoSuffix) {
@@ -73,8 +72,7 @@ TEST(UnitsFormat, TheSpecIsForwardedToTheValue) {
     EXPECT_EQ(std::format("{:.3f}", Speed{7800.0}), "7800.000 m s^-1");
     EXPECT_EQ(std::format("{:.2e}", Mass{1.989e30}), "1.99e+30 kg");
     EXPECT_EQ(std::format("{:+.1f}", Length{2.5}), "+2.5 m");
-    EXPECT_EQ(std::format("{:.4g}", Energy{1.602176634e-19}),
-              "1.602e-19 m^2 kg s^-2");
+    EXPECT_EQ(std::format("{:.4g}", Energy{1.602176634e-19}), "1.602e-19 m^2 kg s^-2");
 }
 
 TEST(UnitsFormat, VectorQuantitiesFormatLikeMathVectorsWithAUnit) {

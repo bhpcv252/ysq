@@ -40,9 +40,7 @@ Subscription::~Subscription() {
 }
 
 Subscription::Subscription(Subscription&& other) noexcept
-    : m_token(std::move(other.m_token)),
-      m_type(other.m_type),
-      m_id(other.m_id) {
+    : m_token(std::move(other.m_token)), m_type(other.m_type), m_id(other.m_id) {
     other.m_type = nullptr;
     other.m_id = 0;
 }
@@ -156,9 +154,9 @@ std::size_t EventBus::countAlive(const std::type_info& type) const {
     if (entry == m_slots.end()) {
         return 0;
     }
-    return static_cast<std::size_t>(std::count_if(
-        entry->second.slots.begin(), entry->second.slots.end(),
-        [](const detail::Slot& slot) { return slot.alive; }));
+    return static_cast<std::size_t>(
+        std::count_if(entry->second.slots.begin(), entry->second.slots.end(),
+                      [](const detail::Slot& slot) { return slot.alive; }));
 }
 
 }  // namespace ysq

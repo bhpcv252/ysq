@@ -29,7 +29,7 @@ constexpr double kEps = std::numeric_limits<double>::epsilon();
 /// each other; the cancellation-sensitive identities are hard enough to assert
 /// without a 1e6 dynamic range on top.
 constexpr std::array<Vec3, 5> kSamples{
-    Vec3{1.0, 2.0, 3.0}, Vec3{-4.0, 0.5, 7.25}, Vec3{0.0, 0.0, 1.0},
+    Vec3{1.0, 2.0, 3.0},   Vec3{-4.0, 0.5, 7.25},  Vec3{0.0, 0.0, 1.0},
     Vec3{2.5, -3.5, 0.75}, Vec3{-1.0, -1.0, -1.0},
 };
 
@@ -232,8 +232,8 @@ TEST(MathVector, CrossSatisfiesTheJacobiIdentity) {
     for (const Vec3& a : kSamples) {
         for (const Vec3& b : kSamples) {
             for (const Vec3& c : kSamples) {
-                const Vec3 sum = cross(a, cross(b, c)) + cross(b, cross(c, a)) +
-                                 cross(c, cross(a, b));
+                const Vec3 sum =
+                    cross(a, cross(b, c)) + cross(b, cross(c, a)) + cross(c, cross(a, b));
                 const double s = maxLength(a, b, c);
                 EXPECT_VEC_NEAR(sum, Vec3::zero(), zeroTolerance(s * s * s));
             }
@@ -382,8 +382,7 @@ TEST(MathVector, ReflectPreservesLengthAndIsItsOwnInverse) {
         EXPECT_VEC_NEAR(reflect(mirrored, n), a, zeroTolerance(length(a)));
         // The component along the normal flips; the rest is untouched.
         EXPECT_NEAR(dot(mirrored, n), -dot(a, n), zeroTolerance(length(a)));
-        EXPECT_VEC_NEAR(reject(mirrored, n), reject(a, n),
-                        zeroTolerance(length(a)));
+        EXPECT_VEC_NEAR(reject(mirrored, n), reject(a, n), zeroTolerance(length(a)));
     }
 }
 
@@ -444,8 +443,7 @@ TEST(MathVector, RotationAboutAnAxisLeavesThatAxisAlone) {
 
 TEST(MathVector, AngleBetweenMatchesKnownAngles) {
     EXPECT_APPROX(angleBetween(Vec3::unitX(), Vec3::unitX()), 0.0);
-    EXPECT_APPROX(angleBetween(Vec3::unitX(), Vec3::unitY()),
-                  ysq::kPi<double> / 2.0);
+    EXPECT_APPROX(angleBetween(Vec3::unitX(), Vec3::unitY()), ysq::kPi<double> / 2.0);
     EXPECT_APPROX(angleBetween(Vec3::unitX(), -Vec3::unitX()), ysq::kPi<double>);
     EXPECT_APPROX(angleBetween(Vec3{1.0, 1.0, 0.0}, Vec3::unitX()),
                   ysq::kPi<double> / 4.0);
@@ -464,8 +462,7 @@ TEST(MathVector, AngleBetweenStaysAccurateForNearlyParallelVectors) {
 
     for (const double angle : {1e-4, 1e-6, 1e-8}) {
         const Vec3 b = rotateAbout(a, axis, angle);
-        EXPECT_NEAR(angleBetween(a, b), angle, angle * 1e-5)
-            << "at angle " << angle;
+        EXPECT_NEAR(angleBetween(a, b), angle, angle * 1e-5) << "at angle " << angle;
     }
 
     // The contrast, stated as a floor rather than as an exact zero. The dot
@@ -478,16 +475,14 @@ TEST(MathVector, AngleBetweenStaysAccurateForNearlyParallelVectors) {
     const double viaAcos = std::acos(ysq::clamp(dot(a, b), -1.0, 1.0));
     EXPECT_TRUE(viaAcos == 0.0 || viaAcos > 1e-8)
         << "the acos form is pinned at its floor here, not tracking the angle: "
-           "it returned " << viaAcos;
-    EXPECT_NEAR(angleBetween(a, b), 1e-8, 1e-13)
-        << "while this one still resolves it";
+           "it returned "
+        << viaAcos;
+    EXPECT_NEAR(angleBetween(a, b), 1e-8, 1e-13) << "while this one still resolves it";
 }
 
 TEST(MathVector, TwoDimensionalAngleBetweenIsSigned) {
-    EXPECT_APPROX(angleBetween(Vec2::unitX(), Vec2::unitY()),
-                  ysq::kPi<double> / 2.0);
-    EXPECT_APPROX(angleBetween(Vec2::unitY(), Vec2::unitX()),
-                  -ysq::kPi<double> / 2.0);
+    EXPECT_APPROX(angleBetween(Vec2::unitX(), Vec2::unitY()), ysq::kPi<double> / 2.0);
+    EXPECT_APPROX(angleBetween(Vec2::unitY(), Vec2::unitX()), -ysq::kPi<double> / 2.0);
 }
 
 // --- Two-dimensional specifics ---------------------------------------------
@@ -589,10 +584,8 @@ TEST(MathScalar, ApproxEqualMixesRelativeAndAbsoluteTolerance) {
 
 TEST(MathVector, FormattingForwardsTheSpecToEachComponent) {
     EXPECT_EQ(std::format("{}", Vec2{1.0, 2.5}), "(1, 2.5)");
-    EXPECT_EQ(std::format("{:.3f}", Vec3{1.0, 0.0, -9.81}),
-              "(1.000, 0.000, -9.810)");
-    EXPECT_EQ(std::format("{:.1f}", Vec4{1.0, 2.0, 3.0, 4.0}),
-              "(1.0, 2.0, 3.0, 4.0)");
+    EXPECT_EQ(std::format("{:.3f}", Vec3{1.0, 0.0, -9.81}), "(1.000, 0.000, -9.810)");
+    EXPECT_EQ(std::format("{:.1f}", Vec4{1.0, 2.0, 3.0, 4.0}), "(1.0, 2.0, 3.0, 4.0)");
 }
 
 // --- The same identities at single precision -------------------------------

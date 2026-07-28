@@ -28,8 +28,10 @@ struct GLVersion {
     int major = 0;
     int minor = 0;
 
-    [[nodiscard]] friend constexpr bool operator==(GLVersion, GLVersion) noexcept = default;
-    [[nodiscard]] friend constexpr auto operator<=>(GLVersion, GLVersion) noexcept = default;
+    [[nodiscard]] friend constexpr bool operator==(GLVersion,
+                                                   GLVersion) noexcept = default;
+    [[nodiscard]] friend constexpr auto operator<=>(GLVersion,
+                                                    GLVersion) noexcept = default;
 };
 
 struct Extent {
@@ -164,9 +166,9 @@ public:
 
     /// A context with no visible window, for offscreen rendering and for
     /// compute on machines with no display.
-    [[nodiscard]] static std::optional<Window> createOffscreen(
-        int width, int height, const ContextSettings& context = {},
-        WindowError* error = nullptr);
+    [[nodiscard]] static std::optional<Window>
+    createOffscreen(int width, int height, const ContextSettings& context = {},
+                    WindowError* error = nullptr);
 
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;

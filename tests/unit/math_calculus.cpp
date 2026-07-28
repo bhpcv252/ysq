@@ -50,9 +50,7 @@ double observedOrder(double coarseError, double fineError) {
 
 TEST(MathCalculus, FiniteDifferencesApproximateTheDerivative) {
     const auto f = [](double x) { return std::exp(std::sin(x)); };
-    const auto analytic = [](double x) {
-        return std::exp(std::sin(x)) * std::cos(x);
-    };
+    const auto analytic = [](double x) { return std::exp(std::sin(x)) * std::cos(x); };
 
     for (const double at : {0.3, 1.0, 2.5, -1.2}) {
         EXPECT_NEAR(ysq::forwardDifference(f, at), analytic(at), 1e-7)
@@ -76,16 +74,12 @@ TEST(MathCalculus, TheStencilsHitTheirAdvertisedOrder) {
     const double at = 0.7;
     const double analytic = std::exp(std::sin(at)) * std::cos(at);
 
-    const double coarseForward =
-        std::abs(ysq::forwardDifference(f, at, 1e-3) - analytic);
-    const double fineForward =
-        std::abs(ysq::forwardDifference(f, at, 5e-4) - analytic);
+    const double coarseForward = std::abs(ysq::forwardDifference(f, at, 1e-3) - analytic);
+    const double fineForward = std::abs(ysq::forwardDifference(f, at, 5e-4) - analytic);
     EXPECT_NEAR(observedOrder(coarseForward, fineForward), 1.0, 0.1);
 
-    const double coarseCentral =
-        std::abs(ysq::centralDifference(f, at, 1e-2) - analytic);
-    const double fineCentral =
-        std::abs(ysq::centralDifference(f, at, 5e-3) - analytic);
+    const double coarseCentral = std::abs(ysq::centralDifference(f, at, 1e-2) - analytic);
+    const double fineCentral = std::abs(ysq::centralDifference(f, at, 5e-3) - analytic);
     EXPECT_NEAR(observedOrder(coarseCentral, fineCentral), 2.0, 0.1);
 
     const auto secondAnalytic =
@@ -111,12 +105,10 @@ TEST(MathCalculus, RichardsonBeatsThePlainCentralDifference) {
     const double analytic = std::exp(std::sin(at)) * std::cos(at);
 
     const double central = std::abs(ysq::centralDifference(f, at) - analytic);
-    const double extrapolated =
-        std::abs(ysq::richardsonDerivative(f, at) - analytic);
+    const double extrapolated = std::abs(ysq::richardsonDerivative(f, at) - analytic);
 
     EXPECT_LT(extrapolated, central)
-        << std::format("richardson {:.3e} vs central {:.3e}", extrapolated,
-                       central);
+        << std::format("richardson {:.3e} vs central {:.3e}", extrapolated, central);
     EXPECT_LT(extrapolated, 1e-11);
 }
 
@@ -163,9 +155,8 @@ TEST(MathCalculus, JacobianOfAKnownMap) {
     };
     const Vec3 at{1.5, -0.5, 2.0};
 
-    const Mat3 analytic =
-        Mat3::fromRows({2.0 * at.x, 0.0, 0.0}, {at.y, at.x, 0.0},
-                       {0.0, 0.0, 3.0 * at.z * at.z});
+    const Mat3 analytic = Mat3::fromRows({2.0 * at.x, 0.0, 0.0}, {at.y, at.x, 0.0},
+                                         {0.0, 0.0, 3.0 * at.z * at.z});
 
     EXPECT_MAT_NEAR(ysq::jacobian(flow, at), analytic, 1e-13);
     EXPECT_MAT_NEAR(ysq::numericalJacobian(flow, at), analytic, 1e-7);
@@ -179,8 +170,8 @@ TEST(MathCalculus, HessianOfAQuadraticFormIsConstantAndSymmetric) {
     const auto field = [](const auto& v) {
         return v.x * v.x + v.y * v.y * 3.0 + v.x * v.z * 2.0;
     };
-    const Mat3 analytic = Mat3::fromRows({2.0, 0.0, 2.0}, {0.0, 6.0, 0.0},
-                                         {2.0, 0.0, 0.0});
+    const Mat3 analytic =
+        Mat3::fromRows({2.0, 0.0, 2.0}, {0.0, 6.0, 0.0}, {2.0, 0.0, 0.0});
 
     for (const Vec3& at : {Vec3{0.0, 0.0, 0.0}, Vec3{1.5, -2.0, 3.0}}) {
         const Mat3 computed = ysq::hessian(field, at);
@@ -224,9 +215,7 @@ TEST(MathCalculus, TrapezoidIsExactOnALine) {
 TEST(MathCalculus, SimpsonIsExactOnACubic) {
     // One degree better than the quadratic it is derived from, which is the
     // thing worth knowing about Simpson's rule.
-    const auto cubic = [](double x) {
-        return 2.0 * x * x * x - x * x + 3.0 * x - 1.0;
-    };
+    const auto cubic = [](double x) { return 2.0 * x * x * x - x * x + 3.0 * x - 1.0; };
     // Integral over [0, 2]: 8 - 8/3 + 6 - 2.
     const double exact = 8.0 - 8.0 / 3.0 + 6.0 - 2.0;
 
@@ -253,10 +242,8 @@ TEST(MathCalculus, CompositeRulesHitTheirAdvertisedOrder) {
         std::abs(ysq::trapezoid(f, lower, upper, 32) - reference);
     EXPECT_NEAR(observedOrder(coarseTrapezoid, fineTrapezoid), 2.0, 0.1);
 
-    const double coarseSimpson =
-        std::abs(ysq::simpson(f, lower, upper, 8) - reference);
-    const double fineSimpson =
-        std::abs(ysq::simpson(f, lower, upper, 16) - reference);
+    const double coarseSimpson = std::abs(ysq::simpson(f, lower, upper, 8) - reference);
+    const double fineSimpson = std::abs(ysq::simpson(f, lower, upper, 16) - reference);
     EXPECT_NEAR(observedOrder(coarseSimpson, fineSimpson), 4.0, 0.1);
 }
 
@@ -290,34 +277,31 @@ TEST(MathCalculus, GaussLegendreIsExactToDegreeTwiceItsOrderMinusOne) {
     }
 
     // And one degree past its reach, it stops being exact.
-    EXPECT_GT(std::abs(ysq::gaussLegendre<2>(monomial(4), 0.0, 1.0) -
-                       exactOverUnitInterval(4)),
-              1e-4);
-    EXPECT_GT(std::abs(ysq::gaussLegendre<3>(monomial(6), 0.0, 1.0) -
-                       exactOverUnitInterval(6)),
-              1e-5);
+    EXPECT_GT(
+        std::abs(ysq::gaussLegendre<2>(monomial(4), 0.0, 1.0) - exactOverUnitInterval(4)),
+        1e-4);
+    EXPECT_GT(
+        std::abs(ysq::gaussLegendre<3>(monomial(6), 0.0, 1.0) - exactOverUnitInterval(6)),
+        1e-5);
 }
 
 TEST(MathCalculus, GaussLegendreHandlesAGeneralIntervalAndASmoothIntegrand) {
     // Integral of sin over [0, pi] is exactly 2.
-    EXPECT_NEAR(ysq::gaussLegendre<5>([](double x) { return std::sin(x); }, 0.0,
-                                      kPi),
+    EXPECT_NEAR(ysq::gaussLegendre<5>([](double x) { return std::sin(x); }, 0.0, kPi),
                 2.0, 1e-6);
     // Five evaluations, against the several dozen a composite rule would need
     // for the same accuracy.
-    EXPECT_GT(std::abs(ysq::simpson([](double x) { return std::sin(x); }, 0.0, kPi,
-                                    4) -
-                       2.0),
-              1e-6);
+    EXPECT_GT(
+        std::abs(ysq::simpson([](double x) { return std::sin(x); }, 0.0, kPi, 4) - 2.0),
+        1e-6);
 }
 
 TEST(MathCalculus, RombergConvergesFastOnASmoothIntegrand) {
-    EXPECT_NEAR(ysq::romberg([](double x) { return std::sin(x); }, 0.0, kPi), 2.0,
-                1e-12);
+    EXPECT_NEAR(ysq::romberg([](double x) { return std::sin(x); }, 0.0, kPi), 2.0, 1e-12);
     EXPECT_NEAR(ysq::romberg([](double x) { return std::exp(x); }, 0.0, 1.0),
                 std::exp(1.0) - 1.0, 1e-12);
-    EXPECT_NEAR(ysq::romberg([](double x) { return 1.0 / x; }, 1.0, 2.0),
-                std::log(2.0), 1e-12);
+    EXPECT_NEAR(ysq::romberg([](double x) { return 1.0 / x; }, 1.0, 2.0), std::log(2.0),
+                1e-12);
 }
 
 TEST(MathCalculus, AdaptiveSimpsonPutsItsEffortWhereTheIntegrandNeedsIt) {
@@ -339,8 +323,7 @@ TEST(MathCalculus, AdaptiveSimpsonPutsItsEffortWhereTheIntegrandNeedsIt) {
     // across the flat part where nothing is happening, so it resolves the peak
     // with whatever is left.
     const Counted composite{peaked};
-    const double compositeResult =
-        ysq::simpson(composite, 0.0, 1.0, adaptive.calls());
+    const double compositeResult = ysq::simpson(composite, 0.0, 1.0, adaptive.calls());
     EXPECT_LE(composite.calls(), adaptive.calls() + 2) << "same budget";
 
     EXPECT_LT(std::abs(adaptiveResult - exact), std::abs(compositeResult - exact))
@@ -361,10 +344,9 @@ TEST(MathCalculus, QuadratureRespectsOrientationAndAdditivity) {
     const auto f = [](double x) { return x * x + 1.0; };
 
     // Swapping the limits flips the sign.
-    EXPECT_NEAR(ysq::simpson(f, 0.0, 2.0, 10), -ysq::simpson(f, 2.0, 0.0, 10),
+    EXPECT_NEAR(ysq::simpson(f, 0.0, 2.0, 10), -ysq::simpson(f, 2.0, 0.0, 10), 1e-13);
+    EXPECT_NEAR(ysq::gaussLegendre<4>(f, 0.0, 2.0), -ysq::gaussLegendre<4>(f, 2.0, 0.0),
                 1e-13);
-    EXPECT_NEAR(ysq::gaussLegendre<4>(f, 0.0, 2.0),
-                -ysq::gaussLegendre<4>(f, 2.0, 0.0), 1e-13);
 
     // And splitting the interval adds up.
     EXPECT_NEAR(ysq::simpson(f, 0.0, 1.0, 10) + ysq::simpson(f, 1.0, 3.0, 10),

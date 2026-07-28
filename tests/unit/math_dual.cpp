@@ -21,9 +21,9 @@ constexpr double kEps = std::numeric_limits<double>::epsilon();
 /// Checks a derivative against its closed form. Everything here is exact to a
 /// few ulps, so the tolerance is tight on purpose: a chain rule with a wrong
 /// factor would still land inside a loose one.
-#define EXPECT_DERIVATIVE(expression, at, analytic)                          \
-    EXPECT_NEAR(ysq::derivative([](auto x) { return expression; }, at),      \
-                analytic, 64.0 * kEps * std::abs(analytic) + 1e-14)
+#define EXPECT_DERIVATIVE(expression, at, analytic)                                      \
+    EXPECT_NEAR(ysq::derivative([](auto x) { return expression; }, at), analytic,        \
+                64.0 * kEps * std::abs(analytic) + 1e-14)
 
 // --- Seeding ----------------------------------------------------------------
 
@@ -76,8 +76,7 @@ TEST(MathDual, ChainRuleThroughNestedCalls) {
     // d(exp(sin x)) = exp(sin x) cos x
     EXPECT_DERIVATIVE(exp(sin(x)), 0.7, std::exp(std::sin(0.7)) * std::cos(0.7));
     // Three deep.
-    EXPECT_DERIVATIVE(log(cos(x * x)), 0.5,
-                      -2.0 * 0.5 * std::tan(0.25));
+    EXPECT_DERIVATIVE(log(cos(x * x)), 0.5, -2.0 * 0.5 * std::tan(0.25));
 }
 
 // --- The function library ---------------------------------------------------
@@ -102,8 +101,7 @@ TEST(MathDual, TrigonometricFunctions) {
 TEST(MathDual, HyperbolicFunctions) {
     EXPECT_DERIVATIVE(sinh(x), 0.7, std::cosh(0.7));
     EXPECT_DERIVATIVE(cosh(x), 0.7, std::sinh(0.7));
-    EXPECT_DERIVATIVE(tanh(x), 0.7,
-                      1.0 - std::tanh(0.7) * std::tanh(0.7));
+    EXPECT_DERIVATIVE(tanh(x), 0.7, 1.0 - std::tanh(0.7) * std::tanh(0.7));
     EXPECT_DERIVATIVE(asinh(x), 0.7, 1.0 / std::sqrt(0.49 + 1.0));
     EXPECT_DERIVATIVE(acosh(x), 1.7, 1.0 / std::sqrt(1.7 * 1.7 - 1.0));
     EXPECT_DERIVATIVE(atanh(x), 0.4, 1.0 / (1.0 - 0.16));
@@ -148,8 +146,7 @@ TEST(MathDual, IsExactWhereAFiniteDifferenceIsNot) {
     const auto f = [](auto x) { return exp(sin(x * x)); };
     const auto plain = [](double x) { return std::exp(std::sin(x * x)); };
 
-    const double analytic =
-        std::exp(std::sin(at * at)) * std::cos(at * at) * 2.0 * at;
+    const double analytic = std::exp(std::sin(at * at)) * std::cos(at * at) * 2.0 * at;
 
     const double automatic = ysq::derivative(f, at);
 
@@ -162,8 +159,7 @@ TEST(MathDual, IsExactWhereAFiniteDifferenceIsNot) {
     EXPECT_LT(automaticError, 1e-15) << "automatic differentiation is exact";
     EXPECT_GT(finiteError, 1e-12) << "and the finite difference is not";
     EXPECT_LT(automaticError * 100.0, finiteError)
-        << std::format("automatic {:.3e} vs finite {:.3e}", automaticError,
-                       finiteError);
+        << std::format("automatic {:.3e} vs finite {:.3e}", automaticError, finiteError);
 }
 
 // --- Higher derivatives -----------------------------------------------------
@@ -171,13 +167,12 @@ TEST(MathDual, IsExactWhereAFiniteDifferenceIsNot) {
 TEST(MathDual, SecondDerivativesComeFromNesting) {
     EXPECT_NEAR(ysq::secondDerivative([](auto x) { return x * x * x; }, 2.0), 12.0,
                 1e-13);
-    EXPECT_NEAR(ysq::secondDerivative([](auto x) { return sin(x); }, 0.7),
-                -std::sin(0.7), 1e-14);
-    EXPECT_NEAR(ysq::secondDerivative([](auto x) { return exp(x); }, 1.1),
-                std::exp(1.1), 1e-13);
-    // d2/dx2 log(x) = -1/x^2
-    EXPECT_NEAR(ysq::secondDerivative([](auto x) { return log(x); }, 2.0), -0.25,
+    EXPECT_NEAR(ysq::secondDerivative([](auto x) { return sin(x); }, 0.7), -std::sin(0.7),
                 1e-14);
+    EXPECT_NEAR(ysq::secondDerivative([](auto x) { return exp(x); }, 1.1), std::exp(1.1),
+                1e-13);
+    // d2/dx2 log(x) = -1/x^2
+    EXPECT_NEAR(ysq::secondDerivative([](auto x) { return log(x); }, 2.0), -0.25, 1e-14);
 }
 
 TEST(MathDual, NestingAlsoGivesMixedPartials) {
@@ -228,8 +223,7 @@ TEST(MathDual, ComparisonsLookAtTheValueOnly) {
 TEST(MathDual, ValueOfStripsEveryLayer) {
     EXPECT_EQ(ysq::valueOf(3.0), 3.0);
     EXPECT_EQ(ysq::valueOf(DualD{3.0, 1.0}), 3.0);
-    EXPECT_EQ(ysq::valueOf(Dual<Dual<double>>{DualD{3.0, 1.0}, DualD{1.0, 0.0}}),
-              3.0);
+    EXPECT_EQ(ysq::valueOf(Dual<Dual<double>>{DualD{3.0, 1.0}, DualD{1.0, 0.0}}), 3.0);
 
     static_assert(!ysq::isDual<double>);
     static_assert(ysq::isDual<DualD>);
@@ -243,8 +237,7 @@ TEST(MathDual, ComposesWithVectorsForDerivativesAlongACurve) {
     // v(t) = (t, t^2, 3), so dot(v, v) = t^2 + t^4 + 9 with derivative
     // 2t + 4t^3, and |v| differentiates through the square root.
     const double t = 1.4;
-    const ysq::Vector3<DualD> v{DualD{t, 1.0}, DualD{t * t, 2.0 * t},
-                               DualD{3.0, 0.0}};
+    const ysq::Vector3<DualD> v{DualD{t, 1.0}, DualD{t * t, 2.0 * t}, DualD{3.0, 0.0}};
 
     const double expectedDotDerivative = 2.0 * t + 4.0 * t * t * t;
     EXPECT_NEAR(dot(v, v).value, t * t + t * t * t * t + 9.0, 1e-13);
@@ -279,8 +272,8 @@ TEST(MathDual, DerivativesHoldAtSinglePrecision) {
     EXPECT_NEAR((x * x).derivative, 4.0f, tol);
     EXPECT_NEAR(sqrt(x).derivative, 1.0f / (2.0f * std::sqrt(2.0f)), tol);
     EXPECT_NEAR(sin(x).derivative, std::cos(2.0f), tol);
-    EXPECT_NEAR(ysq::derivative([](auto v) { return exp(v); }, 1.0f),
-                std::exp(1.0f), 1e-4f);
+    EXPECT_NEAR(ysq::derivative([](auto v) { return exp(v); }, 1.0f), std::exp(1.0f),
+                1e-4f);
 }
 
 }  // namespace

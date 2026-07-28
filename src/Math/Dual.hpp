@@ -73,14 +73,10 @@ struct Dual {
     }
 
     /// The seed: a variable whose derivative with respect to itself is one.
-    [[nodiscard]] static constexpr Dual variable(T at) noexcept {
-        return {at, T{1}};
-    }
+    [[nodiscard]] static constexpr Dual variable(T at) noexcept { return {at, T{1}}; }
 
     /// A constant, whose derivative is zero.
-    [[nodiscard]] static constexpr Dual constant(T at) noexcept {
-        return {at, T{0}};
-    }
+    [[nodiscard]] static constexpr Dual constant(T at) noexcept { return {at, T{0}}; }
 
     constexpr Dual& operator+=(const Dual& other) noexcept {
         value += other.value;
@@ -107,37 +103,29 @@ struct Dual {
     // Only Dual-on-Dual overloads are needed: a bare T converts implicitly
     // through the constructor above, on either side.
 
-    [[nodiscard]] friend constexpr Dual operator+(const Dual& a) noexcept {
-        return a;
-    }
+    [[nodiscard]] friend constexpr Dual operator+(const Dual& a) noexcept { return a; }
 
     [[nodiscard]] friend constexpr Dual operator-(const Dual& a) noexcept {
         return {-a.value, -a.derivative};
     }
 
-    [[nodiscard]] friend constexpr Dual operator+(const Dual& a,
-                                                  const Dual& b) noexcept {
+    [[nodiscard]] friend constexpr Dual operator+(const Dual& a, const Dual& b) noexcept {
         return {a.value + b.value, a.derivative + b.derivative};
     }
 
-    [[nodiscard]] friend constexpr Dual operator-(const Dual& a,
-                                                  const Dual& b) noexcept {
+    [[nodiscard]] friend constexpr Dual operator-(const Dual& a, const Dual& b) noexcept {
         return {a.value - b.value, a.derivative - b.derivative};
     }
 
     /// The product rule.
-    [[nodiscard]] friend constexpr Dual operator*(const Dual& a,
-                                                  const Dual& b) noexcept {
-        return {a.value * b.value,
-                a.derivative * b.value + a.value * b.derivative};
+    [[nodiscard]] friend constexpr Dual operator*(const Dual& a, const Dual& b) noexcept {
+        return {a.value * b.value, a.derivative * b.value + a.value * b.derivative};
     }
 
     /// The quotient rule.
-    [[nodiscard]] friend constexpr Dual operator/(const Dual& a,
-                                                  const Dual& b) noexcept {
+    [[nodiscard]] friend constexpr Dual operator/(const Dual& a, const Dual& b) noexcept {
         return {a.value / b.value,
-                (a.derivative * b.value - a.value * b.derivative) /
-                    (b.value * b.value)};
+                (a.derivative * b.value - a.value * b.derivative) / (b.value * b.value)};
     }
 
     /// Value only. See the note on the class.
@@ -146,13 +134,11 @@ struct Dual {
         return a.value == b.value;
     }
 
-    [[nodiscard]] friend constexpr bool operator<(const Dual& a,
-                                                  const Dual& b) noexcept {
+    [[nodiscard]] friend constexpr bool operator<(const Dual& a, const Dual& b) noexcept {
         return a.value < b.value;
     }
 
-    [[nodiscard]] friend constexpr bool operator>(const Dual& a,
-                                                  const Dual& b) noexcept {
+    [[nodiscard]] friend constexpr bool operator>(const Dual& a, const Dual& b) noexcept {
         return b.value < a.value;
     }
 
@@ -315,8 +301,7 @@ template <Numeric T>
 [[nodiscard]] Dual<T> hypot(const Dual<T>& a, const Dual<T>& b) {
     using std::hypot;
     const T magnitude = hypot(a.value, b.value);
-    return {magnitude,
-            (a.value * a.derivative + b.value * b.derivative) / magnitude};
+    return {magnitude, (a.value * a.derivative + b.value * b.derivative) / magnitude};
 }
 
 /// The general case, which needs log and therefore a positive base.
@@ -325,8 +310,8 @@ template <Numeric T>
     using std::log;
     using std::pow;
     const T result = pow(a.value, b.value);
-    return {result, result * (b.derivative * log(a.value) +
-                              b.value * a.derivative / a.value)};
+    return {result,
+            result * (b.derivative * log(a.value) + b.value * a.derivative / a.value)};
 }
 
 /// A constant exponent, which avoids the logarithm entirely and so works for a

@@ -145,8 +145,7 @@ struct WindowCallbacks {
         return static_cast<Window*>(glfwGetWindowUserPointer(handle));
     }
 
-    static void key(GLFWwindow* handle, int key, int /*scancode*/, int action,
-                    int mods) {
+    static void key(GLFWwindow* handle, int key, int /*scancode*/, int action, int mods) {
         if (Window* window = owner(handle)) {
             window->m_input.onKey(keyFromNative(key), buttonActionFromNative(action),
                                   modifiersFromNative(mods));
@@ -209,8 +208,7 @@ std::optional<Window> Window::create(const WindowSettings& settings, WindowError
         return std::nullopt;
     }
 
-    const PlatformBackend backend =
-        Platform::backend().value_or(PlatformBackend::Null);
+    const PlatformBackend backend = Platform::backend().value_or(PlatformBackend::Null);
     const ContextSettings context = effectiveContext(settings.context, backend);
     if (context.forwardCompatible != settings.context.forwardCompatible) {
         log::debug("Forward compatibility dropped: the {} backend refuses it",

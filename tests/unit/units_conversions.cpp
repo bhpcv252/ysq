@@ -136,8 +136,8 @@ TEST(UnitsConversions, DerivedUnitsFallOutOfTheAlgebra) {
     static_assert(units::metrePerSecond == units::metre / units::second);
 
     // Non-SI ones that are exact by definition.
-    static_assert(units::dyne == units::gram * units::centimetre /
-                                     (units::second * units::second));
+    static_assert(units::dyne ==
+                  units::gram * units::centimetre / (units::second * units::second));
     static_assert(units::erg.value() == 1.0e-7);
     static_assert(units::atmosphere.value() == 101325.0);
     static_assert((1.0 * units::bar).value() == 1.0e5);
@@ -146,13 +146,11 @@ TEST(UnitsConversions, DerivedUnitsFallOutOfTheAlgebra) {
 
 TEST(UnitsConversions, SpeedConversionsAreConsistent) {
     static_assert(units::kilometrePerSecond == units::kilometre / units::second);
-    static_assert(1.0 * units::kilometrePerHour ==
-                  units::kilometre / units::hour);
+    static_assert(1.0 * units::kilometrePerHour == units::kilometre / units::hour);
     static_assert(units::speedOfLight == constants::speedOfLight);
 
     EXPECT_QUANTITY_APPROX(7.8_kmps, 7800.0 * units::metrePerSecond);
-    EXPECT_QUANTITY_NEAR(1.0 * units::kilometrePerHour,
-                         0.2777778 * units::metrePerSecond,
+    EXPECT_QUANTITY_NEAR(1.0 * units::kilometrePerHour, 0.2777778 * units::metrePerSecond,
                          1.0e-6 * units::metrePerSecond);
 }
 
@@ -170,8 +168,7 @@ TEST(UnitsConversions, TheDefiningConstantsAreTheirDefinedValues) {
 
     // The electronvolt is the elementary charge times one volt, so it is
     // exact for the same reason.
-    static_assert(units::electronvolt.value() ==
-                  constants::elementaryCharge.value());
+    static_assert(units::electronvolt.value() == constants::elementaryCharge.value());
 
     EXPECT_QUANTITY_NEAR(constants::reducedPlanckConstant,
                          1.054571817e-34 * units::joule * units::second,
@@ -187,8 +184,7 @@ TEST(UnitsConversions, NominalSolarValuesAreConventionsNotMeasurements) {
     const Mass reconstructed{constants::nominalSolarMassParameter.value() /
                              gravitationalConstant};
 
-    EXPECT_QUANTITY_NEAR(reconstructed, units::solarMass,
-                         units::solarMass * 1.0e-12);
+    EXPECT_QUANTITY_NEAR(reconstructed, units::solarMass, units::solarMass * 1.0e-12);
 
     const Mass earthReconstructed{constants::nominalEarthMassParameter.value() /
                                   gravitationalConstant};

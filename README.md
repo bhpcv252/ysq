@@ -164,6 +164,18 @@ software context where there is no display server, and skips where even that is
 unavailable. Configure with `-DYSQ_REQUIRE_HEADLESS_GL=ON` to make those skips
 failures. See [tests/README.md](tests/README.md).
 
+## Formatting
+
+`.clang-format` is the whole style, and CI checks it on every push:
+
+```sh
+find src tests \( -name '*.hpp' -o -name '*.cpp' \) -print0 | xargs -0 clang-format -i
+```
+
+clang-format's output shifts between releases, so CI pins one version
+(**22.1.8**, from PyPI). A different local version can disagree with it on
+untouched code. `third_party/` is upstream code and is never reformatted.
+
 ## Project structure
 
 Each module under `src/` is its own library (static, or header-only `INTERFACE`

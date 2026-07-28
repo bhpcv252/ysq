@@ -109,9 +109,9 @@ public:
 
     [[nodiscard]] static std::optional<Config> parse(std::string_view text,
                                                      ConfigError* error = nullptr);
-    [[nodiscard]] static std::optional<Config> load(
-        const std::filesystem::path& path, ConfigError* error = nullptr,
-        std::uintmax_t maxBytes = kDefaultMaxFileBytes);
+    [[nodiscard]] static std::optional<Config>
+    load(const std::filesystem::path& path, ConfigError* error = nullptr,
+         std::uintmax_t maxBytes = kDefaultMaxFileBytes);
     [[nodiscard]] bool save(const std::filesystem::path& path) const;
 
     [[nodiscard]] friend bool operator==(const Config&, const Config&) = default;

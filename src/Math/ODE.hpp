@@ -64,8 +64,7 @@ concept OdeState = requires(S a, const S& b, StateScalarT<S> s) {
 
 /// dy/dt = f(t, y).
 template <class F, class S>
-concept OdeSystem = OdeState<S> && requires(const F& f, StateScalarT<S> t,
-                                            const S& y) {
+concept OdeSystem = OdeState<S> && requires(const F& f, StateScalarT<S> t, const S& y) {
     { f(t, y) } -> std::convertible_to<S>;
 };
 
@@ -134,13 +133,13 @@ struct PhaseState {
         return *this;
     }
 
-    [[nodiscard]] friend constexpr PhaseState operator+(
-        const PhaseState& a, const PhaseState& b) {
+    [[nodiscard]] friend constexpr PhaseState operator+(const PhaseState& a,
+                                                        const PhaseState& b) {
         return {a.position + b.position, a.velocity + b.velocity};
     }
 
-    [[nodiscard]] friend constexpr PhaseState operator-(
-        const PhaseState& a, const PhaseState& b) {
+    [[nodiscard]] friend constexpr PhaseState operator-(const PhaseState& a,
+                                                        const PhaseState& b) {
         return {a.position - b.position, a.velocity - b.velocity};
     }
 
@@ -246,14 +245,12 @@ public:
         return *this;
     }
 
-    [[nodiscard]] friend StateVector operator+(StateVector a,
-                                               const StateVector& b) {
+    [[nodiscard]] friend StateVector operator+(StateVector a, const StateVector& b) {
         a += b;
         return a;
     }
 
-    [[nodiscard]] friend StateVector operator-(StateVector a,
-                                               const StateVector& b) {
+    [[nodiscard]] friend StateVector operator-(StateVector a, const StateVector& b) {
         a -= b;
         return a;
     }
@@ -295,8 +292,7 @@ template <class S, class T>
 void accumulateErrorRatio(const S& error, const S& current, const S& next, T absTol,
                           T relTol, T& sumOfSquares, std::size_t& count) {
     if constexpr (std::floating_point<S>) {
-        const T scale =
-            absTol + relTol * std::max(std::abs(current), std::abs(next));
+        const T scale = absTol + relTol * std::max(std::abs(current), std::abs(next));
         const T ratio = error / scale;
         sumOfSquares += ratio * ratio;
         ++count;
@@ -319,8 +315,8 @@ void accumulateErrorRatio(const S& error, const S& current, const S& next, T abs
 /// would let the large component set the step for all of them. An answer at or
 /// below 1 means the step is acceptable.
 template <class S, class T = StateScalarT<S>>
-[[nodiscard]] T errorNorm(const S& error, const S& current, const S& next,
-                          T absTol, T relTol) {
+[[nodiscard]] T errorNorm(const S& error, const S& current, const S& next, T absTol,
+                          T relTol) {
     T sumOfSquares{};
     std::size_t count = 0;
     detail::accumulateErrorRatio(error, current, next, absTol, relTol, sumOfSquares,
@@ -379,10 +375,10 @@ struct AdaptiveResult {
 /// final time and takes one short step, and both of those corrupt an order-of-
 /// accuracy measurement, which is what this is mostly used for.
 template <class Stepper, class System, class Observer>
-auto integrate(Stepper& stepper, const System& system,
-               typename Stepper::State state, typename Stepper::Scalar from,
-               typename Stepper::Scalar to, typename Stepper::Scalar step,
-               Observer&& observe) -> typename Stepper::State {
+auto integrate(Stepper& stepper, const System& system, typename Stepper::State state,
+               typename Stepper::Scalar from, typename Stepper::Scalar to,
+               typename Stepper::Scalar step, Observer&& observe) ->
+    typename Stepper::State {
     using T = typename Stepper::Scalar;
 
     const T span = to - from;
@@ -391,8 +387,8 @@ auto integrate(Stepper& stepper, const System& system,
         return state;
     }
 
-    const auto count = static_cast<std::size_t>(
-        std::max(T{1}, std::ceil(std::abs(span) / step)));
+    const auto count =
+        static_cast<std::size_t>(std::max(T{1}, std::ceil(std::abs(span) / step)));
     const T actualStep = span / static_cast<T>(count);
 
     observe(from, state);
@@ -410,12 +406,10 @@ auto integrate(Stepper& stepper, const System& system,
 }
 
 template <class Stepper, class System>
-auto integrate(Stepper& stepper, const System& system,
-               typename Stepper::State state, typename Stepper::Scalar from,
-               typename Stepper::Scalar to, typename Stepper::Scalar step) ->
-    typename Stepper::State {
-    return integrate(stepper, system, state, from, to, step,
-                     [](auto, const auto&) {});
+auto integrate(Stepper& stepper, const System& system, typename Stepper::State state,
+               typename Stepper::Scalar from, typename Stepper::Scalar to,
+               typename Stepper::Scalar step) -> typename Stepper::State {
+    return integrate(stepper, system, state, from, to, step, [](auto, const auto&) {});
 }
 
 /// The number of fixed steps integrate() will actually take.
@@ -447,9 +441,8 @@ template <std::floating_point T>
 /// would make no progress at all.
 template <class Stepper, class System, class Observer>
 auto integrateAdaptive(Stepper& stepper, const System& system,
-                       typename Stepper::State state,
-                       typename Stepper::Scalar from, typename Stepper::Scalar to,
-                       typename Stepper::Scalar initialStep,
+                       typename Stepper::State state, typename Stepper::Scalar from,
+                       typename Stepper::Scalar to, typename Stepper::Scalar initialStep,
                        const AdaptiveSettings<typename Stepper::Scalar>& settings,
                        Observer&& observe)
     -> AdaptiveResult<typename Stepper::State, typename Stepper::Scalar> {
@@ -478,8 +471,8 @@ auto integrateAdaptive(Stepper& stepper, const System& system,
     const T alpha = T{1} / static_cast<T>(Stepper::order) - static_cast<T>(0.75) * beta;
 
     const T guess = std::abs(initialStep);
-    T step = std::min((guess > T{0}) ? guess : std::abs(span) / T{100},
-                      settings.maximumStep);
+    T step =
+        std::min((guess > T{0}) ? guess : std::abs(span) / T{100}, settings.maximumStep);
     T previousError = T{1};
     S next = state;
     // Sized from the state rather than default-constructed, so a state whose
@@ -501,12 +494,11 @@ auto integrateAdaptive(Stepper& stepper, const System& system,
             return result;
         }
 
-        stepper.step(system, result.time, result.state, direction * step, next,
-                     error);
+        stepper.step(system, result.time, result.state, direction * step, next, error);
 
-        const T measured = errorNorm(error, result.state, next,
-                                     settings.absoluteTolerance,
-                                     settings.relativeTolerance);
+        const T measured =
+            errorNorm(error, result.state, next, settings.absoluteTolerance,
+                      settings.relativeTolerance);
 
         // An exactly zero error would divide by zero in the controller; treat
         // it as the smallest error worth reacting to.
@@ -557,9 +549,8 @@ auto integrateAdaptive(Stepper& stepper, const System& system,
 
 template <class Stepper, class System>
 auto integrateAdaptive(Stepper& stepper, const System& system,
-                       typename Stepper::State state,
-                       typename Stepper::Scalar from, typename Stepper::Scalar to,
-                       typename Stepper::Scalar initialStep,
+                       typename Stepper::State state, typename Stepper::Scalar from,
+                       typename Stepper::Scalar to, typename Stepper::Scalar initialStep,
                        const AdaptiveSettings<typename Stepper::Scalar>& settings)
     -> AdaptiveResult<typename Stepper::State, typename Stepper::Scalar> {
     return integrateAdaptive(stepper, system, state, from, to, initialStep, settings,

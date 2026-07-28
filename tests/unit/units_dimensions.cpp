@@ -105,8 +105,7 @@ TEST(UnitsDimensions, BaseDimensionsAreIndependent) {
 TEST(UnitsDimensions, MultiplicationAddsExponents) {
     static_assert(std::is_same_v<dim::Mul<dim::Length, dim::Length>, dim::Area>);
     static_assert(std::is_same_v<dim::Mul<dim::Area, dim::Length>, dim::Volume>);
-    static_assert(
-        std::is_same_v<dim::Div<dim::Length, dim::Length>, dim::Dimensionless>);
+    static_assert(std::is_same_v<dim::Div<dim::Length, dim::Length>, dim::Dimensionless>);
     static_assert(std::is_same_v<dim::Inverse<dim::Time>, dim::Frequency>);
     SUCCEED();
 }

@@ -151,8 +151,7 @@ constexpr std::array<int, kKeyCount> kNativeKeys{
     GLFW_KEY_MENU,
 };
 
-static_assert(kNativeKeys.size() == kKeyCount,
-              "kNativeKeys must have one entry per Key");
+static_assert(kNativeKeys.size() == kKeyCount, "kNativeKeys must have one entry per Key");
 static_assert(kNativeKeys[0] == GLFW_KEY_UNKNOWN,
               "Key::Unknown must be first, so a zeroed lookup table means unknown");
 

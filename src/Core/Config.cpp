@@ -290,8 +290,8 @@ std::optional<Config> Config::parse(std::string_view text, ConfigError* error) {
     return config;
 }
 
-std::optional<Config> Config::load(const std::filesystem::path& path,
-                                   ConfigError* error, std::uintmax_t maxBytes) {
+std::optional<Config> Config::load(const std::filesystem::path& path, ConfigError* error,
+                                   std::uintmax_t maxBytes) {
     // Size first: this is the only place Core reads a file it did not write, and
     // reading it whole is the simple implementation. The bound keeps a wrong
     // path, a device node or a truncated download from becoming an allocation
@@ -299,14 +299,14 @@ std::optional<Config> Config::load(const std::filesystem::path& path,
     std::error_code ec;
     const std::uintmax_t size = std::filesystem::file_size(path, ec);
     if (ec) {
-        setError(error, 0, std::format("cannot stat '{}': {}", path.string(),
-                                       ec.message()));
+        setError(error, 0,
+                 std::format("cannot stat '{}': {}", path.string(), ec.message()));
         return std::nullopt;
     }
     if (size > maxBytes) {
         setError(error, 0,
-                 std::format("'{}' is {} bytes, over the {} byte limit",
-                             path.string(), size, maxBytes));
+                 std::format("'{}' is {} bytes, over the {} byte limit", path.string(),
+                             size, maxBytes));
         return std::nullopt;
     }
 

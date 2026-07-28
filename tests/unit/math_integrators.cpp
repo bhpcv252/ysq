@@ -82,8 +82,8 @@ struct OrderResult {
 /// Every error is checked to be inside the window where truncation dominates.
 /// Without that guard the measurement silently becomes a measurement of
 /// rounding noise, which is the way an order test usually goes wrong.
-OrderResult measureOrder(const std::function<double(double)>& errorAtStep,
-                         double span, std::size_t initialSteps, int samples) {
+OrderResult measureOrder(const std::function<double(double)>& errorAtStep, double span,
+                         std::size_t initialSteps, int samples) {
     OrderResult result;
     std::size_t steps = initialSteps;
 
@@ -123,14 +123,14 @@ OrderResult measureOrder(const std::function<double(double)>& errorAtStep,
     }
 
     if (std::abs(measured.order - expected) > 0.15) {
-        return ::testing::AssertionFailure() << std::format(
-                   "{}: observed order {:.3f}, expected {:.1f}.\n{}", label,
-                   measured.order, expected, measured.report);
+        return ::testing::AssertionFailure()
+               << std::format("{}: observed order {:.3f}, expected {:.1f}.\n{}", label,
+                              measured.order, expected, measured.report);
     }
     return ::testing::AssertionSuccess();
 }
 
-#define EXPECT_ORDER(label, measured, expected) \
+#define EXPECT_ORDER(label, measured, expected)                                          \
     EXPECT_TRUE(ordersMatch(label, measured, expected))
 
 // --- Test problems ----------------------------------------------------------
@@ -160,8 +160,8 @@ double springEnergy(const ScalarPhase& state) {
 }
 
 template <class Stepper>
-double scalarError(const std::function<double(double, double)>& system,
-                   double start, double exactAtEnd, double until, double step) {
+double scalarError(const std::function<double(double, double)>& system, double start,
+                   double exactAtEnd, double until, double step) {
     Stepper stepper;
     const double computed = ysq::integrate(stepper, system, start, 0.0, until, step);
     return std::abs(computed - exactAtEnd);
@@ -194,8 +194,8 @@ TEST(MathIntegrators, ExplicitMethodsHitTheirOrderOnALinearProblem) {
     EXPECT_ORDER("midpoint",
                  measureOrder(
                      [&](double h) {
-                         return scalarError<ysq::MidpointStepper<double>>(
-                             decay, 1.0, exact, 1.0, h);
+                         return scalarError<ysq::MidpointStepper<double>>(decay, 1.0,
+                                                                          exact, 1.0, h);
                      },
                      1.0, 20, 5),
                  2.0);
@@ -203,8 +203,8 @@ TEST(MathIntegrators, ExplicitMethodsHitTheirOrderOnALinearProblem) {
     EXPECT_ORDER("Heun",
                  measureOrder(
                      [&](double h) {
-                         return scalarError<ysq::HeunStepper<double>>(decay, 1.0,
-                                                                     exact, 1.0, h);
+                         return scalarError<ysq::HeunStepper<double>>(decay, 1.0, exact,
+                                                                      1.0, h);
                      },
                      1.0, 20, 5),
                  2.0);
@@ -212,8 +212,8 @@ TEST(MathIntegrators, ExplicitMethodsHitTheirOrderOnALinearProblem) {
     EXPECT_ORDER("RK4",
                  measureOrder(
                      [&](double h) {
-                         return scalarError<ysq::Rk4Stepper<double>>(decay, 1.0,
-                                                                    exact, 1.0, h);
+                         return scalarError<ysq::Rk4Stepper<double>>(decay, 1.0, exact,
+                                                                     1.0, h);
                      },
                      1.0, 8, 5),
                  4.0);
@@ -221,9 +221,8 @@ TEST(MathIntegrators, ExplicitMethodsHitTheirOrderOnALinearProblem) {
     EXPECT_ORDER("Dormand-Prince 5",
                  measureOrder(
                      [&](double h) {
-                         return scalarError<
-                             ysq::DormandPrince54Stepper<double>>(decay, 1.0, exact,
-                                                                 1.0, h);
+                         return scalarError<ysq::DormandPrince54Stepper<double>>(
+                             decay, 1.0, exact, 1.0, h);
                      },
                      1.0, 8, 4),
                  5.0);
@@ -249,8 +248,8 @@ TEST(MathIntegrators, ExplicitMethodsHitTheirOrderOnANonlinearProblem) {
     EXPECT_ORDER("Heun, logistic",
                  measureOrder(
                      [&](double h) {
-                         return scalarError<ysq::HeunStepper<double>>(
-                             logistic, 0.5, exact, 4.0, h);
+                         return scalarError<ysq::HeunStepper<double>>(logistic, 0.5,
+                                                                      exact, 4.0, h);
                      },
                      4.0, 64, 5),
                  2.0);
@@ -258,8 +257,8 @@ TEST(MathIntegrators, ExplicitMethodsHitTheirOrderOnANonlinearProblem) {
     EXPECT_ORDER("RK4, logistic",
                  measureOrder(
                      [&](double h) {
-                         return scalarError<ysq::Rk4Stepper<double>>(logistic, 0.5,
-                                                                    exact, 4.0, h);
+                         return scalarError<ysq::Rk4Stepper<double>>(logistic, 0.5, exact,
+                                                                     4.0, h);
                      },
                      4.0, 16, 5),
                  4.0);
@@ -282,8 +281,8 @@ TEST(MathIntegrators, SymplecticMethodsHitTheirOrderOnTheOscillator) {
     EXPECT_ORDER("semi-implicit Euler",
                  measureOrder(
                      [](double h) {
-                         return springError<ysq::SemiImplicitEulerStepper<double>>(
-                             1.0, h);
+                         return springError<ysq::SemiImplicitEulerStepper<double>>(1.0,
+                                                                                   h);
                      },
                      1.0, 500, 5),
                  1.0);
@@ -291,27 +290,24 @@ TEST(MathIntegrators, SymplecticMethodsHitTheirOrderOnTheOscillator) {
     EXPECT_ORDER("velocity Verlet",
                  measureOrder(
                      [](double h) {
-                         return springError<ysq::VelocityVerletStepper<double>>(1.0,
-                                                                               h);
+                         return springError<ysq::VelocityVerletStepper<double>>(1.0, h);
                      },
                      1.0, 20, 5),
                  2.0);
 
-    EXPECT_ORDER("Forest-Ruth",
-                 measureOrder(
-                     [](double h) {
-                         return springError<ysq::ForestRuthStepper<double>>(1.0, h);
-                     },
-                     1.0, 4, 5),
-                 4.0);
+    EXPECT_ORDER(
+        "Forest-Ruth",
+        measureOrder(
+            [](double h) { return springError<ysq::ForestRuthStepper<double>>(1.0, h); },
+            1.0, 4, 5),
+        4.0);
 
-    EXPECT_ORDER("PEFRL",
-                 measureOrder(
-                     [](double h) {
-                         return springError<ysq::PefrlStepper<double>>(1.0, h);
-                     },
-                     1.0, 2, 5),
-                 4.0);
+    EXPECT_ORDER(
+        "PEFRL",
+        measureOrder(
+            [](double h) { return springError<ysq::PefrlStepper<double>>(1.0, h); }, 1.0,
+            2, 5),
+        4.0);
 }
 
 TEST(MathIntegrators, PefrlIsMoreAccurateThanForestRuthAtTheSameOrder) {
@@ -332,10 +328,9 @@ double worstEnergyDrift(std::size_t steps, double step) {
     const double initial = springEnergy(start);
 
     double worst = 0.0;
-    ysq::integrate(stepper, spring, start, 0.0, static_cast<double>(steps) * step,
-                   step, [&](double, const ScalarPhase& state) {
-                       worst = std::max(worst,
-                                        std::abs(springEnergy(state) - initial));
+    ysq::integrate(stepper, spring, start, 0.0, static_cast<double>(steps) * step, step,
+                   [&](double, const ScalarPhase& state) {
+                       worst = std::max(worst, std::abs(springEnergy(state) - initial));
                    });
     return worst;
 }
@@ -350,10 +345,9 @@ double worstEnergyDriftExplicit(std::size_t steps, double step) {
     const auto system = ysq::asPhaseSystem(spring);
 
     double worst = 0.0;
-    ysq::integrate(stepper, system, start, 0.0, static_cast<double>(steps) * step,
-                   step, [&](double, const ScalarPhase& state) {
-                       worst = std::max(worst,
-                                        std::abs(springEnergy(state) - initial));
+    ysq::integrate(stepper, system, start, 0.0, static_cast<double>(steps) * step, step,
+                   [&](double, const ScalarPhase& state) {
+                       worst = std::max(worst, std::abs(springEnergy(state) - initial));
                    });
     return worst;
 }
@@ -380,13 +374,11 @@ TEST(MathIntegrators, SymplecticEnergyErrorIsBoundedWhereRungeKuttaDrifts) {
     const double rk4Long =
         worstEnergyDriftExplicit<ysq::Rk4Stepper<ScalarPhase>>(longRun, step);
 
-    EXPECT_NEAR(verletLong / verletShort, 1.0, 0.01)
-        << std::format("Verlet drift {:.3e} then {:.3e}: it must not grow",
-                       verletShort, verletLong);
+    EXPECT_NEAR(verletLong / verletShort, 1.0, 0.01) << std::format(
+        "Verlet drift {:.3e} then {:.3e}: it must not grow", verletShort, verletLong);
 
-    EXPECT_GT(rk4Long / rk4Short, 1.8)
-        << std::format("RK4 drift {:.3e} then {:.3e}: it must grow with time",
-                       rk4Short, rk4Long);
+    EXPECT_GT(rk4Long / rk4Short, 1.8) << std::format(
+        "RK4 drift {:.3e} then {:.3e}: it must grow with time", rk4Short, rk4Long);
     EXPECT_LT(rk4Long / rk4Short, 2.2) << "and roughly in proportion to it";
 }
 
@@ -450,8 +442,8 @@ TEST(MathIntegrators, TheAdaptiveMethodMeetsTheToleranceItIsGiven) {
         // The controller works per step, so the accumulated error over the
         // whole run is allowed to be a modest multiple of the per-step ask.
         EXPECT_LT(error, tolerance * 100.0)
-            << std::format("tolerance {:.0e}, error {:.3e}, {} steps", tolerance,
-                           error, result.acceptedSteps);
+            << std::format("tolerance {:.0e}, error {:.3e}, {} steps", tolerance, error,
+                           result.acceptedSteps);
     }
 }
 
@@ -495,9 +487,8 @@ TEST(MathIntegrators, FirstSameAsLastSavesOneEvaluationPerStep) {
     ASSERT_GT(result.acceptedSteps, 5u);
 
     // Six per step, plus the very first stage, which has nothing to inherit.
-    EXPECT_EQ(result.evaluations, 6 * result.acceptedSteps + 1)
-        << std::format("{} evaluations over {} steps", result.evaluations,
-                       result.acceptedSteps);
+    EXPECT_EQ(result.evaluations, 6 * result.acceptedSteps + 1) << std::format(
+        "{} evaluations over {} steps", result.evaluations, result.acceptedSteps);
     EXPECT_LT(result.evaluations, 7 * result.acceptedSteps);
 }
 
@@ -542,8 +533,7 @@ TEST(MathIntegrators, TheAdaptiveStepShrinksWhereTheOrbitIsFastest) {
     std::vector<double> radii;
     const auto result = ysq::integrateAdaptive(
         stepper, ysq::asPhaseSystem(kepler::acceleration), kepler::start(), 0.0,
-        kepler::period(), 0.01, settings,
-        [&](double t, const PhaseState<Vec3>& state) {
+        kepler::period(), 0.01, settings, [&](double t, const PhaseState<Vec3>& state) {
             times.push_back(t);
             radii.push_back(length(state.position));
         });
@@ -565,8 +555,7 @@ TEST(MathIntegrators, TheAdaptiveStepShrinksWhereTheOrbitIsFastest) {
     }
 
     EXPECT_LT(nearestStep * 10.0, farthestStep) << std::format(
-        "step near periapsis {:.3e}, near apoapsis {:.3e}", nearestStep,
-        farthestStep);
+        "step near periapsis {:.3e}, near apoapsis {:.3e}", nearestStep, farthestStep);
 }
 
 TEST(MathIntegrators, AdaptiveSteppingBeatsAFixedStepAtEqualCost) {
@@ -580,9 +569,8 @@ TEST(MathIntegrators, AdaptiveSteppingBeatsAFixedStepAtEqualCost) {
     settings.relativeTolerance = 1e-9;
 
     const auto system = ysq::asPhaseSystem(kepler::acceleration);
-    const auto adaptive = ysq::integrateAdaptive(
-        adaptiveStepper, system, kepler::start(), 0.0, kepler::period(), 0.01,
-        settings);
+    const auto adaptive = ysq::integrateAdaptive(adaptiveStepper, system, kepler::start(),
+                                                 0.0, kepler::period(), 0.01, settings);
     ASSERT_TRUE(adaptive.succeeded);
 
     // The orbit is closed, so after exactly one period the exact answer is the
@@ -600,9 +588,9 @@ TEST(MathIntegrators, AdaptiveSteppingBeatsAFixedStepAtEqualCost) {
 
     EXPECT_LE(fixedStepper.evaluations(), adaptive.evaluations + 8u)
         << "the budgets have to match for the comparison to mean anything";
-    EXPECT_LT(adaptiveError, fixedError) << std::format(
-        "adaptive {:.3e} vs fixed {:.3e} over about {} evaluations", adaptiveError,
-        fixedError, adaptive.evaluations);
+    EXPECT_LT(adaptiveError, fixedError)
+        << std::format("adaptive {:.3e} vs fixed {:.3e} over about {} evaluations",
+                       adaptiveError, fixedError, adaptive.evaluations);
 }
 
 TEST(MathIntegrators, TheControllerRecoversFromRejectedSteps) {
@@ -613,9 +601,9 @@ TEST(MathIntegrators, TheControllerRecoversFromRejectedSteps) {
     settings.absoluteTolerance = 1e-11;
     settings.relativeTolerance = 1e-11;
 
-    const auto result = ysq::integrateAdaptive(
-        stepper, ysq::asPhaseSystem(kepler::acceleration), kepler::start(), 0.0,
-        kepler::period(), 1.0, settings);
+    const auto result =
+        ysq::integrateAdaptive(stepper, ysq::asPhaseSystem(kepler::acceleration),
+                               kepler::start(), 0.0, kepler::period(), 1.0, settings);
 
     EXPECT_TRUE(result.succeeded);
     EXPECT_GT(result.rejectedSteps, 0u) << "an over-large first step must be refused";
@@ -631,13 +619,13 @@ TEST(MathIntegrators, TheMethodsRunAtSinglePrecision) {
     // double precision would pass everything above.
     ysq::Rk4Stepper<float> rk4;
     const auto decayFloat = [](float, float y) { return -y; };
-    EXPECT_NEAR(ysq::integrate(rk4, decayFloat, 1.0f, 0.0f, 1.0f, 0.01f),
-                std::exp(-1.0f), 1e-6f);
+    EXPECT_NEAR(ysq::integrate(rk4, decayFloat, 1.0f, 0.0f, 1.0f, 0.01f), std::exp(-1.0f),
+                1e-6f);
 
     ysq::VelocityVerletStepper<float> verlet;
     const auto springFloat = [](float, float q) { return -q; };
-    const auto end = ysq::integrate(verlet, springFloat,
-                                    PhaseState<float>{1.0f, 0.0f}, 0.0f, 1.0f, 0.01f);
+    const auto end = ysq::integrate(verlet, springFloat, PhaseState<float>{1.0f, 0.0f},
+                                    0.0f, 1.0f, 0.01f);
     EXPECT_NEAR(end.position, std::cos(1.0f), 1e-4f);
 
     ysq::DormandPrince54Stepper<float> dormandPrince;

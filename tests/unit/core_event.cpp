@@ -20,14 +20,11 @@ TEST(CoreEvent, DeliversToEverySubscriberInOrder) {
     ysq::EventBus bus;
     std::vector<std::string> calls;
 
-    const ysq::Subscription first =
-        bus.subscribe<Tick>([&calls](const Tick& e) {
-            calls.push_back("first:" + std::to_string(e.index));
-        });
-    const ysq::Subscription second =
-        bus.subscribe<Tick>([&calls](const Tick& e) {
-            calls.push_back("second:" + std::to_string(e.index));
-        });
+    const ysq::Subscription first = bus.subscribe<Tick>(
+        [&calls](const Tick& e) { calls.push_back("first:" + std::to_string(e.index)); });
+    const ysq::Subscription second = bus.subscribe<Tick>([&calls](const Tick& e) {
+        calls.push_back("second:" + std::to_string(e.index));
+    });
 
     bus.publish(Tick{7});
 
@@ -223,9 +220,8 @@ TEST(CoreEvent, NestedPublishIsSafe) {
             bus.publish(Tick{1});  // re-enter the same slot list
         }
     });
-    const ysq::Subscription onCollision =
-        bus.subscribe<Collision>(
-            [&calls](const Collision& e) { calls.push_back(e.label); });
+    const ysq::Subscription onCollision = bus.subscribe<Collision>(
+        [&calls](const Collision& e) { calls.push_back(e.label); });
 
     bus.publish(Tick{0});
 
@@ -239,9 +235,8 @@ TEST(CoreEvent, QueuedEventsDeliverOnDispatchInOrder) {
 
     const ysq::Subscription onTick = bus.subscribe<Tick>(
         [&calls](const Tick& e) { calls.push_back("tick:" + std::to_string(e.index)); });
-    const ysq::Subscription onCollision =
-        bus.subscribe<Collision>(
-            [&calls](const Collision& e) { calls.push_back(e.label); });
+    const ysq::Subscription onCollision = bus.subscribe<Collision>(
+        [&calls](const Collision& e) { calls.push_back(e.label); });
 
     bus.enqueue(Tick{1});
     bus.enqueue(Collision{"hit"});

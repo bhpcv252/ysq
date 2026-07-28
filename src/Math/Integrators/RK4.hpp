@@ -54,8 +54,8 @@ public:
 
         m_evaluations += 4;
 
-        out = state + (m_k1 + m_k2 * Scalar{2} + m_k3 * Scalar{2} + m_k4) *
-                          (h / Scalar{6});
+        out =
+            state + (m_k1 + m_k2 * Scalar{2} + m_k3 * Scalar{2} + m_k4) * (h / Scalar{6});
     }
 
     [[nodiscard]] std::size_t evaluations() const noexcept { return m_evaluations; }

@@ -63,8 +63,7 @@ TEST(MathStatistics, MeanVarianceAndDeviationMatchTheirDefinitions) {
 
     // Bessel's correction: n / (n - 1) times the population variance.
     EXPECT_APPROX(ysq::sampleVariance(kSimple), 4.0 * 8.0 / 7.0);
-    EXPECT_APPROX(ysq::sampleStandardDeviation(kSimple),
-                  std::sqrt(4.0 * 8.0 / 7.0));
+    EXPECT_APPROX(ysq::sampleStandardDeviation(kSimple), std::sqrt(4.0 * 8.0 / 7.0));
 
     EXPECT_APPROX(ysq::variance(std::vector<double>{3.0, 3.0, 3.0}), 0.0);
 }
@@ -289,8 +288,7 @@ TEST(MathStatistics, RunningStatisticsAgreeWithTheTwoPassAnswer) {
     EXPECT_NEAR(running.mean(), ysq::mean(kSimple), 1e-13);
     EXPECT_NEAR(running.variance(), ysq::variance(kSimple), 1e-13);
     EXPECT_NEAR(running.sampleVariance(), ysq::sampleVariance(kSimple), 1e-13);
-    EXPECT_NEAR(running.standardDeviation(), ysq::standardDeviation(kSimple),
-                1e-13);
+    EXPECT_NEAR(running.standardDeviation(), ysq::standardDeviation(kSimple), 1e-13);
     EXPECT_APPROX(running.minimum(), 2.0);
     EXPECT_APPROX(running.maximum(), 9.0);
     EXPECT_APPROX(running.range(), 7.0);

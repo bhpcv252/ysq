@@ -47,8 +47,7 @@ inline constexpr T notANumber = std::numeric_limits<T>::quiet_NaN();
 /// every caller would have to write the conversion out; the functions below
 /// make a span internally and work on that.
 template <class R>
-concept FloatRange = std::ranges::contiguous_range<R> &&
-                     std::ranges::sized_range<R> &&
+concept FloatRange = std::ranges::contiguous_range<R> && std::ranges::sized_range<R> &&
                      std::floating_point<std::ranges::range_value_t<R>>;
 
 template <class R>
@@ -210,8 +209,7 @@ template <detail::FloatRange R>
     -> detail::RangeValue<R> {
     using T = detail::RangeValue<R>;
     const auto values = detail::viewOf(range);
-    if (values.empty() || !(T{0} <= p && p <= T{1}) ||
-        detail::anyNotANumber(values)) {
+    if (values.empty() || !(T{0} <= p && p <= T{1}) || detail::anyNotANumber(values)) {
         return detail::notANumber<T>;
     }
     if (values.size() == 1) {
@@ -247,8 +245,7 @@ template <detail::FloatRange R>
 /// Divides by n, matching variance(). NaN unless both spans are the same
 /// non-empty length.
 template <detail::FloatRange R>
-[[nodiscard]] auto covariance(const R& xRange, const R& yRange)
-    -> detail::RangeValue<R> {
+[[nodiscard]] auto covariance(const R& xRange, const R& yRange) -> detail::RangeValue<R> {
     using T = detail::RangeValue<R>;
     const auto xs = detail::viewOf(xRange);
     const auto ys = detail::viewOf(yRange);
@@ -267,8 +264,7 @@ template <detail::FloatRange R>
 /// Pearson's correlation coefficient, in [-1, 1]. NaN when either variable is
 /// constant, since the correlation genuinely is not defined there.
 template <detail::FloatRange R>
-[[nodiscard]] auto correlation(const R& xs, const R& ys)
-    -> detail::RangeValue<R> {
+[[nodiscard]] auto correlation(const R& xs, const R& ys) -> detail::RangeValue<R> {
     using T = detail::RangeValue<R>;
     const T scale = standardDeviation(xs) * standardDeviation(ys);
     if (!(T{0} < scale)) {
@@ -289,14 +285,13 @@ struct LinearFit {
 /// is the case with no unique answer.
 template <detail::FloatRange R>
 [[nodiscard]] LinearFit<detail::RangeValue<R>> linearFit(const R& xRange,
-                                                        const R& yRange) {
+                                                         const R& yRange) {
     using T = detail::RangeValue<R>;
     const auto xs = detail::viewOf(xRange);
     const auto ys = detail::viewOf(yRange);
     const T varianceX = variance(xs);
     if (xs.size() < 2 || xs.size() != ys.size() || !(T{0} < varianceX)) {
-        return {detail::notANumber<T>, detail::notANumber<T>,
-                detail::notANumber<T>};
+        return {detail::notANumber<T>, detail::notANumber<T>, detail::notANumber<T>};
     }
 
     const T slope = covariance(xs, ys) / varianceX;
@@ -309,8 +304,7 @@ template <detail::FloatRange R>
 /// outside the range are dropped; `high` itself falls in the last bin rather
 /// than off the end.
 template <detail::FloatRange R>
-[[nodiscard]] std::vector<std::size_t> histogram(const R& range,
-                                                 std::size_t binCount,
+[[nodiscard]] std::vector<std::size_t> histogram(const R& range, std::size_t binCount,
                                                  detail::RangeValue<R> low,
                                                  detail::RangeValue<R> high) {
     using T = detail::RangeValue<R>;
@@ -382,9 +376,8 @@ public:
         const T deviation = other.m_mean - m_mean;
         const T weighted = deviation * static_cast<T>(other.m_count) / total;
 
-        m_sumSquaredDeviations += other.m_sumSquaredDeviations +
-                                  deviation * weighted *
-                                      static_cast<T>(m_count);
+        m_sumSquaredDeviations +=
+            other.m_sumSquaredDeviations + deviation * weighted * static_cast<T>(m_count);
         m_mean += weighted;
         m_count += other.m_count;
         m_minimum = std::min(m_minimum, other.m_minimum);
@@ -405,9 +398,8 @@ public:
     }
 
     [[nodiscard]] T sampleVariance() const noexcept {
-        return (m_count < 2)
-                   ? detail::notANumber<T>
-                   : m_sumSquaredDeviations / static_cast<T>(m_count - 1);
+        return (m_count < 2) ? detail::notANumber<T>
+                             : m_sumSquaredDeviations / static_cast<T>(m_count - 1);
     }
 
     [[nodiscard]] T standardDeviation() const { return std::sqrt(variance()); }

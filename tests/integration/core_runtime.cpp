@@ -43,12 +43,18 @@ frameSeconds = 0.5
 )";
 
 ysq::LogLevel toLevel(std::string_view name) {
-    if (name == "trace") return ysq::LogLevel::Trace;
-    if (name == "debug") return ysq::LogLevel::Debug;
-    if (name == "warn") return ysq::LogLevel::Warn;
-    if (name == "error") return ysq::LogLevel::Error;
-    if (name == "critical") return ysq::LogLevel::Critical;
-    if (name == "off") return ysq::LogLevel::Off;
+    if (name == "trace")
+        return ysq::LogLevel::Trace;
+    if (name == "debug")
+        return ysq::LogLevel::Debug;
+    if (name == "warn")
+        return ysq::LogLevel::Warn;
+    if (name == "error")
+        return ysq::LogLevel::Error;
+    if (name == "critical")
+        return ysq::LogLevel::Critical;
+    if (name == "off")
+        return ysq::LogLevel::Off;
     return ysq::LogLevel::Info;
 }
 
@@ -90,16 +96,12 @@ TEST(CoreRuntime, ConfigDrivesALoggedTimedDeterministicRun) {
     ysq::EventBus bus;
 
     std::vector<StepCompleted> steps;
-    const ysq::Subscription onStep =
-        bus.subscribe<StepCompleted>([&steps](const StepCompleted& e) {
-            steps.push_back(e);
-        });
+    const ysq::Subscription onStep = bus.subscribe<StepCompleted>(
+        [&steps](const StepCompleted& e) { steps.push_back(e); });
 
     std::optional<RunCompleted> completion;
-    const ysq::Subscription onCompletion =
-        bus.subscribe<RunCompleted>([&completion](const RunCompleted& e) {
-            completion = e;
-        });
+    const ysq::Subscription onCompletion = bus.subscribe<RunCompleted>(
+        [&completion](const RunCompleted& e) { completion = e; });
 
     ysq::log::info("run {} starting", runId.toString());
 

@@ -49,9 +49,8 @@ const std::array<Vec3, 3> kVectors{Vec3{1.0, 0.0, 0.0}, Vec3{2.0, -3.0, 0.5},
     if (angle < 1e-9) {
         return ::testing::AssertionSuccess();
     }
-    return ::testing::AssertionFailure()
-           << std::format("\n  {} = {}\n  {} = {}\ndiffer by {:.6g} rad", aExpr, a,
-                          bExpr, b, angle);
+    return ::testing::AssertionFailure() << std::format(
+               "\n  {} = {}\n  {} = {}\ndiffer by {:.6g} rad", aExpr, a, bExpr, b, angle);
 }
 
 #define EXPECT_SAME_ROTATION(a, b) EXPECT_PRED_FORMAT2(sameRotation, a, b)
@@ -120,8 +119,7 @@ TEST(MathQuaternion, ConjugationReversesProductsAndNormIsMultiplicative) {
     const Quat& b = kRotations[1];
 
     EXPECT_EQ(conjugate(conjugate(a)), a);
-    EXPECT_VEC_NEAR(conjugate(a * b), conjugate(b) * conjugate(a),
-                    zeroTolerance(4.0));
+    EXPECT_VEC_NEAR(conjugate(a * b), conjugate(b) * conjugate(a), zeroTolerance(4.0));
     EXPECT_APPROX(length(a * b), length(a) * length(b));
     EXPECT_APPROX(length(conjugate(a)), length(a));
     EXPECT_APPROX(lengthSquared(a), dot(a, a));
@@ -130,16 +128,13 @@ TEST(MathQuaternion, ConjugationReversesProductsAndNormIsMultiplicative) {
 TEST(MathQuaternion, InverseUndoesTheRotationFromBothSides) {
     const Quat scaled = kRotations[0] * 3.0;  // deliberately not unit
 
-    EXPECT_VEC_NEAR(scaled * inverse(scaled), Quat::identity(),
-                    zeroTolerance(4.0));
-    EXPECT_VEC_NEAR(inverse(scaled) * scaled, Quat::identity(),
-                    zeroTolerance(4.0));
+    EXPECT_VEC_NEAR(scaled * inverse(scaled), Quat::identity(), zeroTolerance(4.0));
+    EXPECT_VEC_NEAR(inverse(scaled) * scaled, Quat::identity(), zeroTolerance(4.0));
 
     // For a unit quaternion the conjugate is already the inverse.
     const Quat& unit = kRotations[0];
     EXPECT_VEC_NEAR(inverseUnit(unit), inverse(unit), zeroTolerance(4.0));
-    EXPECT_VEC_NEAR(inverseUnit(scaled) / 9.0, inverse(scaled),
-                    zeroTolerance(4.0))
+    EXPECT_VEC_NEAR(inverseUnit(scaled) / 9.0, inverse(scaled), zeroTolerance(4.0))
         << "inverseUnit skips the norm, which is exactly why it is unit-only";
 }
 
@@ -212,12 +207,10 @@ TEST(MathQuaternion, CompositionAppliesTheRightHandFactorFirst) {
     const Quat& a = kRotations[0];
     const Quat& b = kRotations[1];
     for (const Vec3& v : kVectors) {
-        EXPECT_VEC_NEAR(rotate(a * b, v), rotate(a, rotate(b, v)),
-                        zeroTolerance(20.0));
+        EXPECT_VEC_NEAR(rotate(a * b, v), rotate(a, rotate(b, v)), zeroTolerance(20.0));
     }
     // Matching the matrix convention exactly.
-    EXPECT_MAT_NEAR(toMatrix3(a * b), toMatrix3(a) * toMatrix3(b),
-                    zeroTolerance(20.0));
+    EXPECT_MAT_NEAR(toMatrix3(a * b), toMatrix3(a) * toMatrix3(b), zeroTolerance(20.0));
 }
 
 TEST(MathQuaternion, RotationAboutAnAxisLeavesThatAxisAlone) {
@@ -229,11 +222,9 @@ TEST(MathQuaternion, RotationAboutAnAxisLeavesThatAxisAlone) {
 
 TEST(MathQuaternion, QuarterTurnsGoTheRightWay) {
     const Quat aboutZ = Quat::fromAxisAngle(Vec3::unitZ(), kPi / 2.0);
-    EXPECT_VEC_NEAR(rotate(aboutZ, Vec3::unitX()), Vec3::unitY(),
-                    zeroTolerance(10.0));
+    EXPECT_VEC_NEAR(rotate(aboutZ, Vec3::unitX()), Vec3::unitY(), zeroTolerance(10.0));
     const Quat aboutX = Quat::fromAxisAngle(Vec3::unitX(), kPi / 2.0);
-    EXPECT_VEC_NEAR(rotate(aboutX, Vec3::unitY()), Vec3::unitZ(),
-                    zeroTolerance(10.0));
+    EXPECT_VEC_NEAR(rotate(aboutX, Vec3::unitY()), Vec3::unitZ(), zeroTolerance(10.0));
 }
 
 // --- Matrix conversion ------------------------------------------------------
@@ -244,8 +235,7 @@ TEST(MathQuaternion, ToMatrix3ProducesAProperRotation) {
         EXPECT_MAT_NEAR(transpose(m) * m, Mat3::identity(), zeroTolerance(10.0));
         EXPECT_NEAR(determinant(m), 1.0, zeroTolerance(10.0));
     }
-    EXPECT_MAT_NEAR(toMatrix3(Quat::identity()), Mat3::identity(),
-                    zeroTolerance(4.0));
+    EXPECT_MAT_NEAR(toMatrix3(Quat::identity()), Mat3::identity(), zeroTolerance(4.0));
 }
 
 TEST(MathQuaternion, MatrixConversionRoundTrips) {
@@ -254,8 +244,7 @@ TEST(MathQuaternion, MatrixConversionRoundTrips) {
     }
     for (const double angle : {0.1, 1.0, 2.0, -2.8}) {
         const Mat3 m = Mat3::rotation(kAxis, angle);
-        EXPECT_MAT_NEAR(toMatrix3(Quat::fromRotationMatrix(m)), m,
-                        zeroTolerance(20.0));
+        EXPECT_MAT_NEAR(toMatrix3(Quat::fromRotationMatrix(m)), m, zeroTolerance(20.0));
     }
 }
 
@@ -274,8 +263,7 @@ TEST(MathQuaternion, MatrixConversionSurvivesHalfTurns) {
         EXPECT_APPROX(length(q), 1.0) << "half turn about " << axis;
         EXPECT_MAT_NEAR(toMatrix3(q), m, zeroTolerance(20.0));
         for (const Vec3& v : kVectors) {
-            EXPECT_VEC_NEAR(rotate(q, v), rotateAbout(v, axis, kPi),
-                            zeroTolerance(20.0));
+            EXPECT_VEC_NEAR(rotate(q, v), rotateAbout(v, axis, kPi), zeroTolerance(20.0));
         }
     }
 
@@ -317,8 +305,7 @@ TEST(MathQuaternion, AxisAngleStaysAccurateForTinyRotations) {
         EXPECT_VEC_NEAR(decomposed.axis, kAxis, 1e-6);
     }
 
-    EXPECT_EQ(std::acos(ysq::clamp(Quat::fromAxisAngle(kAxis, 1e-9).w, -1.0, 1.0)),
-              0.0)
+    EXPECT_EQ(std::acos(ysq::clamp(Quat::fromAxisAngle(kAxis, 1e-9).w, -1.0, 1.0)), 0.0)
         << "the acos form loses this completely, which is why it is not used";
 }
 
@@ -364,8 +351,8 @@ TEST(MathQuaternion, EulerZyxIsDegenerateAtGimbalLockButStillTheSameRotation) {
 
                 EXPECT_NEAR(back.pitch, pole, 1e-7);
                 EXPECT_EQ(back.roll, 0.0) << "roll is pinned, not guessed";
-                EXPECT_SAME_ROTATION(
-                    Quat::fromEulerZYX(back.yaw, back.pitch, back.roll), q);
+                EXPECT_SAME_ROTATION(Quat::fromEulerZYX(back.yaw, back.pitch, back.roll),
+                                     q);
             }
         }
     }
@@ -383,9 +370,8 @@ TEST(MathQuaternion, EulerZyxDegradesGracefullyApproachingGimbalLock) {
         const auto back = toEulerZYX(q);
         const double tolerance = 1e-11 + 100.0 * kEps / offset;
 
-        EXPECT_NEAR(
-            angleBetween(Quat::fromEulerZYX(back.yaw, back.pitch, back.roll), q),
-            0.0, tolerance)
+        EXPECT_NEAR(angleBetween(Quat::fromEulerZYX(back.yaw, back.pitch, back.roll), q),
+                    0.0, tolerance)
             << "at offset " << offset;
     }
 }
@@ -414,8 +400,7 @@ TEST(MathQuaternion, SlerpTurnsAtAConstantRate) {
     ASSERT_GT(total, 0.5) << "the fixture needs a wide arc to say anything";
 
     for (const double t : {0.1, 0.25, 0.5, 0.75, 0.9}) {
-        EXPECT_NEAR(angleBetween(a, slerp(a, b, t)), total * t, 1e-9)
-            << "at t = " << t;
+        EXPECT_NEAR(angleBetween(a, slerp(a, b, t)), total * t, 1e-9) << "at t = " << t;
     }
 }
 
@@ -505,7 +490,8 @@ TEST(MathQuaternion, AngleBetweenResolvesAnglesFarBelowSquareRootEpsilon) {
 
         EXPECT_TRUE(viaAcos == 0.0 || viaAcos > 1e-8)
             << "the acos route is pinned at its floor rather than tracking the "
-               "angle, at " << angle << ": it returned " << viaAcos;
+               "angle, at "
+            << angle << ": it returned " << viaAcos;
         EXPECT_GT(angleBetween(a, b), angle / 2.0)
             << "while this one still returns an answer, at " << angle;
     }
