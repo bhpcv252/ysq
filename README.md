@@ -118,6 +118,8 @@ git submodule update --init --recursive
 | `YSQ_BUILD_GRAPHICS`     | `ON`    | Build against GLFW, GLAD and Dear ImGui. `OFF` drops them entirely, for headless and CI builds. |
 | `YSQ_WARNINGS_AS_ERRORS` | `OFF`   | Treat warnings as errors. CI builds with this on. |
 | `YSQ_REQUIRE_HEADLESS_GL` | `OFF`  | Fail rather than skip when no headless OpenGL context can be created. For machines known to have OSMesa; CI sets it on the one job that does. |
+| `YSQ_BUILD_COMPUTE_CUDA` | `ON`    | Build the CUDA compute backend if the toolkit is found. Detected, not required: an absent toolkit is skipped, not a build failure. |
+| `YSQ_BUILD_COMPUTE_VULKAN` | `ON`  | Build the Vulkan compute backend if the SDK is found. Same "use it if found" behaviour as above. |
 
 ```sh
 cmake -B build -DYSQ_BUILD_GRAPHICS=OFF   # headless: no graphics dependencies
@@ -288,17 +290,18 @@ ysq/
 │   ├── Compute/
 │   │   ├── README.md
 │   │   ├── CMakeLists.txt
-│   │   ├── ComputeBackend.hpp      Backend interface
+│   │   ├── ComputeBackend.hpp      Backend interface, selection and fallback
 │   │   ├── CPU/                    Reference backend (no GPU required)
 │   │   │   └── CpuBackend.hpp
-│   │   ├── OpenGL/
-│   │   │   ├── ComputeShader.hpp
-│   │   │   └── shaders/            *.comp
-│   │   ├── CUDA/
-│   │   │   └── kernels/            *.cu
-│   │   └── Vulkan/
-│   │       ├── VulkanCompute.hpp
-│   │       └── shaders/            *.comp (SPIR-V)
+│   │   ├── OpenGL/                 Built only under YSQ_BUILD_GRAPHICS
+│   │   │   ├── ComputeShader.hpp   Compile/link/dispatch a GLSL compute program
+│   │   │   └── OpenGLBackend.hpp   ComputeBackend over a 4.3+ offscreen context
+│   │   ├── CUDA/                   Built only when the CUDA Toolkit is found
+│   │   │   ├── CudaBackend.hpp     Device probe; kernels are a follow-up task
+│   │   │   └── kernels/            *.cu (not yet written)
+│   │   └── Vulkan/                 Built only when the Vulkan SDK is found
+│   │       ├── VulkanBackend.hpp   Device probe; kernels are a follow-up task
+│   │       └── shaders/            *.comp (SPIR-V, not yet written)
 │   │
 │   ├── Physics/
 │   │   ├── README.md

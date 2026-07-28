@@ -11,3 +11,8 @@ add_subdirectory(Units)
 if(YSQ_BUILD_GRAPHICS)
     add_subdirectory(Platform)
 endif()
+
+# Compute is added after Platform: its OpenGL backend conditionally links
+# ysq::Platform, which must already be a defined target when that happens. The
+# CPU backend always builds regardless of every option above.
+add_subdirectory(Compute)
