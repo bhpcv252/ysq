@@ -63,3 +63,47 @@ endif()
 
 ysq_add_test(test_compute_cpu SOURCES compute_cpu.cpp LIBS ysq::Compute)
 ysq_add_test(test_compute_backend SOURCES compute_backend.cpp LIBS ysq::Compute)
+
+ysq_add_test(test_physics_body SOURCES physics_body.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_mechanics SOURCES physics_mechanics.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_gravity SOURCES physics_gravity.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_barneshut SOURCES physics_barneshut.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+
+ysq_add_test(test_spacetime_metric SOURCES spacetime_metric.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_spacetime_schwarzschild SOURCES spacetime_schwarzschild.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_spacetime_kerr SOURCES spacetime_kerr.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_spacetime_flrw SOURCES spacetime_flrw.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_spacetime_geodesic SOURCES spacetime_geodesic.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+
+ysq_add_test(test_optics_propagation SOURCES optics_propagation.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_optics_lensing SOURCES optics_lensing.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_optics_frequencyshift SOURCES optics_frequencyshift.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+
+ysq_add_test(test_em_field SOURCES em_field.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_em_lorentz SOURCES em_lorentz.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_em_maxwell SOURCES em_maxwell.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+
+ysq_add_test(test_fluids_sph SOURCES fluids_sph.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_fluids_eulerian SOURCES fluids_eulerian.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+
+ysq_add_test(test_thermodynamics SOURCES thermodynamics.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_thermodynamics_heatequation SOURCES thermodynamics_heatequation.cpp
+    LIBS ysq::Physics ysq::TestSupport)

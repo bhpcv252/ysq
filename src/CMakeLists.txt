@@ -16,3 +16,7 @@ endif()
 # ysq::Platform, which must already be a defined target when that happens. The
 # CPU backend always builds regardless of every option above.
 add_subdirectory(Compute)
+
+# Physics builds on Compute (falling back to its CPU backend with no GPU) and
+# on Math/Units below it; see docs/architecture.md.
+add_subdirectory(Physics)

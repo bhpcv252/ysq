@@ -32,3 +32,20 @@ endif()
 # says so via GTEST_SKIP rather than passing on having checked nothing.
 ysq_add_test(test_compute_backends_agree SOURCES compute_backends_agree.cpp
     LIBS ysq::Compute)
+
+# Gravity's Newtonian rung, and then Barnes-Hut, each under a symplectic
+# integrator, checked against the physical invariants they are supposed to
+# preserve rather than against a fixed expected trajectory.
+ysq_add_test(test_orbit_stability SOURCES orbit_stability.cpp
+    LIBS ysq::Physics ysq::Math)
+ysq_add_test(test_nbody_energy SOURCES nbody_energy.cpp
+    LIBS ysq::Physics ysq::Math)
+
+# Spacetime + Optics: the deflection angle and the perihelion precession,
+# validated against closed forms, with precession also cross-checked
+# against Gravity's own 1PN prediction.
+ysq_add_test(test_lensing_deflection SOURCES lensing_deflection.cpp
+    LIBS ysq::Physics ysq::Math)
+
+ysq_add_test(test_fluids_shocktube SOURCES fluids_shocktube.cpp
+    LIBS ysq::Physics ysq::Math)

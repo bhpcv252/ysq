@@ -28,6 +28,7 @@ computes with, and nothing that knows what it is computing about.
 | `Math/Integrators/Adaptive.hpp` | Dormand-Prince 5(4) with a PI step controller                |
 | `Math/Integrators/Symplectic.hpp` | Velocity Verlet, Forest-Ruth, PEFRL                        |
 | `Math/Format.hpp`               | `std::formatter` for the value types above                   |
+| `Math/Grid.hpp`                 | A uniform 1D grid with ghost cells, for the PDE rungs in `Physics` |
 
 Derivations, coefficient tables and their sources are in
 [docs/math.md](../../docs/math.md).

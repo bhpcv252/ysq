@@ -25,6 +25,7 @@ equation is a compile error rather than a wrong trajectory.
 | `Units/Energy.hpp`         | Energy, power, action, specific energy                         |
 | `Units/Temperature.hpp`    | Temperature, heat capacity, entropy                            |
 | `Units/Luminosity.hpp`     | Radiometry and photometry                                      |
+| `Units/Electromagnetism.hpp` | Electric field, magnetic flux density                        |
 | `Units/Format.hpp`         | `std::formatter` for every quantity                            |
 
 Conversion factors, their sources and their exactness are in
@@ -50,9 +51,12 @@ whole idea, and it is enough.
 Not a catalogue of everything nameable.
 
 That is why `Pressure` and `Entropy` are here before `Thermodynamics` is, and
-why the electromagnetic family is not: the ampere is already in the algebra, so
-`Charge.hpp` is purely additive when `Electromagnetism` lands, and adding it
-early would be guessing at an interface instead of following one.
+why the electromagnetic family waited for `Electromagnetism` to land before
+`ElectricField` and `MagneticFluxDensity` were added, in `Electromagnetism.hpp`:
+the ampere was already in the algebra (`ElectricCharge` lives in
+`Constants.hpp`, needed to state the SI itself), so the addition was purely
+additive once the law that needed them existed, rather than guessing at an
+interface ahead of one.
 
 ## Vector quantities wrap the vector, not the other way round
 
