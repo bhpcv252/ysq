@@ -61,6 +61,14 @@ if(YSQ_BUILD_GRAPHICS)
         LIBS ysq::Platform glfw)
 endif()
 
+# Camera's projection/view factories and both controllers are pure functions
+# over Math and Platform::InputState, so they need no GL context; see
+# tests/integration/renderer_framebuffer.cpp for the part that does.
+if(YSQ_BUILD_GRAPHICS)
+    ysq_add_test(test_renderer_camera SOURCES renderer_camera.cpp
+        LIBS ysq::Renderer ysq::TestSupport)
+endif()
+
 ysq_add_test(test_compute_cpu SOURCES compute_cpu.cpp LIBS ysq::Compute)
 ysq_add_test(test_compute_backend SOURCES compute_backend.cpp LIBS ysq::Compute)
 

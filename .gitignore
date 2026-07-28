@@ -7,6 +7,10 @@ CMakeUserPresets.json
 compile_commands.json
 .cache/
 
+# Dear ImGui window-layout state, written wherever a binary using ImGuiLayer
+# runs from
+imgui.ini
+
 # Editors and IDEs
 .vscode/
 .idea/

@@ -20,3 +20,11 @@ add_subdirectory(Compute)
 # Physics builds on Compute (falling back to its CPU backend with no GPU) and
 # on Math/Units below it; see docs/architecture.md.
 add_subdirectory(Physics)
+
+# Renderer and UI are the presentation layer: they depend only on Platform
+# and Math, never Physics, so the engine stays domain-neutral. Graphics-only,
+# same as Platform.
+if(YSQ_BUILD_GRAPHICS)
+    add_subdirectory(Renderer)
+    add_subdirectory(UI)
+endif()

@@ -18,7 +18,11 @@ description of reality.
 - Custom math library: vectors, matrices, quaternions, tensors, ODE integrators
   (including symplectic)
 - Strongly-typed, dimensioned quantities (scalar or vector)
-- Real-time OpenGL rendering with ImGui controls, plus ray tracing
+- Real-time OpenGL rendering: instanced meshes, multi-light Blinn-Phong,
+  immediate-mode debug drawing, skyboxes, plus a fragment-shader ray tracer
+  with shadows and reflections
+- ImGui controls and ImPlot charts (live time-series and scatter) in the same
+  window and frame as the 3D view
 - GPU compute backends: OpenGL compute shaders, CUDA, Vulkan
 - Example applications: solar system, binary stars, galaxy collision, black hole,
   light deflection
@@ -46,6 +50,8 @@ External libraries, vendored under `third_party/`:
 | GLFW       | Window, input, OpenGL context                 |
 | GLAD       | OpenGL function loader (generated, committed) |
 | Dear ImGui | Control and debug panels                      |
+| Dear ImPlot | Charting on top of Dear ImGui                |
+| stb_image  | Image loading for `Renderer::Texture`         |
 | spdlog     | Logging (configured to use `std::format`)     |
 | GoogleTest | Test framework (tests only)                   |
 
@@ -345,18 +351,25 @@ ysq/
 │   ├── Renderer/
 │   │   ├── README.md
 │   │   ├── CMakeLists.txt
-│   │   ├── Renderer.hpp
-│   │   ├── Camera.hpp
+│   │   ├── Camera.hpp              Perspective/orthographic projection, view matrix
+│   │   ├── CameraController.hpp    Orbit and free-fly controllers, driven from Platform input
+│   │   ├── Light.hpp               PointLight, DirectionalLight
+│   │   ├── Material.hpp            Blinn-Phong parameters, shared by rasterizer and ray tracer
 │   │   ├── Shader.hpp
-│   │   ├── Texture.hpp
-│   │   ├── Mesh.hpp
+│   │   ├── Mesh.hpp                Sphere/quad/disk/cube generators, instanced draw
+│   │   ├── DebugDraw.hpp           Immediate-mode lines, points, arrows, grid, axes
+│   │   ├── Texture.hpp             2D texture and Cubemap, raw pixels or a decoded file
+│   │   ├── Renderer.hpp            RenderTarget (offscreen FBO) and the frame orchestrator
 │   │   ├── RayTracer.hpp           Ray-traced rendering; light physics in Physics/Optics
-│   │   └── shaders/                *.vert, *.frag
+│   │   └── shaders/                *.vert, *.frag, embedded at configure time
 │   │
 │   ├── UI/
 │   │   ├── README.md
 │   │   ├── CMakeLists.txt
-│   │   └── ImGuiLayer.hpp
+│   │   ├── ImGuiLayer.hpp          Owns the ImGui/ImPlot contexts and their backends
+│   │   ├── Panel.hpp               Generic bound-widget vocabulary
+│   │   ├── StatsOverlay.hpp        Frame time, FPS, draw-call count
+│   │   └── PlotPanel.hpp           TimeSeriesPlot, ScatterPlot: live ImPlot charts
 │   │
 │   └── Applications/
 │       ├── README.md
@@ -380,7 +393,8 @@ ysq/
     ├── README.md
     ├── CMakeLists.txt
     ├── support/                    Test-only helpers, outside the engine
-    │   └── MathApprox.hpp          Approximate comparison and printing for Math values
+    │   ├── MathApprox.hpp          Approximate comparison and printing for Math values
+    │   └── GLContext.hpp           An offscreen OpenGL context, however the machine can provide one
     ├── smoke/                      Build wiring: dependencies link, options took effect
     │   ├── CMakeLists.txt
     │   ├── spdlog_format.cpp
@@ -417,7 +431,8 @@ ysq/
     │   ├── platform_window.cpp     Settings a window refuses, no context
     │   ├── physics_gravity.cpp
     │   ├── spacetime_geodesic.cpp
-    │   └── optics_frequencyshift.cpp
+    │   ├── optics_frequencyshift.cpp
+    │   └── renderer_camera.cpp     Projection/view matrices and both camera controllers
     ├── compile_fail/               Targets that must not compile (CTest WILL_FAIL)
     │   └── CMakeLists.txt
     ├── integration/                Cross-module behavior
@@ -428,7 +443,10 @@ ysq/
     │   ├── platform_context.cpp    A real GL context, onscreen or headless
     │   ├── orbit_stability.cpp     Gravity + symplectic integrator
     │   ├── lensing_deflection.cpp  Spacetime + optics
-    │   └── nbody_energy.cpp        Barnes-Hut + conservation
+    │   ├── nbody_energy.cpp        Barnes-Hut + conservation
+    │   ├── renderer_framebuffer.cpp  Geometry, instancing, and debug lines to an offscreen FBO
+    │   ├── renderer_raytracer.cpp    Shadows and reflections, read back and checked pixel by pixel
+    │   └── ui_imgui_layer.cpp        ImGuiLayer lifecycle and Panel binding through a real frame
     └── e2e/                        Full application runs (headless)
         ├── CMakeLists.txt
         ├── solar_system.cpp        Energy & momentum conservation
@@ -445,8 +463,8 @@ ysq/
 | `Platform`     | Window, GL context, and input, wrapping GLFW                                                                                                                                                                                                         |
 | `Compute`      | Backend `Physics` dispatches to: a CPU reference implementation plus GPU acceleration (OpenGL compute shaders, CUDA, Vulkan)                                                                                                                         |
 | `Physics`      | Mechanics; relativistic spacetime (Minkowski, Schwarzschild, Kerr, FLRW) with a geodesic solver; gravity (Newtonian, post-Newtonian, Barnes-Hut summation); electromagnetism; fluids; thermodynamics; optics (propagation, lensing, frequency shift) |
-| `Renderer`     | OpenGL rendering (camera, shaders, textures, meshes) and ray tracing                                                                                                                                                                                 |
-| `UI`           | Dear ImGui panels                                                                                                                                                                                                                                    |
+| `Renderer`     | Camera and controllers, shaders, instanced meshes, textures, immediate-mode debug drawing, and both a forward rasterizer and a fragment-shader ray tracer                                                                                          |
+| `UI`           | Dear ImGui panels bound to plain references, Dear ImPlot charts, a stats overlay                                                                                                                                                                    |
 | `Applications` | Runnable simulation programs built on the engine                                                                                                                                                                                                     |
 
 ## Documentation
