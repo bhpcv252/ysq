@@ -11,9 +11,10 @@ concurrency:
 
 jobs:
   # Pinned to an exact clang-format: the tool's output changes between releases,
-  # so an unpinned check would start failing on code nobody touched. Only the
-  # engine's own sources are checked; third_party/ is upstream code and is not
-  # ours to reformat. No submodules for the same reason.
+  # so an unpinned check would start failing on code nobody touched. Everything
+  # tracked outside third_party/ is checked, so a new directory is covered the
+  # day it is added. third_party/ is upstream code and is not ours to reformat,
+  # which is also why no submodules are checked out.
   format:
     name: clang-format
     runs-on: ubuntu-latest
@@ -25,11 +26,16 @@ jobs:
       - name: Install clang-format
         run: pipx install clang-format==22.1.8
 
+      # The empty list is the failure case, not a pass: xargs with no input runs
+      # clang-format once with no arguments, which reads stdin, finds nothing and
+      # exits 0. A renamed directory would then leave a green check that formats
+      # nothing, so the file list is required to be non-empty.
       - name: Check formatting
-        run: >
-          find src tests
-          \( -name '*.hpp' -o -name '*.cpp' -o -name '*.h' -o -name '*.c' \)
-          -print0 | xargs -0 clang-format --dry-run -Werror
+        run: |
+          set -euo pipefail
+          files=$(git ls-files '*.hpp' '*.cpp' '*.h' '*.c' | grep -v '^third_party/')
+          test -n "$files"
+          printf '%s\n' "$files" | tr '\n' '\0' | xargs -0 clang-format --dry-run -Werror
 
   build:
     # graphics=OFF is not redundant: it is what keeps "the core needs no GPU and
