@@ -22,6 +22,7 @@
 #include <Math/CoordinateSystems.hpp>
 #include <Math/Dual.hpp>
 #include <Math/Format.hpp>
+#include <Math/Grid.hpp>
 #include <Math/Integrators/Adaptive.hpp>
 #include <Math/Integrators/Euler.hpp>
 #include <Math/Integrators/RK4.hpp>
@@ -70,6 +71,8 @@ template struct ysq::Dual<double>;
 template struct ysq::Tensor<float, 2, 4>;
 template struct ysq::Tensor<double, 2, 4>;
 template struct ysq::Tensor<double, 4, 4>;
+template class ysq::Grid1D<float>;
+template class ysq::Grid1D<double>;
 
 // The composition this whole design exists for: a vector over a dual scalar.
 // If Dual ever stops satisfying Numeric, this is where it stops compiling.
@@ -549,6 +552,25 @@ T exerciseNumerics() {
 }
 
 template <class T>
+T exerciseGrid() {
+    T acc{};
+
+    ysq::Grid1D<T> grid(4, 0.5, 1);
+    for (std::size_t i = 0; i < grid.cellCount(); ++i) {
+        grid[static_cast<std::ptrdiff_t>(i)] = static_cast<T>(i);
+    }
+    grid.applyPeriodicBoundary();
+
+    const ysq::Grid1D<T>& constGrid = grid;
+    acc += constGrid[-1] + constGrid[0] +
+           constGrid[static_cast<std::ptrdiff_t>(constGrid.cellCount())];
+    acc += static_cast<T>(constGrid.cellCount() + constGrid.ghostCells());
+    acc += static_cast<T>(constGrid.spacing());
+
+    return acc;
+}
+
+template <class T>
 T exerciseIntegrators() {
     using V3 = ysq::Vector3<T>;
     using Phase = ysq::PhaseState<V3>;
@@ -679,6 +701,8 @@ TEST(MathStrictWarnings, EveryTemplateInstantiatesForFloatAndDouble) {
     EXPECT_TRUE(std::isfinite(exerciseTensors<double>()));
     EXPECT_TRUE(std::isfinite(exerciseNumerics<float>()));
     EXPECT_TRUE(std::isfinite(exerciseNumerics<double>()));
+    EXPECT_TRUE(std::isfinite(exerciseGrid<float>()));
+    EXPECT_TRUE(std::isfinite(exerciseGrid<double>()));
     EXPECT_TRUE(std::isfinite(exerciseIntegrators<float>()));
     EXPECT_TRUE(std::isfinite(exerciseIntegrators<double>()));
 }
