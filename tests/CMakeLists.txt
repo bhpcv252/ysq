@@ -33,8 +33,12 @@ function(ysq_add_test name)
     # so the file name it hashes out of it is sha256("") for every target. All
     # the tests in one directory then share one cmake_test_discovery_*.json and
     # a parallel build races on it: one target deletes the file another is
-    # reading. A parallel build also starves the 5s discovery timeout.
-    gtest_discover_tests(${name} DISCOVERY_MODE PRE_TEST)
+    # reading.
+    #
+    # Listing a binary's cases takes milliseconds, so the timeout is not there
+    # for the listing. It covers the machine stalling underneath it, which the
+    # 5s default is thin for: a first launch on macOS pays for a signature check.
+    gtest_discover_tests(${name} DISCOVERY_MODE PRE_TEST DISCOVERY_TIMEOUT 30)
 endfunction()
 
 add_subdirectory(unit)

@@ -166,10 +166,12 @@ failures. See [tests/README.md](tests/README.md).
 
 ## Formatting
 
-`.clang-format` is the whole style, and CI checks it on every push:
+`.clang-format` is the whole style. CI checks it on pull requests and on pushes
+to `main`, over the same file list this formats:
 
 ```sh
-find src tests \( -name '*.hpp' -o -name '*.cpp' \) -print0 | xargs -0 clang-format -i
+git ls-files '*.hpp' '*.cpp' '*.h' '*.c' | grep -v '^third_party/' \
+    | tr '\n' '\0' | xargs -0 clang-format -i
 ```
 
 clang-format's output shifts between releases, so CI pins one version
