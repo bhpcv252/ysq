@@ -47,13 +47,13 @@ constexpr bool kContextIsRequired = false;
 
 // GTEST_SKIP and FAIL both have to appear in the test body itself, so this is a
 // macro rather than the helper function it would otherwise be.
-#define SKIP_UNLESS_REQUIRED(reason)                                              \
-    do {                                                                          \
-        if (kContextIsRequired) {                                                 \
-            FAIL() << "built with YSQ_REQUIRE_HEADLESS_GL, so this must not skip: " \
-                   << (reason);                                                   \
-        }                                                                         \
-        GTEST_SKIP() << (reason);                                                 \
+#define SKIP_UNLESS_REQUIRED(reason)                                                     \
+    do {                                                                                 \
+        if (kContextIsRequired) {                                                        \
+            FAIL() << "built with YSQ_REQUIRE_HEADLESS_GL, so this must not skip: "      \
+                   << (reason);                                                          \
+        }                                                                                \
+        GTEST_SKIP() << (reason);                                                        \
     } while (false)
 
 /// 4.1 is the default request and the most macOS offers. OSMesa builds vary and
@@ -84,8 +84,8 @@ struct Session {
 /// path an application will actually take; a runner without one still exercises
 /// everything but the display server itself.
 Session openContext(int width = 64, int height = 64) {
-    const std::array<std::optional<PlatformBackend>, 2> backends{
-        std::nullopt, PlatformBackend::Null};
+    const std::array<std::optional<PlatformBackend>, 2> backends{std::nullopt,
+                                                                 PlatformBackend::Null};
 
     Session session;
     for (const std::optional<PlatformBackend>& backend : backends) {
@@ -103,8 +103,8 @@ Session openContext(int width = 64, int height = 64) {
 
         for (const GLVersion version : kVersionLadder) {
             WindowError windowError;
-            session.window = Window::createOffscreen(width, height,
-                                                     contextFor(version), &windowError);
+            session.window =
+                Window::createOffscreen(width, height, contextFor(version), &windowError);
             if (session.window) {
                 session.requested = version;
                 return session;
@@ -158,7 +158,8 @@ TEST(PlatformContext, TheNullBackendGivesAContextWithNoDisplayAtAll) {
     settings.backend = PlatformBackend::Null;
 
     PlatformError platformError;
-    const std::optional<Platform> platform = Platform::initialize(settings, &platformError);
+    const std::optional<Platform> platform =
+        Platform::initialize(settings, &platformError);
     ASSERT_TRUE(platform) << platformError.message;
     ASSERT_EQ(Platform::backend(), PlatformBackend::Null)
         << "Null must never be substituted for something else";

@@ -72,8 +72,7 @@ using Timer = BasicTimer<std::chrono::steady_clock>;
 class ScopedTimer {
 public:
     explicit ScopedTimer(std::string label, LogLevel level = LogLevel::Debug)
-        : m_label(std::move(label)),
-          m_level(level) {}
+        : m_label(std::move(label)), m_level(level) {}
 
     ScopedTimer(const ScopedTimer&) = delete;
     ScopedTimer& operator=(const ScopedTimer&) = delete;
@@ -82,9 +81,8 @@ public:
         if (!Logger::enabled(m_level)) {
             return;
         }
-        detail::write(m_level,
-                      std::format("{} took {:.3f} ms", m_label,
-                                  m_timer.elapsedSeconds() * 1000.0));
+        detail::write(m_level, std::format("{} took {:.3f} ms", m_label,
+                                           m_timer.elapsedSeconds() * 1000.0));
     }
 
 private:

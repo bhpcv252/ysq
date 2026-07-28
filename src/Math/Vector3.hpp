@@ -43,15 +43,9 @@ struct Vector3 {
     [[nodiscard]] static constexpr Vector3 splat(T value) noexcept {
         return {value, value, value};
     }
-    [[nodiscard]] static constexpr Vector3 unitX() noexcept {
-        return {T{1}, T{0}, T{0}};
-    }
-    [[nodiscard]] static constexpr Vector3 unitY() noexcept {
-        return {T{0}, T{1}, T{0}};
-    }
-    [[nodiscard]] static constexpr Vector3 unitZ() noexcept {
-        return {T{0}, T{0}, T{1}};
-    }
+    [[nodiscard]] static constexpr Vector3 unitX() noexcept { return {T{1}, T{0}, T{0}}; }
+    [[nodiscard]] static constexpr Vector3 unitY() noexcept { return {T{0}, T{1}, T{0}}; }
+    [[nodiscard]] static constexpr Vector3 unitZ() noexcept { return {T{0}, T{0}, T{1}}; }
 
     constexpr Vector3& operator+=(const Vector3& other) noexcept {
         x += other.x;
@@ -227,15 +221,13 @@ template <Numeric T>
 template <Numeric T>
 [[nodiscard]] constexpr Vector3<T> min(const Vector3<T>& a,
                                        const Vector3<T>& b) noexcept {
-    return {(a.x < b.x) ? a.x : b.x, (a.y < b.y) ? a.y : b.y,
-            (a.z < b.z) ? a.z : b.z};
+    return {(a.x < b.x) ? a.x : b.x, (a.y < b.y) ? a.y : b.y, (a.z < b.z) ? a.z : b.z};
 }
 
 template <Numeric T>
 [[nodiscard]] constexpr Vector3<T> max(const Vector3<T>& a,
                                        const Vector3<T>& b) noexcept {
-    return {(a.x < b.x) ? b.x : a.x, (a.y < b.y) ? b.y : a.y,
-            (a.z < b.z) ? b.z : a.z};
+    return {(a.x < b.x) ? b.x : a.x, (a.y < b.y) ? b.y : a.y, (a.z < b.z) ? b.z : a.z};
 }
 
 template <Numeric T>

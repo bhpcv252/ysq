@@ -103,8 +103,7 @@ struct Polar {
         return (index == 0) ? radius : angle;
     }
 
-    [[nodiscard]] friend constexpr bool operator==(const Polar&,
-                                                   const Polar&) = default;
+    [[nodiscard]] friend constexpr bool operator==(const Polar&, const Polar&) = default;
 };
 
 // --- Points -----------------------------------------------------------------
@@ -128,8 +127,7 @@ template <Numeric T>
 template <Numeric T>
 [[nodiscard]] Spherical<T> toSpherical(const Vector3<T>& at) {
     const T fromAxis = detail::hypotOf(at.x, at.y);
-    return {length(at), detail::atan2Of(fromAxis, at.z),
-            detail::atan2Of(at.y, at.x)};
+    return {length(at), detail::atan2Of(fromAxis, at.z), detail::atan2Of(at.y, at.x)};
 }
 
 template <Numeric T>
@@ -194,8 +192,7 @@ template <Numeric T>
     const T cosAzimuth = cos(at.azimuth);
 
     return Matrix3<T>::fromColumns({cosAzimuth, sinAzimuth, T{0}},
-                                   {-sinAzimuth, cosAzimuth, T{0}},
-                                   {T{0}, T{0}, T{1}});
+                                   {-sinAzimuth, cosAzimuth, T{0}}, {T{0}, T{0}, T{1}});
 }
 
 /// Columns e_radius, e_angle.
@@ -234,8 +231,8 @@ template <Numeric T>
 /// Cartesian components of a vector whose components are given against the
 /// local spherical basis at `at`.
 template <Numeric T>
-[[nodiscard]] Vector3<T> sphericalComponentsToCartesian(
-    const Spherical<T>& at, const Vector3<T>& components) {
+[[nodiscard]] Vector3<T> sphericalComponentsToCartesian(const Spherical<T>& at,
+                                                        const Vector3<T>& components) {
     return sphericalBasis(at) * components;
 }
 
@@ -248,14 +245,14 @@ template <Numeric T>
 }
 
 template <Numeric T>
-[[nodiscard]] Vector3<T> cylindricalComponentsToCartesian(
-    const Cylindrical<T>& at, const Vector3<T>& components) {
+[[nodiscard]] Vector3<T> cylindricalComponentsToCartesian(const Cylindrical<T>& at,
+                                                          const Vector3<T>& components) {
     return cylindricalBasis(at) * components;
 }
 
 template <Numeric T>
-[[nodiscard]] Vector3<T> cartesianComponentsToCylindrical(
-    const Cylindrical<T>& at, const Vector3<T>& vector) {
+[[nodiscard]] Vector3<T> cartesianComponentsToCylindrical(const Cylindrical<T>& at,
+                                                          const Vector3<T>& vector) {
     return transpose(cylindricalBasis(at)) * vector;
 }
 

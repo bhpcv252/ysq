@@ -102,23 +102,23 @@ struct Canonical {
 template <class A, class B>
 struct MulImpl;
 
-template <int L1, int M1, int T1, int I1, int H1, int N1, int J1, int L2, int M2,
-          int T2, int I2, int H2, int N2, int J2>
+template <int L1, int M1, int T1, int I1, int H1, int N1, int J1, int L2, int M2, int T2,
+          int I2, int H2, int N2, int J2>
 struct MulImpl<Dimension<L1, M1, T1, I1, H1, N1, J1>,
                Dimension<L2, M2, T2, I2, H2, N2, J2>> {
-    using type = typename Canonical<L1 + L2, M1 + M2, T1 + T2, I1 + I2, H1 + H2,
-                                    N1 + N2, J1 + J2>::type;
+    using type = typename Canonical<L1 + L2, M1 + M2, T1 + T2, I1 + I2, H1 + H2, N1 + N2,
+                                    J1 + J2>::type;
 };
 
 template <class A, class B>
 struct DivImpl;
 
-template <int L1, int M1, int T1, int I1, int H1, int N1, int J1, int L2, int M2,
-          int T2, int I2, int H2, int N2, int J2>
+template <int L1, int M1, int T1, int I1, int H1, int N1, int J1, int L2, int M2, int T2,
+          int I2, int H2, int N2, int J2>
 struct DivImpl<Dimension<L1, M1, T1, I1, H1, N1, J1>,
                Dimension<L2, M2, T2, I2, H2, N2, J2>> {
-    using type = typename Canonical<L1 - L2, M1 - M2, T1 - T2, I1 - I2, H1 - H2,
-                                    N1 - N2, J1 - J2>::type;
+    using type = typename Canonical<L1 - L2, M1 - M2, T1 - T2, I1 - I2, H1 - H2, N1 - N2,
+                                    J1 - J2>::type;
 };
 
 template <class A, int N>
@@ -126,8 +126,8 @@ struct RaiseImpl;
 
 template <int L, int M, int T, int I, int H, int Am, int J, int N>
 struct RaiseImpl<Dimension<L, M, T, I, H, Am, J>, N> {
-    using type = typename Canonical<L * N, M * N, T * N, I * N, H * N, Am * N,
-                                    J * N>::type;
+    using type =
+        typename Canonical<L * N, M * N, T * N, I * N, H * N, Am * N, J * N>::type;
 };
 
 /// Whether a root of this degree exists, which is the single source of truth
@@ -139,8 +139,8 @@ struct RootExistsImpl : std::false_type {};
 template <int L, int M, int T, int I, int H, int Am, int J, int N>
 struct RootExistsImpl<Dimension<L, M, T, I, H, Am, J>, N>
     : std::bool_constant<(N > 0) && (L % N == 0) && (M % N == 0) && (T % N == 0) &&
-                         (I % N == 0) && (H % N == 0) && (Am % N == 0) &&
-                         (J % N == 0)> {};
+                         (I % N == 0) && (H % N == 0) && (Am % N == 0) && (J % N == 0)> {
+};
 
 /// Taking a root is the one dimension operation that can fail, and therefore
 /// the one that has to fail by substitution rather than by assertion.
@@ -166,8 +166,8 @@ struct RootImpl {};
 
 template <int L, int M, int T, int I, int H, int Am, int J, int N>
 struct RootImpl<Dimension<L, M, T, I, H, Am, J>, N, true> {
-    using type = typename Canonical<L / N, M / N, T / N, I / N, H / N, Am / N,
-                                    J / N>::type;
+    using type =
+        typename Canonical<L / N, M / N, T / N, I / N, H / N, Am / N, J / N>::type;
 };
 
 }  // namespace detail
@@ -339,8 +339,8 @@ public:
     /// The magnitude in a given unit, which is division spelled so it reads
     /// left to right at a call site: `d.in(units::kilometre)`. Dimension
     /// checked, so a length cannot be read in seconds.
-    [[nodiscard]] constexpr Value in(const Quantity<D, scalar_type>& unit) const
-        noexcept {
+    [[nodiscard]] constexpr Value
+    in(const Quantity<D, scalar_type>& unit) const noexcept {
         return m_value / unit.value();
     }
 
@@ -469,7 +469,7 @@ template <class D1, class V1, class D2, class V2>
                                        const Quantity<D2, V2>& b) noexcept
     -> Quantity<dim::Mul<D1, D2>, detail::ProductValue<V1, V2>> {
     return Quantity<dim::Mul<D1, D2>, detail::ProductValue<V1, V2>>{a.value() *
-                                                                   b.value()};
+                                                                    b.value()};
 }
 
 /// Dividing by a vector is not an operation, so the divisor is scalar-valued
@@ -643,9 +643,8 @@ template <class D, QuantityVector V>
 // caller to unwrap and rewrap by hand.
 
 template <class D, QuantityValue V>
-[[nodiscard]] constexpr Quantity<D, V> lerp(const Quantity<D, V>& a,
-                                            const Quantity<D, V>& b,
-                                            ScalarOf<V> t) noexcept {
+[[nodiscard]] constexpr Quantity<D, V>
+lerp(const Quantity<D, V>& a, const Quantity<D, V>& b, ScalarOf<V> t) noexcept {
     return a * (ScalarOf<V>{1} - t) + b * t;
 }
 
@@ -707,17 +706,18 @@ template <class D, class V>
 /// plain number because a ratio is dimensionless by construction.
 template <class D, class V>
     requires QuantityScalar<V>
-[[nodiscard]] constexpr bool approxEqual(
-    const Quantity<D, V>& a, const Quantity<D, V>& b, V relTol = kDefaultRelTol<V>,
-    const Quantity<D, V>& absTol = Quantity<D, V>{kDefaultAbsTol<V>}) noexcept {
+[[nodiscard]] constexpr bool
+approxEqual(const Quantity<D, V>& a, const Quantity<D, V>& b,
+            V relTol = kDefaultRelTol<V>,
+            const Quantity<D, V>& absTol = Quantity<D, V>{kDefaultAbsTol<V>}) noexcept {
     return approxEqual(a.value(), b.value(), relTol, absTol.value());
 }
 
 template <class D, class V>
     requires QuantityScalar<V>
-[[nodiscard]] constexpr bool isNearZero(
-    const Quantity<D, V>& q,
-    const Quantity<D, V>& absTol = Quantity<D, V>{kDefaultAbsTol<V>}) noexcept {
+[[nodiscard]] constexpr bool
+isNearZero(const Quantity<D, V>& q,
+           const Quantity<D, V>& absTol = Quantity<D, V>{kDefaultAbsTol<V>}) noexcept {
     return isNearZero(q.value(), absTol.value());
 }
 

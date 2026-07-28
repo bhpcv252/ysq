@@ -63,9 +63,7 @@ private:
 
     Subscription(std::weak_ptr<detail::BusToken> token, const std::type_info* type,
                  std::uint64_t id) noexcept
-        : m_token(std::move(token)),
-          m_type(type),
-          m_id(id) {}
+        : m_token(std::move(token)), m_type(type), m_id(id) {}
 
     std::weak_ptr<detail::BusToken> m_token;
     const std::type_info* m_type = nullptr;
@@ -139,12 +137,11 @@ template <class E>
 Subscription EventBus::subscribe(std::function<void(const E&)> handler) {
     const std::uint64_t id = m_nextId++;
     detail::SlotList& list = slotsFor(typeid(E));
-    list.slots.push_back(
-        detail::Slot{id,
-                     [callback = std::move(handler)](const void* event) {
-                         callback(*static_cast<const E*>(event));
-                     },
-                     true});
+    list.slots.push_back(detail::Slot{id,
+                                      [callback = std::move(handler)](const void* event) {
+                                          callback(*static_cast<const E*>(event));
+                                      },
+                                      true});
     return Subscription{m_token, &typeid(E), id};
 }
 

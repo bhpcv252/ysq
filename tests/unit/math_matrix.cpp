@@ -34,19 +34,17 @@ double zeroTolerance(double scale) {
 /// Invertible, not symmetric, not orthogonal, no zero entries to hide an index
 /// mix-up behind. A matrix full of tidy zeros will pass a transposed
 /// implementation without complaint.
-const Mat3 kAwkward3 = Mat3::fromRows({2.0, -1.0, 3.0}, {0.5, 4.0, -2.0},
-                                      {-1.5, 1.0, 5.0});
+const Mat3 kAwkward3 =
+    Mat3::fromRows({2.0, -1.0, 3.0}, {0.5, 4.0, -2.0}, {-1.5, 1.0, 5.0});
 
-const Mat3 kAwkwardOther3 = Mat3::fromRows({1.0, 2.0, -1.0}, {3.0, -0.5, 2.0},
-                                           {0.25, 1.0, 4.0});
+const Mat3 kAwkwardOther3 =
+    Mat3::fromRows({1.0, 2.0, -1.0}, {3.0, -0.5, 2.0}, {0.25, 1.0, 4.0});
 
-const Mat4 kAwkward4 =
-    Mat4::fromRows({2.0, -1.0, 3.0, 0.5}, {0.5, 4.0, -2.0, 1.0},
-                   {-1.5, 1.0, 5.0, -3.0}, {1.0, 0.25, -0.5, 2.0});
+const Mat4 kAwkward4 = Mat4::fromRows({2.0, -1.0, 3.0, 0.5}, {0.5, 4.0, -2.0, 1.0},
+                                      {-1.5, 1.0, 5.0, -3.0}, {1.0, 0.25, -0.5, 2.0});
 
-const Mat4 kAwkwardOther4 =
-    Mat4::fromRows({1.0, 2.0, -1.0, 3.0}, {3.0, -0.5, 2.0, 1.0},
-                   {0.25, 1.0, 4.0, -2.0}, {-1.0, 0.5, 1.5, 1.0});
+const Mat4 kAwkwardOther4 = Mat4::fromRows({1.0, 2.0, -1.0, 3.0}, {3.0, -0.5, 2.0, 1.0},
+                                           {0.25, 1.0, 4.0, -2.0}, {-1.0, 0.5, 1.5, 1.0});
 
 const Mat2 kAwkward2 = Mat2::fromRows({2.0, -1.0}, {0.5, 4.0});
 const Mat2 kAwkwardOther2 = Mat2::fromRows({1.0, 3.0}, {-0.5, 2.0});
@@ -59,16 +57,14 @@ TEST(MathMatrix, StorageIsColumnMajorSoItUploadsToOpenGlUntransposed) {
     // came out in row order every shader in the project would see a transposed
     // matrix, and nothing else in this file would catch it.
     const Mat4 m = Mat4::fromRows({1.0, 2.0, 3.0, 4.0}, {5.0, 6.0, 7.0, 8.0},
-                                  {9.0, 10.0, 11.0, 12.0},
-                                  {13.0, 14.0, 15.0, 16.0});
+                                  {9.0, 10.0, 11.0, 12.0}, {13.0, 14.0, 15.0, 16.0});
 
     std::array<double, 16> raw{};
     static_assert(sizeof(raw) == sizeof(m));
     std::memcpy(raw.data(), &m, sizeof(m));
 
-    const std::array<double, 16> expected{1.0, 5.0, 9.0,  13.0, 2.0, 6.0,
-                                          10.0, 14.0, 3.0, 7.0,  11.0, 15.0,
-                                          4.0, 8.0, 12.0, 16.0};
+    const std::array<double, 16> expected{1.0, 5.0, 9.0,  13.0, 2.0, 6.0, 10.0, 14.0,
+                                          3.0, 7.0, 11.0, 15.0, 4.0, 8.0, 12.0, 16.0};
     EXPECT_EQ(raw, expected);
 
     static_assert(std::is_standard_layout_v<Mat4>);
@@ -79,8 +75,7 @@ TEST(MathMatrix, StorageIsColumnMajorSoItUploadsToOpenGlUntransposed) {
 }
 
 TEST(MathMatrix, SubscriptIndexesAColumnAndCallIndexesAnElement) {
-    const Mat3 m = Mat3::fromRows({1.0, 2.0, 3.0}, {4.0, 5.0, 6.0},
-                                  {7.0, 8.0, 9.0});
+    const Mat3 m = Mat3::fromRows({1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0});
 
     EXPECT_EQ(m[0], (Vec3{1.0, 4.0, 7.0})) << "operator[] must give a column";
     EXPECT_EQ(m[1], (Vec3{2.0, 5.0, 8.0}));
@@ -161,8 +156,8 @@ TEST(MathMatrix, MatrixVectorProductIsTheColumnCombination) {
 
     EXPECT_VEC_APPROX(m * v, m[0] * v.x + m[1] * v.y + m[2] * v.z);
     // And, equivalently, the row-by-row dot products.
-    EXPECT_VEC_APPROX(m * v, (Vec3{dot(m.row(0), v), dot(m.row(1), v),
-                                   dot(m.row(2), v)}));
+    EXPECT_VEC_APPROX(m * v,
+                      (Vec3{dot(m.row(0), v), dot(m.row(1), v), dot(m.row(2), v)}));
     // Linear in the vector.
     const Vec3 w{1.0, 1.0, -2.0};
     EXPECT_VEC_APPROX(m * (v + w), m * v + m * w);
@@ -278,8 +273,7 @@ TEST(MathMatrix, InverseUndoesTheMatrixFromBothSides) {
 TEST(MathMatrix, InverseIsItsOwnInverseAndReversesProducts) {
     EXPECT_MAT_NEAR(inverse(inverse(kAwkward3)), kAwkward3, zeroTolerance(50.0));
     EXPECT_MAT_NEAR(inverse(kAwkward3 * kAwkwardOther3),
-                    inverse(kAwkwardOther3) * inverse(kAwkward3),
-                    zeroTolerance(50.0));
+                    inverse(kAwkwardOther3) * inverse(kAwkward3), zeroTolerance(50.0));
     EXPECT_APPROX(determinant(inverse(kAwkward3)), 1.0 / determinant(kAwkward3));
 }
 
@@ -296,8 +290,7 @@ TEST(MathMatrix, TryInverseRejectsSingularAndNonFiniteMatrices) {
     EXPECT_FALSE(tryInverse(Mat3::diagonal({nan, 1.0, 1.0})).has_value());
 
     ASSERT_TRUE(tryInverse(kAwkward3).has_value());
-    EXPECT_MAT_NEAR(*tryInverse(kAwkward3), inverse(kAwkward3),
-                    zeroTolerance(50.0));
+    EXPECT_MAT_NEAR(*tryInverse(kAwkward3), inverse(kAwkward3), zeroTolerance(50.0));
 }
 
 TEST(MathMatrix, InversionRefusesAnOverflowingDeterminantRatherThanReturningZero) {
@@ -314,8 +307,7 @@ TEST(MathMatrix, InversionRefusesAnOverflowingDeterminantRatherThanReturningZero
 
     const double inf = std::numeric_limits<double>::infinity();
     EXPECT_FALSE(tryInverse(Mat3::diagonal({inf, 1.0, 1.0})).has_value());
-    EXPECT_FALSE(solve(Mat3::diagonal({inf, 1.0, 1.0}), Vec3{1.0, 1.0, 1.0})
-                     .has_value());
+    EXPECT_FALSE(solve(Mat3::diagonal({inf, 1.0, 1.0}), Vec3{1.0, 1.0, 1.0}).has_value());
 
     // Well inside the range it still inverts, so the guard is not simply
     // refusing anything large.
@@ -327,8 +319,8 @@ TEST(MathMatrix, InversionRefusesAnOverflowingDeterminantRatherThanReturningZero
 TEST(MathMatrix, UncheckedInverseOfASingularMatrixIsNotANumber) {
     // Documented behaviour: it propagates rather than returning a plausible
     // wrong matrix. tryInverse is the checked spelling.
-    const Mat3 singular = Mat3::fromColumns({1.0, 2.0, 3.0}, {4.0, 5.0, 6.0},
-                                            {1.0, 2.0, 3.0});
+    const Mat3 singular =
+        Mat3::fromColumns({1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {1.0, 2.0, 3.0});
     EXPECT_FALSE(std::isfinite(inverse(singular)(0, 0)));
 }
 
@@ -338,12 +330,10 @@ TEST(MathMatrix, AdjugateTimesTheMatrixIsTheDeterminantEvenWhenSingular) {
     const Mat4 singular =
         Mat4::fromColumns(kAwkward4[0], kAwkward4[1], kAwkward4[2], kAwkward4[0]);
     EXPECT_NEAR(determinant(singular), 0.0, zeroTolerance(1.0e3));
-    EXPECT_MAT_NEAR(adjugate(singular) * singular, Mat4::zero(),
-                    zeroTolerance(1.0e4));
+    EXPECT_MAT_NEAR(adjugate(singular) * singular, Mat4::zero(), zeroTolerance(1.0e4));
 
     EXPECT_MAT_NEAR(adjugate(kAwkward4) * kAwkward4,
-                    Mat4::identity() * determinant(kAwkward4),
-                    zeroTolerance(1.0e4));
+                    Mat4::identity() * determinant(kAwkward4), zeroTolerance(1.0e4));
 }
 
 TEST(MathMatrix, SolveAgreesWithTheCofactorInverse) {
@@ -380,8 +370,8 @@ TEST(MathMatrix, SolvePivotsPastAZeroLeadingEntry) {
 }
 
 TEST(MathMatrix, SolveReportsSingularRatherThanReturningNonsense) {
-    const Mat3 singular = Mat3::fromColumns({1.0, 2.0, 3.0}, {4.0, 5.0, 6.0},
-                                            {1.0, 2.0, 3.0});
+    const Mat3 singular =
+        Mat3::fromColumns({1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {1.0, 2.0, 3.0});
     EXPECT_FALSE(solve(singular, Vec3{1.0, 1.0, 1.0}).has_value());
     EXPECT_FALSE(solve(Mat4::zero(), Vec4{1.0, 1.0, 1.0, 1.0}).has_value());
 }
@@ -404,8 +394,8 @@ TEST(MathMatrix, TraceIsLinearAndCyclic) {
     EXPECT_APPROX(trace(Mat4::identity()), 4.0);
     EXPECT_APPROX(trace(kAwkward3 + kAwkwardOther3),
                   trace(kAwkward3) + trace(kAwkwardOther3));
-    EXPECT_NEAR(trace(kAwkward3 * kAwkwardOther3),
-                trace(kAwkwardOther3 * kAwkward3), zeroTolerance(200.0));
+    EXPECT_NEAR(trace(kAwkward3 * kAwkwardOther3), trace(kAwkwardOther3 * kAwkward3),
+                zeroTolerance(200.0));
 }
 
 // --- Rotations --------------------------------------------------------------
@@ -508,12 +498,10 @@ TEST(MathMatrix, AffineTransformsComposeRightToLeft) {
 
     // T * R rotates first, then translates.
     EXPECT_VEC_NEAR(transformPoint(t * r, v),
-                    rotateAbout(v, Vec3::unitZ(), angle) + offset,
-                    zeroTolerance(10.0));
+                    rotateAbout(v, Vec3::unitZ(), angle) + offset, zeroTolerance(10.0));
     // R * T translates first, then rotates the result.
     EXPECT_VEC_NEAR(transformPoint(r * t, v),
-                    rotateAbout(v + offset, Vec3::unitZ(), angle),
-                    zeroTolerance(10.0));
+                    rotateAbout(v + offset, Vec3::unitZ(), angle), zeroTolerance(10.0));
 }
 
 TEST(MathMatrix, InverseAffineMatchesTheGeneralInverse) {
@@ -530,8 +518,7 @@ TEST(MathMatrix, InverseAffineMatchesTheGeneralInverse) {
 }
 
 TEST(MathMatrix, LinearPartAndTranslationRoundTrip) {
-    const Mat3 linear = Mat3::rotation(Vec3::unitZ(), 0.4) *
-                        Mat3::scale({2.0, 3.0, 0.5});
+    const Mat3 linear = Mat3::rotation(Vec3::unitZ(), 0.4) * Mat3::scale({2.0, 3.0, 0.5});
     const Vec3 offset{5.0, -2.0, 1.0};
     const Mat4 m = Mat4::fromLinearTranslation(linear, offset);
 
@@ -550,8 +537,8 @@ TEST(MathMatrix, LookAtPutsTheEyeAtTheOriginLookingDownNegativeZ) {
     const Mat4 view = Mat4::lookAt(eye, center, Vec3::unitY());
 
     EXPECT_VEC_NEAR(transformPoint(view, eye), Vec3::zero(), zeroTolerance(20.0));
-    EXPECT_VEC_NEAR(transformDirection(view, normalized(center - eye)),
-                    -Vec3::unitZ(), zeroTolerance(10.0));
+    EXPECT_VEC_NEAR(transformDirection(view, normalized(center - eye)), -Vec3::unitZ(),
+                    zeroTolerance(10.0));
     // The target ends up straight ahead: on the -Z axis.
     const Vec3 target = transformPoint(view, center);
     EXPECT_NEAR(target.x, 0.0, zeroTolerance(20.0));
@@ -570,16 +557,13 @@ TEST(MathMatrix, PerspectiveMapsTheFrustumOntoOpenGlClipSpace) {
     const Mat4 p = Mat4::perspective(fovY, aspect, nearPlane, farPlane);
 
     // OpenGL depth runs -1 at the near plane to +1 at the far plane.
-    EXPECT_NEAR(projectPoint(p, Vec3{0.0, 0.0, -nearPlane}).z, -1.0,
-                zeroTolerance(10.0));
-    EXPECT_NEAR(projectPoint(p, Vec3{0.0, 0.0, -farPlane}).z, 1.0,
-                zeroTolerance(10.0));
+    EXPECT_NEAR(projectPoint(p, Vec3{0.0, 0.0, -nearPlane}).z, -1.0, zeroTolerance(10.0));
+    EXPECT_NEAR(projectPoint(p, Vec3{0.0, 0.0, -farPlane}).z, 1.0, zeroTolerance(10.0));
 
     // The top edge of the frustum at any depth lands on y = 1.
     const double depth = 4.0;
     const double topAt = depth * std::tan(fovY / 2.0);
-    EXPECT_NEAR(projectPoint(p, Vec3{0.0, topAt, -depth}).y, 1.0,
-                zeroTolerance(10.0));
+    EXPECT_NEAR(projectPoint(p, Vec3{0.0, topAt, -depth}).y, 1.0, zeroTolerance(10.0));
     // And the right edge, which is the top scaled by the aspect ratio.
     EXPECT_NEAR(projectPoint(p, Vec3{topAt * aspect, 0.0, -depth}).x, 1.0,
                 zeroTolerance(10.0));
@@ -595,13 +579,12 @@ TEST(MathMatrix, OrthographicMapsTheBoxOntoTheClipCube) {
     constexpr double top = 6.0;
     constexpr double nearPlane = 1.0;
     constexpr double farPlane = 20.0;
-    const Mat4 p =
-        Mat4::orthographic(left, right, bottom, top, nearPlane, farPlane);
+    const Mat4 p = Mat4::orthographic(left, right, bottom, top, nearPlane, farPlane);
 
     EXPECT_VEC_NEAR(projectPoint(p, Vec3{left, bottom, -nearPlane}),
                     (Vec3{-1.0, -1.0, -1.0}), zeroTolerance(20.0));
-    EXPECT_VEC_NEAR(projectPoint(p, Vec3{right, top, -farPlane}),
-                    (Vec3{1.0, 1.0, 1.0}), zeroTolerance(20.0));
+    EXPECT_VEC_NEAR(projectPoint(p, Vec3{right, top, -farPlane}), (Vec3{1.0, 1.0, 1.0}),
+                    zeroTolerance(20.0));
     // Affine, unlike perspective.
     EXPECT_EQ(p.row(3), (Vec4{0.0, 0.0, 0.0, 1.0}));
 }
@@ -613,8 +596,7 @@ TEST(MathMatrix, FormattingPrintsByRowsNotByStorageOrder) {
     EXPECT_EQ(std::format("{}", m), "[[1, 2], [3, 4]]")
         << "storage is column-major, but a printed matrix has to read the way "
            "it is written";
-    EXPECT_EQ(std::format("{:.1f}", Mat2::identity()),
-              "[[1.0, 0.0], [0.0, 1.0]]");
+    EXPECT_EQ(std::format("{:.1f}", Mat2::identity()), "[[1.0, 0.0], [0.0, 1.0]]");
 }
 
 // --- Single precision -------------------------------------------------------
@@ -624,8 +606,8 @@ TEST(MathMatrix, IdentitiesHoldAtSinglePrecision) {
     using ysq::Vec3f;
     constexpr float tol = 1e-5f;
 
-    const Mat3f a = Mat3f::fromRows({2.0f, -1.0f, 3.0f}, {0.5f, 4.0f, -2.0f},
-                                    {-1.5f, 1.0f, 5.0f});
+    const Mat3f a =
+        Mat3f::fromRows({2.0f, -1.0f, 3.0f}, {0.5f, 4.0f, -2.0f}, {-1.5f, 1.0f, 5.0f});
     EXPECT_MAT_NEAR(a * inverse(a), Mat3f::identity(), tol);
     EXPECT_MAT_NEAR(transpose(transpose(a)), a, tol);
 

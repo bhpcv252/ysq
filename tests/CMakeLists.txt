@@ -26,7 +26,15 @@ function(ysq_add_test name)
         ${ARG_LIBS}
         GTest::gtest_main
         ${_warnings})
-    gtest_discover_tests(${name})
+    # PRE_TEST, not the POST_BUILD default: discovery then runs serially during
+    # CTest's setup instead of concurrently as each target finishes linking.
+    # CMake 4.2 made discovery parse a JSON test list, and up to and including
+    # 4.4.0 GoogleTest.cmake never passes TEST_TARGET to the discovery script,
+    # so the file name it hashes out of it is sha256("") for every target. All
+    # the tests in one directory then share one cmake_test_discovery_*.json and
+    # a parallel build races on it: one target deletes the file another is
+    # reading. A parallel build also starves the 5s discovery timeout.
+    gtest_discover_tests(${name} DISCOVERY_MODE PRE_TEST)
 endfunction()
 
 add_subdirectory(unit)

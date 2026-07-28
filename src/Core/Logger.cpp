@@ -14,6 +14,9 @@ namespace ysq {
 namespace {
 
 spdlog::level::level_enum toSpdlog(LogLevel level) {
+    // A lookup table, so it is written as one. clang-format would give each
+    // case two lines and lose the column that makes a missing level obvious.
+    // clang-format off
     switch (level) {
         case LogLevel::Trace:    return spdlog::level::trace;
         case LogLevel::Debug:    return spdlog::level::debug;
@@ -23,6 +26,7 @@ spdlog::level::level_enum toSpdlog(LogLevel level) {
         case LogLevel::Critical: return spdlog::level::critical;
         case LogLevel::Off:      return spdlog::level::off;
     }
+    // clang-format on
     return spdlog::level::info;
 }
 

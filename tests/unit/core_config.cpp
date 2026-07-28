@@ -58,18 +58,18 @@ TEST(CoreConfig, SerialisationIsAFixedPoint) {
 }
 
 TEST(CoreConfig, WritesSectionsAndReadsThemBackAsDottedKeys) {
-    const std::optional<ysq::Config> config = ysq::Config::parse(
-        "# a comment\n"
-        "\n"
-        "timeScale = 1.0\n"
-        "\n"
-        "[physics]\n"
-        "integrator = rk4\n"
-        "timestep   = 0.001\n"
-        "\n"
-        "; another comment style\n"
-        "[render]\n"
-        "vsync = true\n");
+    const std::optional<ysq::Config> config =
+        ysq::Config::parse("# a comment\n"
+                           "\n"
+                           "timeScale = 1.0\n"
+                           "\n"
+                           "[physics]\n"
+                           "integrator = rk4\n"
+                           "timestep   = 0.001\n"
+                           "\n"
+                           "; another comment style\n"
+                           "[render]\n"
+                           "vsync = true\n");
 
     ASSERT_TRUE(config.has_value());
     EXPECT_EQ(config->keys(),

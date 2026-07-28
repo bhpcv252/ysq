@@ -27,8 +27,7 @@ double zeroTolerance(double scale) {
 /// implementation that happens to work for the easy cases has somewhere to
 /// fail.
 constexpr std::array<Cplx, 5> kSamples{
-    Cplx{3.0, 4.0}, Cplx{-1.5, 2.25}, Cplx{0.5, -0.75},
-    Cplx{-2.0, -3.5}, Cplx{1.0, 0.0},
+    Cplx{3.0, 4.0}, Cplx{-1.5, 2.25}, Cplx{0.5, -0.75}, Cplx{-2.0, -3.5}, Cplx{1.0, 0.0},
 };
 
 // --- Field axioms -----------------------------------------------------------
@@ -95,8 +94,7 @@ TEST(MathComplex, ConjugationIsAnInvolutionThatDistributes) {
         EXPECT_EQ(conj(conj(a)), a);
         EXPECT_APPROX(abs(conj(a)), abs(a));
         // z conj(z) is the squared modulus, and real.
-        EXPECT_VEC_NEAR(a * conj(a), Cplx::real(lengthSquared(a)),
-                        zeroTolerance(50.0));
+        EXPECT_VEC_NEAR(a * conj(a), Cplx::real(lengthSquared(a)), zeroTolerance(50.0));
 
         for (const Cplx& b : kSamples) {
             EXPECT_EQ(conj(a + b), conj(a) + conj(b));
@@ -144,10 +142,10 @@ TEST(MathComplex, DivisionDoesNotOverflowWhereTheAnswerFits) {
 
     // Both branches of the formula, so neither is left untested. The values
     // are (1 + 2i) conj(b) / |b|^2 worked through by hand.
-    EXPECT_VEC_NEAR((Cplx{1.0, 2.0}) / (Cplx{3.0, 0.5}),
-                    (Cplx{4.0 / 9.25, 5.5 / 9.25}), zeroTolerance(10.0));
-    EXPECT_VEC_NEAR((Cplx{1.0, 2.0}) / (Cplx{0.5, 3.0}),
-                    (Cplx{6.5 / 9.25, -2.0 / 9.25}), zeroTolerance(10.0));
+    EXPECT_VEC_NEAR((Cplx{1.0, 2.0}) / (Cplx{3.0, 0.5}), (Cplx{4.0 / 9.25, 5.5 / 9.25}),
+                    zeroTolerance(10.0));
+    EXPECT_VEC_NEAR((Cplx{1.0, 2.0}) / (Cplx{0.5, 3.0}), (Cplx{6.5 / 9.25, -2.0 / 9.25}),
+                    zeroTolerance(10.0));
 }
 
 // --- Argument and polar form ------------------------------------------------
@@ -177,8 +175,7 @@ TEST(MathComplex, PolarFormRoundTrips) {
     for (const Cplx& a : kSamples) {
         EXPECT_VEC_NEAR(Cplx::polar(abs(a), arg(a)), a, zeroTolerance(20.0));
     }
-    EXPECT_VEC_NEAR(Cplx::polar(2.0, kPi / 2.0), (Cplx{0.0, 2.0}),
-                    zeroTolerance(10.0));
+    EXPECT_VEC_NEAR(Cplx::polar(2.0, kPi / 2.0), (Cplx{0.0, 2.0}), zeroTolerance(10.0));
 }
 
 // --- Transcendental functions -----------------------------------------------
@@ -186,8 +183,7 @@ TEST(MathComplex, PolarFormRoundTrips) {
 TEST(MathComplex, ExponentialSatisfiesEulersIdentity) {
     for (const double angle : {0.0, 0.5, 1.0, kPi / 2.0, kPi, -2.3}) {
         EXPECT_VEC_NEAR(exp(Cplx::imaginary(angle)),
-                        (Cplx{std::cos(angle), std::sin(angle)}),
-                        zeroTolerance(10.0))
+                        (Cplx{std::cos(angle), std::sin(angle)}), zeroTolerance(10.0))
             << "at angle " << angle;
     }
     // The famous one.
@@ -219,11 +215,10 @@ TEST(MathComplex, LogarithmInvertsTheExponentialOnItsBranch) {
 
     // Outside it the imaginary part comes back folded by a multiple of 2 pi.
     // That is not a defect; it is what choosing a branch means.
-    EXPECT_VEC_NEAR(log(exp(Cplx{3.0, 4.0})),
-                    (Cplx{3.0, 4.0 - 2.0 * kPi}), zeroTolerance(50.0));
+    EXPECT_VEC_NEAR(log(exp(Cplx{3.0, 4.0})), (Cplx{3.0, 4.0 - 2.0 * kPi}),
+                    zeroTolerance(50.0));
     EXPECT_VEC_NEAR(log(Cplx::one()), Cplx::zero(), zeroTolerance(10.0));
-    EXPECT_VEC_NEAR(log((Cplx{-1.0, 0.0})), Cplx::imaginary(kPi),
-                    zeroTolerance(10.0));
+    EXPECT_VEC_NEAR(log((Cplx{-1.0, 0.0})), Cplx::imaginary(kPi), zeroTolerance(10.0));
 }
 
 TEST(MathComplex, SquareRootSquaresBackAndStaysOnThePrincipalBranch) {
@@ -252,8 +247,7 @@ TEST(MathComplex, PowerSatisfiesDeMoivre) {
     const Cplx unit = Cplx::polar(1.0, angle);
 
     for (const double n : {2.0, 3.0, 5.0}) {
-        EXPECT_VEC_NEAR(pow(unit, n), Cplx::polar(1.0, angle * n),
-                        zeroTolerance(20.0))
+        EXPECT_VEC_NEAR(pow(unit, n), Cplx::polar(1.0, angle * n), zeroTolerance(20.0))
             << "at n = " << n;
     }
 
@@ -284,8 +278,7 @@ TEST(MathComplex, ComposesWithDualForDerivativesThroughComplexArithmetic) {
     // through both the complex and the dual arithmetic at once.
     const CplxDual squared = z * z;
     // d(z^2)/dt = 2 z dz/dt
-    const ysq::Cplx expected =
-        2.0 * ysq::Cplx{t * t, 3.0 * t} * ysq::Cplx{2.0 * t, 3.0};
+    const ysq::Cplx expected = 2.0 * ysq::Cplx{t * t, 3.0 * t} * ysq::Cplx{2.0 * t, 3.0};
     EXPECT_NEAR(squared.re.derivative, expected.re, 1e-13);
     EXPECT_NEAR(squared.im.derivative, expected.im, 1e-13);
 }

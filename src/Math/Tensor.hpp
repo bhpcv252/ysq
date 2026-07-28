@@ -29,8 +29,7 @@ constexpr std::size_t tensorStride(std::size_t rank, std::size_t dim,
     return integerPow(dim, rank - 1 - position);
 }
 
-constexpr std::size_t tensorIndexAt(std::size_t flat, std::size_t rank,
-                                    std::size_t dim,
+constexpr std::size_t tensorIndexAt(std::size_t flat, std::size_t rank, std::size_t dim,
                                     std::size_t position) noexcept {
     return (flat / tensorStride(rank, dim, position)) % dim;
 }
@@ -38,8 +37,7 @@ constexpr std::size_t tensorIndexAt(std::size_t flat, std::size_t rank,
 /// The same flat index with the index at `position` deleted, renumbered for a
 /// tensor of one lower rank.
 constexpr std::size_t tensorWithoutIndex(std::size_t flat, std::size_t rank,
-                                         std::size_t dim,
-                                         std::size_t position) noexcept {
+                                         std::size_t dim, std::size_t position) noexcept {
     const std::size_t stride = tensorStride(rank, dim, position);
     return (flat / (stride * dim)) * stride + (flat % stride);
 }
@@ -87,9 +85,7 @@ struct Tensor {
 
     [[nodiscard]] static constexpr std::size_t rank() noexcept { return Rank; }
     [[nodiscard]] static constexpr std::size_t dimension() noexcept { return Dim; }
-    [[nodiscard]] static constexpr std::size_t size() noexcept {
-        return kComponents;
-    }
+    [[nodiscard]] static constexpr std::size_t size() noexcept { return kComponents; }
 
     template <class... Indices>
     [[nodiscard]] static constexpr std::size_t flatten(Indices... indices) noexcept {
@@ -105,15 +101,13 @@ struct Tensor {
 
     template <class... Indices>
     [[nodiscard]] constexpr T& operator()(Indices... indices) noexcept {
-        static_assert(sizeof...(Indices) == Rank,
-                      "a tensor takes exactly Rank indices");
+        static_assert(sizeof...(Indices) == Rank, "a tensor takes exactly Rank indices");
         return components[flatten(indices...)];
     }
 
     template <class... Indices>
     [[nodiscard]] constexpr const T& operator()(Indices... indices) const noexcept {
-        static_assert(sizeof...(Indices) == Rank,
-                      "a tensor takes exactly Rank indices");
+        static_assert(sizeof...(Indices) == Rank, "a tensor takes exactly Rank indices");
         return components[flatten(indices...)];
     }
 
@@ -203,20 +197,17 @@ struct Tensor {
         return result;
     }
 
-    [[nodiscard]] friend constexpr Tensor operator*(const Tensor& t,
-                                                    T scalar) noexcept {
+    [[nodiscard]] friend constexpr Tensor operator*(const Tensor& t, T scalar) noexcept {
         Tensor result = t;
         result *= scalar;
         return result;
     }
 
-    [[nodiscard]] friend constexpr Tensor operator*(T scalar,
-                                                    const Tensor& t) noexcept {
+    [[nodiscard]] friend constexpr Tensor operator*(T scalar, const Tensor& t) noexcept {
         return t * scalar;
     }
 
-    [[nodiscard]] friend constexpr Tensor operator/(const Tensor& t,
-                                                    T scalar) noexcept {
+    [[nodiscard]] friend constexpr Tensor operator/(const Tensor& t, T scalar) noexcept {
         Tensor result = t;
         result /= scalar;
         return result;
@@ -229,8 +220,8 @@ struct Tensor {
 /// The tensor product. Rank adds; every component of a meets every component
 /// of b.
 template <Numeric T, std::size_t RankA, std::size_t RankB, std::size_t Dim>
-[[nodiscard]] constexpr Tensor<T, RankA + RankB, Dim> outerProduct(
-    const Tensor<T, RankA, Dim>& a, const Tensor<T, RankB, Dim>& b) noexcept {
+[[nodiscard]] constexpr Tensor<T, RankA + RankB, Dim>
+outerProduct(const Tensor<T, RankA, Dim>& a, const Tensor<T, RankB, Dim>& b) noexcept {
     Tensor<T, RankA + RankB, Dim> result{};
     constexpr std::size_t sizeB = Tensor<T, RankB, Dim>::size();
 
@@ -248,13 +239,12 @@ template <Numeric T, std::size_t RankA, std::size_t RankB, std::size_t Dim>
 /// The index positions are template parameters, so contracting a rank-3 tensor
 /// on an index it does not have fails to compile rather than reading past the
 /// end of something.
-template <std::size_t I, std::size_t J, Numeric T, std::size_t RankA,
-          std::size_t RankB, std::size_t Dim>
-[[nodiscard]] constexpr Tensor<T, RankA + RankB - 2, Dim> contract(
-    const Tensor<T, RankA, Dim>& a, const Tensor<T, RankB, Dim>& b) noexcept {
+template <std::size_t I, std::size_t J, Numeric T, std::size_t RankA, std::size_t RankB,
+          std::size_t Dim>
+[[nodiscard]] constexpr Tensor<T, RankA + RankB - 2, Dim>
+contract(const Tensor<T, RankA, Dim>& a, const Tensor<T, RankB, Dim>& b) noexcept {
     static_assert(I < RankA, "contracted index is out of range for the left tensor");
-    static_assert(J < RankB,
-                  "contracted index is out of range for the right tensor");
+    static_assert(J < RankB, "contracted index is out of range for the right tensor");
 
     Tensor<T, RankA + RankB - 2, Dim> result{};
     constexpr std::size_t restB = detail::integerPow(Dim, RankB - 1);
@@ -267,8 +257,7 @@ template <std::size_t I, std::size_t J, Numeric T, std::size_t RankA,
             if (detail::tensorIndexAt(bFlat, RankB, Dim, J) != shared) {
                 continue;
             }
-            const std::size_t bRest =
-                detail::tensorWithoutIndex(bFlat, RankB, Dim, J);
+            const std::size_t bRest = detail::tensorWithoutIndex(bFlat, RankB, Dim, J);
             result[aRest * restB + bRest] += a[aFlat] * b[bFlat];
         }
     }
@@ -277,10 +266,9 @@ template <std::size_t I, std::size_t J, Numeric T, std::size_t RankA,
 
 /// Contracts two indices of the same tensor against each other, dropping the
 /// rank by two. This is how Ricci comes out of Riemann.
-template <std::size_t I, std::size_t J, Numeric T, std::size_t Rank,
-          std::size_t Dim>
-[[nodiscard]] constexpr Tensor<T, Rank - 2, Dim> traceOver(
-    const Tensor<T, Rank, Dim>& t) noexcept {
+template <std::size_t I, std::size_t J, Numeric T, std::size_t Rank, std::size_t Dim>
+[[nodiscard]] constexpr Tensor<T, Rank - 2, Dim>
+traceOver(const Tensor<T, Rank, Dim>& t) noexcept {
     static_assert(I < Rank && J < Rank, "traced index is out of range");
     static_assert(I != J, "a trace needs two distinct indices");
 
@@ -311,10 +299,9 @@ template <Numeric T, std::size_t Dim>
     return sum;
 }
 
-template <std::size_t I, std::size_t J, Numeric T, std::size_t Rank,
-          std::size_t Dim>
-[[nodiscard]] constexpr Tensor<T, Rank, Dim> transposeIndices(
-    const Tensor<T, Rank, Dim>& t) noexcept {
+template <std::size_t I, std::size_t J, Numeric T, std::size_t Rank, std::size_t Dim>
+[[nodiscard]] constexpr Tensor<T, Rank, Dim>
+transposeIndices(const Tensor<T, Rank, Dim>& t) noexcept {
     static_assert(I < Rank && J < Rank, "swapped index is out of range");
 
     Tensor<T, Rank, Dim> result{};
@@ -325,18 +312,16 @@ template <std::size_t I, std::size_t J, Numeric T, std::size_t Rank,
 }
 
 /// The part of t unchanged by swapping indices I and J.
-template <std::size_t I, std::size_t J, Numeric T, std::size_t Rank,
-          std::size_t Dim>
-[[nodiscard]] constexpr Tensor<T, Rank, Dim> symmetrize(
-    const Tensor<T, Rank, Dim>& t) noexcept {
+template <std::size_t I, std::size_t J, Numeric T, std::size_t Rank, std::size_t Dim>
+[[nodiscard]] constexpr Tensor<T, Rank, Dim>
+symmetrize(const Tensor<T, Rank, Dim>& t) noexcept {
     return (t + transposeIndices<I, J>(t)) / T{2};
 }
 
 /// The part of t that changes sign under swapping indices I and J.
-template <std::size_t I, std::size_t J, Numeric T, std::size_t Rank,
-          std::size_t Dim>
-[[nodiscard]] constexpr Tensor<T, Rank, Dim> antisymmetrize(
-    const Tensor<T, Rank, Dim>& t) noexcept {
+template <std::size_t I, std::size_t J, Numeric T, std::size_t Rank, std::size_t Dim>
+[[nodiscard]] constexpr Tensor<T, Rank, Dim>
+antisymmetrize(const Tensor<T, Rank, Dim>& t) noexcept {
     return (t - transposeIndices<I, J>(t)) / T{2};
 }
 

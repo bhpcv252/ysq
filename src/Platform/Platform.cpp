@@ -88,11 +88,10 @@ std::optional<Platform> Platform::initialize(const PlatformSettings& settings,
         if (settings.backend && active && *settings.backend != *active) {
             if (error) {
                 error->code = GLFW_INVALID_ENUM;
-                error->message =
-                    std::string{"already initialised with the "} +
-                    std::string{toString(*active)} + " backend; " +
-                    std::string{toString(*settings.backend)} +
-                    " needs every handle released first";
+                error->message = std::string{"already initialised with the "} +
+                                 std::string{toString(*active)} + " backend; " +
+                                 std::string{toString(*settings.backend)} +
+                                 " needs every handle released first";
             }
             return std::nullopt;
         }
@@ -166,7 +165,8 @@ Platform& Platform::operator=(const Platform& other) noexcept {
     return *this;
 }
 
-Platform::Platform(Platform&& other) noexcept : m_owns(std::exchange(other.m_owns, false)) {}
+Platform::Platform(Platform&& other) noexcept
+    : m_owns(std::exchange(other.m_owns, false)) {}
 
 Platform& Platform::operator=(Platform&& other) noexcept {
     if (this == &other) {

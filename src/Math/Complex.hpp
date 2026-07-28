@@ -136,8 +136,7 @@ struct Complex {
         }
         const T ratio = b.re / b.im;
         const T denominator = b.re * ratio + b.im;
-        return {(a.re * ratio + a.im) / denominator,
-                (a.im * ratio - a.re) / denominator};
+        return {(a.re * ratio + a.im) / denominator, (a.im * ratio - a.re) / denominator};
     }
 
     [[nodiscard]] friend constexpr Complex operator+(const Complex& z,

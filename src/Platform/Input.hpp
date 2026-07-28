@@ -224,15 +224,18 @@ public:
         return *this;
     }
 
-    [[nodiscard]] friend constexpr Modifiers operator|(Modifiers a, Modifiers b) noexcept {
+    [[nodiscard]] friend constexpr Modifiers operator|(Modifiers a,
+                                                       Modifiers b) noexcept {
         return fromBits(static_cast<std::uint8_t>(a.m_bits | b.m_bits));
     }
 
-    [[nodiscard]] friend constexpr Modifiers operator&(Modifiers a, Modifiers b) noexcept {
+    [[nodiscard]] friend constexpr Modifiers operator&(Modifiers a,
+                                                       Modifiers b) noexcept {
         return fromBits(static_cast<std::uint8_t>(a.m_bits & b.m_bits));
     }
 
-    [[nodiscard]] friend constexpr bool operator==(Modifiers, Modifiers) noexcept = default;
+    [[nodiscard]] friend constexpr bool operator==(Modifiers,
+                                                   Modifiers) noexcept = default;
 
 private:
     /// Every bit that names a Modifier. The two above them are not ours.
@@ -361,7 +364,8 @@ public:
 
 private:
     static constexpr std::size_t kKeyCount = static_cast<std::size_t>(Key::Count);
-    static constexpr std::size_t kButtonCount = static_cast<std::size_t>(MouseButton::Count);
+    static constexpr std::size_t kButtonCount =
+        static_cast<std::size_t>(MouseButton::Count);
 
     std::bitset<kKeyCount> m_keysDown;
     std::bitset<kKeyCount> m_keysPressed;

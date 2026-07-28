@@ -33,7 +33,7 @@ double zeroTolerance(double scale) {
 /// Points in every octant, none of them on an axis or a plane, so a swapped
 /// pair of angles cannot coincide with the right answer.
 constexpr std::array<Vec3, 6> kSamples{
-    Vec3{1.0, 2.0, 3.0},    Vec3{-1.5, 0.5, -2.0}, Vec3{3.0, -4.0, 1.0},
+    Vec3{1.0, 2.0, 3.0},    Vec3{-1.5, 0.5, -2.0},  Vec3{3.0, -4.0, 1.0},
     Vec3{-2.0, -1.0, -0.5}, Vec3{0.25, 0.75, -3.0}, Vec3{5.0, 1.0, 2.0},
 };
 
@@ -71,8 +71,7 @@ TEST(MathCoordinates, TheForwardFormulaMatchesTheDocumentedOne) {
 
 TEST(MathCoordinates, SphericalRoundTripsThroughCartesian) {
     for (const Vec3& at : kSamples) {
-        EXPECT_VEC_NEAR(ysq::toCartesian(ysq::toSpherical(at)), at,
-                        zeroTolerance(20.0));
+        EXPECT_VEC_NEAR(ysq::toCartesian(ysq::toSpherical(at)), at, zeroTolerance(20.0));
 
         const Spherical<double> spherical = ysq::toSpherical(at);
         EXPECT_APPROX(spherical.radius, length(at));
@@ -97,8 +96,7 @@ TEST(MathCoordinates, CylindricalRoundTripsThroughCartesian) {
 
 TEST(MathCoordinates, PolarRoundTripsInTwoDimensions) {
     for (const Vec2& at : {Vec2{1.0, 2.0}, Vec2{-3.0, 0.5}, Vec2{0.0, -4.0}}) {
-        EXPECT_VEC_NEAR(ysq::toCartesian(ysq::toPolar(at)), at,
-                        zeroTolerance(20.0));
+        EXPECT_VEC_NEAR(ysq::toCartesian(ysq::toPolar(at)), at, zeroTolerance(20.0));
         EXPECT_APPROX(ysq::toPolar(at).radius, length(at));
     }
     EXPECT_APPROX(ysq::toPolar(Vec2{1.0, 1.0}).angle, kPi / 4.0);
@@ -110,11 +108,9 @@ TEST(MathCoordinates, TheThreeSystemsAgreeWithEachOther) {
         const Cylindrical<double> cylindrical = ysq::toCylindrical(at);
 
         // Cylindrical radius is the spherical radius times sin(polar).
-        EXPECT_NEAR(cylindrical.radius,
-                    spherical.radius * std::sin(spherical.polar),
+        EXPECT_NEAR(cylindrical.radius, spherical.radius * std::sin(spherical.polar),
                     zeroTolerance(10.0));
-        EXPECT_NEAR(cylindrical.height,
-                    spherical.radius * std::cos(spherical.polar),
+        EXPECT_NEAR(cylindrical.height, spherical.radius * std::cos(spherical.polar),
                     zeroTolerance(10.0));
         EXPECT_NEAR(cylindrical.azimuth, spherical.azimuth, zeroTolerance(10.0));
     }
@@ -133,8 +129,7 @@ TEST(MathCoordinates, TheOriginAndThePolesHaveNoWellDefinedAngles) {
 
     const Spherical<double> pole = ysq::toSpherical(Vec3{0.0, 0.0, 5.0});
     EXPECT_APPROX(pole.azimuth, 0.0);
-    EXPECT_VEC_NEAR(ysq::toCartesian(pole), (Vec3{0.0, 0.0, 5.0}),
-                    zeroTolerance(10.0));
+    EXPECT_VEC_NEAR(ysq::toCartesian(pole), (Vec3{0.0, 0.0, 5.0}), zeroTolerance(10.0));
 
     const Cylindrical<double> onAxis = ysq::toCylindrical(Vec3{0.0, 0.0, 5.0});
     EXPECT_APPROX(onAxis.radius, 0.0);
@@ -163,8 +158,7 @@ TEST(MathCoordinates, TheSphericalBasisIsOrthonormalAndRightHanded) {
     for (const Vec3& at : kSamples) {
         const Mat3 basis = ysq::sphericalBasis(ysq::toSpherical(at));
 
-        EXPECT_MAT_NEAR(transpose(basis) * basis, Mat3::identity(),
-                        zeroTolerance(10.0));
+        EXPECT_MAT_NEAR(transpose(basis) * basis, Mat3::identity(), zeroTolerance(10.0));
         EXPECT_NEAR(determinant(basis), 1.0, zeroTolerance(10.0))
             << "a determinant of -1 would mean the triple is left-handed";
 
@@ -179,18 +173,16 @@ TEST(MathCoordinates, TheSphericalBasisIsOrthonormalAndRightHanded) {
 TEST(MathCoordinates, TheCylindricalAndPolarBasesAreOrthonormalToo) {
     for (const Vec3& at : kSamples) {
         const Mat3 basis = ysq::cylindricalBasis(ysq::toCylindrical(at));
-        EXPECT_MAT_NEAR(transpose(basis) * basis, Mat3::identity(),
-                        zeroTolerance(10.0));
+        EXPECT_MAT_NEAR(transpose(basis) * basis, Mat3::identity(), zeroTolerance(10.0));
         EXPECT_NEAR(determinant(basis), 1.0, zeroTolerance(10.0));
         EXPECT_VEC_NEAR(basis[2], Vec3::unitZ(), zeroTolerance(10.0));
         // The radial direction is the position projected into the xy plane.
-        EXPECT_VEC_NEAR(basis[0], normalized(Vec3{at.x, at.y, 0.0}),
-                        zeroTolerance(10.0));
+        EXPECT_VEC_NEAR(basis[0], normalized(Vec3{at.x, at.y, 0.0}), zeroTolerance(10.0));
     }
 
     const auto polarBasis = ysq::polarBasis(Polar<double>{2.0, 0.7});
-    EXPECT_MAT_NEAR(transpose(polarBasis) * polarBasis,
-                    ysq::Matrix2<double>::identity(), zeroTolerance(10.0));
+    EXPECT_MAT_NEAR(transpose(polarBasis) * polarBasis, ysq::Matrix2<double>::identity(),
+                    zeroTolerance(10.0));
     EXPECT_NEAR(determinant(polarBasis), 1.0, zeroTolerance(10.0));
 }
 
@@ -214,8 +206,7 @@ TEST(MathCoordinates, ComponentTransformationPreservesLengthAndRoundTrips) {
         const Spherical<double> spherical = ysq::toSpherical(at);
         const Vec3 components{1.0, -2.0, 0.5};
 
-        const Vec3 cartesian =
-            ysq::sphericalComponentsToCartesian(spherical, components);
+        const Vec3 cartesian = ysq::sphericalComponentsToCartesian(spherical, components);
         EXPECT_APPROX(length(cartesian), length(components))
             << "an orthonormal change of basis is a rotation";
 
@@ -226,9 +217,8 @@ TEST(MathCoordinates, ComponentTransformationPreservesLengthAndRoundTrips) {
         const Vec3 inCylinder =
             ysq::cylindricalComponentsToCartesian(cylindrical, components);
         EXPECT_APPROX(length(inCylinder), length(components));
-        EXPECT_VEC_NEAR(
-            ysq::cartesianComponentsToCylindrical(cylindrical, inCylinder),
-            components, zeroTolerance(20.0));
+        EXPECT_VEC_NEAR(ysq::cartesianComponentsToCylindrical(cylindrical, inCylinder),
+                        components, zeroTolerance(20.0));
     }
 }
 
@@ -259,8 +249,8 @@ TEST(MathCoordinates, CircularMotionIsPurelyAzimuthalInTheLocalBasis) {
 TEST(MathCoordinates, TheSphericalJacobianDeterminantIsTheVolumeElement) {
     for (const Vec3& at : kSamples) {
         const Spherical<double> spherical = ysq::toSpherical(at);
-        const double expected = spherical.radius * spherical.radius *
-                                std::sin(spherical.polar);
+        const double expected =
+            spherical.radius * spherical.radius * std::sin(spherical.polar);
         EXPECT_NEAR(determinant(ysq::sphericalJacobian(spherical)), expected,
                     zeroTolerance(100.0));
     }
@@ -301,8 +291,7 @@ TEST(MathCoordinates, TheJacobianColumnsAreTheBasisDirectionsScaled) {
 
     EXPECT_VEC_NEAR(jacobian[0], basis[0], zeroTolerance(10.0));
     EXPECT_VEC_NEAR(jacobian[1], basis[1] * at.radius, zeroTolerance(10.0));
-    EXPECT_VEC_NEAR(jacobian[2],
-                    basis[2] * (at.radius * std::sin(at.polar)),
+    EXPECT_VEC_NEAR(jacobian[2], basis[2] * (at.radius * std::sin(at.polar)),
                     zeroTolerance(10.0));
 }
 
@@ -322,10 +311,8 @@ TEST(MathCoordinates, CoordinatesIndexAndFormatInDeclarationOrder) {
     EXPECT_EQ(std::format("{}", (Spherical<double>{1.0, 2.0, 3.0})), "(1, 2, 3)");
     EXPECT_EQ(std::format("{:.1f}", (Polar<double>{1.0, 2.0})), "(1.0, 2.0)");
 
-    EXPECT_EQ((Spherical<double>{1.0, 2.0, 3.0}),
-              (Spherical<double>{1.0, 2.0, 3.0}));
-    EXPECT_NE((Spherical<double>{1.0, 2.0, 3.0}),
-              (Spherical<double>{1.0, 2.0, 4.0}));
+    EXPECT_EQ((Spherical<double>{1.0, 2.0, 3.0}), (Spherical<double>{1.0, 2.0, 3.0}));
+    EXPECT_NE((Spherical<double>{1.0, 2.0, 3.0}), (Spherical<double>{1.0, 2.0, 4.0}));
 }
 
 TEST(MathCoordinates, WorksAtSinglePrecision) {

@@ -62,18 +62,17 @@ template <std::floating_point T>
 
 /// Values are named for the corner they sit on: v10 is high in x, low in y.
 template <class V, Numeric T>
-[[nodiscard]] constexpr V bilinear(const V& v00, const V& v10, const V& v01,
-                                   const V& v11, T tx, T ty) noexcept {
+[[nodiscard]] constexpr V bilinear(const V& v00, const V& v10, const V& v01, const V& v11,
+                                   T tx, T ty) noexcept {
     const V low = v00 * (T{1} - tx) + v10 * tx;
     const V high = v01 * (T{1} - tx) + v11 * tx;
     return low * (T{1} - ty) + high * ty;
 }
 
 template <class V, Numeric T>
-[[nodiscard]] constexpr V trilinear(const V& v000, const V& v100, const V& v010,
-                                    const V& v110, const V& v001, const V& v101,
-                                    const V& v011, const V& v111, T tx, T ty,
-                                    T tz) noexcept {
+[[nodiscard]] constexpr V
+trilinear(const V& v000, const V& v100, const V& v010, const V& v110, const V& v001,
+          const V& v101, const V& v011, const V& v111, T tx, T ty, T tz) noexcept {
     const V low = bilinear(v000, v100, v010, v110, tx, ty);
     const V high = bilinear(v001, v101, v011, v111, tx, ty);
     return low * (T{1} - tz) + high * tz;
@@ -82,8 +81,8 @@ template <class V, Numeric T>
 /// The cubic through p0 at t = 0 and p1 at t = 1, leaving with tangent m0 and
 /// arriving with tangent m1.
 template <class V, Numeric T>
-[[nodiscard]] constexpr V cubicHermite(const V& p0, const V& m0, const V& p1,
-                                       const V& m1, T t) noexcept {
+[[nodiscard]] constexpr V cubicHermite(const V& p0, const V& m0, const V& p1, const V& m1,
+                                       T t) noexcept {
     const T t2 = t * t;
     const T t3 = t2 * t;
     return p0 * (T{2} * t3 - T{3} * t2 + T{1}) + m0 * (t3 - T{2} * t2 + t) +
@@ -94,16 +93,16 @@ template <class V, Numeric T>
 /// It passes exactly through every control point, which is what makes it the
 /// usual choice for a path through measured positions.
 template <class V, Numeric T>
-[[nodiscard]] constexpr V catmullRom(const V& p0, const V& p1, const V& p2,
-                                     const V& p3, T t) noexcept {
+[[nodiscard]] constexpr V catmullRom(const V& p0, const V& p1, const V& p2, const V& p3,
+                                     T t) noexcept {
     return cubicHermite(p1, (p2 - p0) / T{2}, p2, (p3 - p1) / T{2}, t);
 }
 
 /// The Bezier cubic. Unlike Catmull-Rom it passes through only its first and
 /// last control points; the middle two pull at it.
 template <class V, Numeric T>
-[[nodiscard]] constexpr V cubicBezier(const V& p0, const V& p1, const V& p2,
-                                      const V& p3, T t) noexcept {
+[[nodiscard]] constexpr V cubicBezier(const V& p0, const V& p1, const V& p2, const V& p3,
+                                      T t) noexcept {
     const T u = T{1} - t;
     return p0 * (u * u * u) + p1 * (T{3} * u * u * t) + p2 * (T{3} * u * t * t) +
            p3 * (t * t * t);
@@ -181,8 +180,8 @@ public:
     /// points, and xs is strictly increasing. Three because two points have no
     /// interior knot and the spline degenerates to the straight line that
     /// interpolateTable already gives.
-    [[nodiscard]] static std::optional<CubicSpline> natural(
-        std::span<const T> xs, std::span<const T> ys) {
+    [[nodiscard]] static std::optional<CubicSpline> natural(std::span<const T> xs,
+                                                            std::span<const T> ys) {
         if (xs.size() < 3 || xs.size() != ys.size()) {
             return std::nullopt;
         }
@@ -257,8 +256,7 @@ private:
 
             const T slopeRight = (m_y[i + 1] - m_y[i]) / (m_x[i + 1] - m_x[i]);
             const T slopeLeft = (m_y[i] - m_y[i - 1]) / (m_x[i] - m_x[i - 1]);
-            scratch[i] = (T{6} * (slopeRight - slopeLeft) /
-                              (m_x[i + 1] - m_x[i - 1]) -
+            scratch[i] = (T{6} * (slopeRight - slopeLeft) / (m_x[i + 1] - m_x[i - 1]) -
                           ratio * scratch[i - 1]) /
                          pivot;
         }

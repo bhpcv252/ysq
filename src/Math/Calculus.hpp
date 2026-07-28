@@ -95,16 +95,14 @@ using MatrixForT = typename MatrixFor<V>::type;
 /// double precision, however carefully it is written.
 template <std::floating_point T>
 [[nodiscard]] T onesidedStep(T at) {
-    return std::sqrt(std::numeric_limits<T>::epsilon()) *
-           std::max(std::abs(at), T{1});
+    return std::sqrt(std::numeric_limits<T>::epsilon()) * std::max(std::abs(at), T{1});
 }
 
 /// The same balance for a central difference, whose truncation error is of
 /// order h^2: cbrt(epsilon), worth about eleven digits at double precision.
 template <std::floating_point T>
 [[nodiscard]] T centralStep(T at) {
-    return std::cbrt(std::numeric_limits<T>::epsilon()) *
-           std::max(std::abs(at), T{1});
+    return std::cbrt(std::numeric_limits<T>::epsilon()) * std::max(std::abs(at), T{1});
 }
 
 // --- Finite differences -----------------------------------------------------
@@ -176,8 +174,7 @@ template <class F, std::floating_point T>
 /// level. It runs out of road once rounding dominates, which for double
 /// precision is around four levels; asking for more makes the answer worse.
 template <class F, std::floating_point T>
-[[nodiscard]] T richardsonDerivative(F&& f, T at, T step,
-                                     std::size_t levels = 4) {
+[[nodiscard]] T richardsonDerivative(F&& f, T at, T step, std::size_t levels = 4) {
     std::array<T, 8> table{};
     const std::size_t used = std::min<std::size_t>(levels, table.size());
 
@@ -200,8 +197,9 @@ template <class F, std::floating_point T>
 [[nodiscard]] T richardsonDerivative(F&& f, T at) {
     // A deliberately coarse starting step: extrapolation needs room to halve
     // before rounding takes over.
-    return richardsonDerivative(f, at, std::cbrt(std::numeric_limits<T>::epsilon()) *
-                                           T{100} * std::max(std::abs(at), T{1}));
+    return richardsonDerivative(f, at,
+                                std::cbrt(std::numeric_limits<T>::epsilon()) * T{100} *
+                                    std::max(std::abs(at), T{1}));
 }
 
 // --- Exact derivatives, through dual numbers --------------------------------
@@ -347,8 +345,7 @@ template <class F, class V>
             mm[i] -= stepI;
             mm[j] -= stepJ;
 
-            result(i, j) =
-                (f(pp) - f(pm) - f(mp) + f(mm)) / (T{4} * stepI * stepJ);
+            result(i, j) = (f(pp) - f(pm) - f(mp) + f(mm)) / (T{4} * stepI * stepJ);
         }
     }
     return result;
@@ -438,16 +435,15 @@ template <class F, std::floating_point T>
 /// its finest spacing everywhere, while this refines only the panels that fail
 /// their error estimate.
 template <class F, std::floating_point T>
-[[nodiscard]] T adaptiveSimpson(F&& f, T lower, T upper, T tolerance,
-                                int maxDepth = 40) {
+[[nodiscard]] T adaptiveSimpson(F&& f, T lower, T upper, T tolerance, int maxDepth = 40) {
     const T mid = (lower + upper) / T{2};
     const T atLower = f(lower);
     const T atMid = f(mid);
     const T atUpper = f(upper);
     const T whole = (upper - lower) / T{6} * (atLower + T{4} * atMid + atUpper);
 
-    return detail::adaptiveSimpsonStep(f, lower, upper, atLower, atMid, atUpper,
-                                       whole, tolerance, maxDepth);
+    return detail::adaptiveSimpsonStep(f, lower, upper, atLower, atMid, atUpper, whole,
+                                       tolerance, maxDepth);
 }
 
 /// Romberg integration: Richardson extrapolation of the trapezoid rule on a
@@ -460,8 +456,7 @@ template <class F, std::floating_point T>
 /// hard-coding it would not even compile for the latter.
 template <class F, std::floating_point T>
 [[nodiscard]] T romberg(F&& f, T lower, T upper, std::size_t maxLevels = 12,
-                        T tolerance = std::numeric_limits<T>::epsilon() *
-                                      T{1000}) {
+                        T tolerance = std::numeric_limits<T>::epsilon() * T{1000}) {
     std::array<T, 24> previous{};
     std::array<T, 24> current{};
     const std::size_t levels = std::min<std::size_t>(maxLevels, previous.size());
@@ -508,8 +503,7 @@ struct GaussLegendre;
 
 template <>
 struct GaussLegendre<2> {
-    static constexpr std::array<double, 2> nodes{-0.5773502691896257,
-                                                 0.5773502691896257};
+    static constexpr std::array<double, 2> nodes{-0.5773502691896257, 0.5773502691896257};
     static constexpr std::array<double, 2> weights{1.0, 1.0};
 };
 
@@ -517,28 +511,26 @@ template <>
 struct GaussLegendre<3> {
     static constexpr std::array<double, 3> nodes{-0.7745966692414834, 0.0,
                                                  0.7745966692414834};
-    static constexpr std::array<double, 3> weights{
-        0.5555555555555556, 0.8888888888888888, 0.5555555555555556};
+    static constexpr std::array<double, 3> weights{0.5555555555555556, 0.8888888888888888,
+                                                   0.5555555555555556};
 };
 
 template <>
 struct GaussLegendre<4> {
-    static constexpr std::array<double, 4> nodes{
-        -0.8611363115940526, -0.3399810435848563, 0.3399810435848563,
-        0.8611363115940526};
+    static constexpr std::array<double, 4> nodes{-0.8611363115940526, -0.3399810435848563,
+                                                 0.3399810435848563, 0.8611363115940526};
     static constexpr std::array<double, 4> weights{
-        0.3478548451374538, 0.6521451548625461, 0.6521451548625461,
-        0.3478548451374538};
+        0.3478548451374538, 0.6521451548625461, 0.6521451548625461, 0.3478548451374538};
 };
 
 template <>
 struct GaussLegendre<5> {
-    static constexpr std::array<double, 5> nodes{
-        -0.9061798459386640, -0.5384693101056831, 0.0, 0.5384693101056831,
-        0.9061798459386640};
-    static constexpr std::array<double, 5> weights{
-        0.2369268850561891, 0.4786286704993665, 0.5688888888888889,
-        0.4786286704993665, 0.2369268850561891};
+    static constexpr std::array<double, 5> nodes{-0.9061798459386640, -0.5384693101056831,
+                                                 0.0, 0.5384693101056831,
+                                                 0.9061798459386640};
+    static constexpr std::array<double, 5> weights{0.2369268850561891, 0.4786286704993665,
+                                                   0.5688888888888889, 0.4786286704993665,
+                                                   0.2369268850561891};
 };
 
 }  // namespace detail

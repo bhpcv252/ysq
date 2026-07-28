@@ -8,7 +8,11 @@ ctest --test-dir build --output-on-failure -R CoreClock
 ```
 
 One executable per test file, registered with `gtest_discover_tests`, so each
-`TEST()` case appears in CTest under its own name.
+`TEST()` case appears in CTest under its own name. Discovery runs in
+`PRE_TEST` mode, listing the cases when CTest starts rather than as each binary
+finishes linking: the POST_BUILD default runs those listings concurrently with
+the rest of a parallel build, where they contend for the machine and, on CMake
+4.2 through 4.4.0, race each other for a shared test-list file.
 
 ## Layout
 

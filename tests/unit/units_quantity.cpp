@@ -182,8 +182,7 @@ TEST(UnitsQuantity, ApproximateComparisonTakesADimensionedTolerance) {
     const Length expected{1000.0};
 
     EXPECT_FALSE(approxEqual(measured, expected));
-    EXPECT_TRUE(approxEqual(measured, expected, kDefaultRelTol<double>,
-                            Length{1.0e-3}));
+    EXPECT_TRUE(approxEqual(measured, expected, kDefaultRelTol<double>, Length{1.0e-3}));
     EXPECT_QUANTITY_NEAR(measured, expected, 1.0 * units::millimetre);
 
     EXPECT_TRUE(isNearZero(Length{0.0}));

@@ -10,6 +10,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Pinned to an exact clang-format: the tool's output changes between releases,
+  # so an unpinned check would start failing on code nobody touched. Only the
+  # engine's own sources are checked; third_party/ is upstream code and is not
+  # ours to reformat. No submodules for the same reason.
+  format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: pipx install clang-format==22.1.8
+
+      - name: Check formatting
+        run: >
+          find src tests
+          \( -name '*.hpp' -o -name '*.cpp' -o -name '*.h' -o -name '*.c' \)
+          -print0 | xargs -0 clang-format --dry-run -Werror
+
   build:
     # graphics=OFF is not redundant: it is what keeps "the core needs no GPU and
     # no graphics dependencies" a tested claim rather than an aspiration.

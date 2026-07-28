@@ -100,9 +100,9 @@ std::ostream& operator<<(std::ostream& os, const M& value) {
 namespace ysq::test {
 
 template <class V>
-[[nodiscard]] ::testing::AssertionResult componentsNear(
-    const char* aExpr, const char* bExpr, const char* tolExpr, const V& a,
-    const V& b, typename V::value_type tolerance) {
+[[nodiscard]] ::testing::AssertionResult
+componentsNear(const char* aExpr, const char* bExpr, const char* tolExpr, const V& a,
+               const V& b, typename V::value_type tolerance) {
     using T = typename V::value_type;
 
     for (std::size_t i = 0; i < a.size(); ++i) {
@@ -110,26 +110,25 @@ template <class V>
             continue;
         }
         const T difference = (a[i] < b[i]) ? (b[i] - a[i]) : (a[i] - b[i]);
-        return ::testing::AssertionFailure() << std::format(
-                   "\n  {} = {}\n  {} = {}\ncomponent {} differs by {:.6g}, "
-                   "tolerance {:.6g} ({})",
-                   aExpr, a, bExpr, b, i, difference, tolerance, tolExpr);
+        return ::testing::AssertionFailure()
+               << std::format("\n  {} = {}\n  {} = {}\ncomponent {} differs by {:.6g}, "
+                              "tolerance {:.6g} ({})",
+                              aExpr, a, bExpr, b, i, difference, tolerance, tolExpr);
     }
     return ::testing::AssertionSuccess();
 }
 
 template <class V>
-[[nodiscard]] ::testing::AssertionResult componentsApprox(const char* aExpr,
-                                                          const char* bExpr,
-                                                          const V& a, const V& b) {
+[[nodiscard]] ::testing::AssertionResult
+componentsApprox(const char* aExpr, const char* bExpr, const V& a, const V& b) {
     return componentsNear(aExpr, bExpr, "default", a, b,
                           kDefaultRelTol<typename V::value_type>);
 }
 
 template <class M>
-[[nodiscard]] ::testing::AssertionResult elementsNear(
-    const char* aExpr, const char* bExpr, const char* tolExpr, const M& a,
-    const M& b, typename M::value_type tolerance) {
+[[nodiscard]] ::testing::AssertionResult
+elementsNear(const char* aExpr, const char* bExpr, const char* tolExpr, const M& a,
+             const M& b, typename M::value_type tolerance) {
     using T = typename M::value_type;
 
     for (std::size_t r = 0; r < M::rows(); ++r) {
@@ -149,16 +148,14 @@ template <class M>
 }
 
 template <class M>
-[[nodiscard]] ::testing::AssertionResult elementsApprox(const char* aExpr,
-                                                        const char* bExpr,
-                                                        const M& a, const M& b) {
+[[nodiscard]] ::testing::AssertionResult
+elementsApprox(const char* aExpr, const char* bExpr, const M& a, const M& b) {
     return elementsNear(aExpr, bExpr, "default", a, b,
                         kDefaultRelTol<typename M::value_type>);
 }
 
 template <std::floating_point T>
-[[nodiscard]] ::testing::AssertionResult scalarNear(const char* aExpr,
-                                                    const char* bExpr,
+[[nodiscard]] ::testing::AssertionResult scalarNear(const char* aExpr, const char* bExpr,
                                                     const char* tolExpr, T a, T b,
                                                     T tolerance) {
     if (approxEqual(a, b, tolerance, tolerance)) {
@@ -179,15 +176,13 @@ template <std::floating_point T>
 
 }  // namespace ysq::test
 
-#define EXPECT_VEC_NEAR(a, b, tol) \
+#define EXPECT_VEC_NEAR(a, b, tol)                                                       \
     EXPECT_PRED_FORMAT3(::ysq::test::componentsNear, a, b, tol)
-#define ASSERT_VEC_NEAR(a, b, tol) \
+#define ASSERT_VEC_NEAR(a, b, tol)                                                       \
     ASSERT_PRED_FORMAT3(::ysq::test::componentsNear, a, b, tol)
 
-#define EXPECT_VEC_APPROX(a, b) \
-    EXPECT_PRED_FORMAT2(::ysq::test::componentsApprox, a, b)
-#define ASSERT_VEC_APPROX(a, b) \
-    ASSERT_PRED_FORMAT2(::ysq::test::componentsApprox, a, b)
+#define EXPECT_VEC_APPROX(a, b) EXPECT_PRED_FORMAT2(::ysq::test::componentsApprox, a, b)
+#define ASSERT_VEC_APPROX(a, b) ASSERT_PRED_FORMAT2(::ysq::test::componentsApprox, a, b)
 
 // Tensor stores its components flat and exposes size() and operator[], so the
 // VEC comparators already cover it. These are aliases purely so a tensor test
@@ -195,18 +190,15 @@ template <std::floating_point T>
 #define EXPECT_TENSOR_NEAR(a, b, tol) EXPECT_VEC_NEAR(a, b, tol)
 #define EXPECT_TENSOR_APPROX(a, b) EXPECT_VEC_APPROX(a, b)
 
-#define EXPECT_MAT_NEAR(a, b, tol) \
+#define EXPECT_MAT_NEAR(a, b, tol)                                                       \
     EXPECT_PRED_FORMAT3(::ysq::test::elementsNear, a, b, tol)
-#define ASSERT_MAT_NEAR(a, b, tol) \
+#define ASSERT_MAT_NEAR(a, b, tol)                                                       \
     ASSERT_PRED_FORMAT3(::ysq::test::elementsNear, a, b, tol)
 
-#define EXPECT_MAT_APPROX(a, b) \
-    EXPECT_PRED_FORMAT2(::ysq::test::elementsApprox, a, b)
-#define ASSERT_MAT_APPROX(a, b) \
-    ASSERT_PRED_FORMAT2(::ysq::test::elementsApprox, a, b)
+#define EXPECT_MAT_APPROX(a, b) EXPECT_PRED_FORMAT2(::ysq::test::elementsApprox, a, b)
+#define ASSERT_MAT_APPROX(a, b) ASSERT_PRED_FORMAT2(::ysq::test::elementsApprox, a, b)
 
-#define EXPECT_NEAR_REL(a, b, tol) \
-    EXPECT_PRED_FORMAT3(::ysq::test::scalarNear, a, b, tol)
+#define EXPECT_NEAR_REL(a, b, tol) EXPECT_PRED_FORMAT3(::ysq::test::scalarNear, a, b, tol)
 
 #define EXPECT_APPROX(a, b) EXPECT_PRED_FORMAT2(::ysq::test::scalarApprox, a, b)
 #define ASSERT_APPROX(a, b) ASSERT_PRED_FORMAT2(::ysq::test::scalarApprox, a, b)

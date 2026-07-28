@@ -120,8 +120,8 @@ public:
     static constexpr int order = 1;
 
     template <AccelerationField<S> Acceleration>
-    void step(const Acceleration& acceleration, Scalar time, const State& state,
-              Scalar h, State& out) {
+    void step(const Acceleration& acceleration, Scalar time, const State& state, Scalar h,
+              State& out) {
         m_acceleration = acceleration(time, state.position);
         ++m_evaluations;
 

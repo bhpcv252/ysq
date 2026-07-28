@@ -228,15 +228,15 @@ template <Numeric T>
 template <Numeric T>
 [[nodiscard]] constexpr Vector4<T> min(const Vector4<T>& a,
                                        const Vector4<T>& b) noexcept {
-    return {(a.x < b.x) ? a.x : b.x, (a.y < b.y) ? a.y : b.y,
-            (a.z < b.z) ? a.z : b.z, (a.w < b.w) ? a.w : b.w};
+    return {(a.x < b.x) ? a.x : b.x, (a.y < b.y) ? a.y : b.y, (a.z < b.z) ? a.z : b.z,
+            (a.w < b.w) ? a.w : b.w};
 }
 
 template <Numeric T>
 [[nodiscard]] constexpr Vector4<T> max(const Vector4<T>& a,
                                        const Vector4<T>& b) noexcept {
-    return {(a.x < b.x) ? b.x : a.x, (a.y < b.y) ? b.y : a.y,
-            (a.z < b.z) ? b.z : a.z, (a.w < b.w) ? b.w : a.w};
+    return {(a.x < b.x) ? b.x : a.x, (a.y < b.y) ? b.y : a.y, (a.z < b.z) ? b.z : a.z,
+            (a.w < b.w) ? b.w : a.w};
 }
 
 template <Numeric T>

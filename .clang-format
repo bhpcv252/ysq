@@ -6,6 +6,9 @@ Standard: c++20
 IndentWidth: 4
 TabWidth: 4
 UseTab: Never
+# Every switch in the tree indents its cases, and a case label reads as part of
+# the switch body rather than as a peer of it.
+IndentCaseLabels: true
 ColumnLimit: 90
 AccessModifierOffset: -4
 
@@ -13,13 +16,18 @@ PointerAlignment: Left
 ReferenceAlignment: Left
 SpacesBeforeTrailingComments: 2
 
-AllowShortFunctionsOnASingleLine: Empty
+# A one-line accessor is the shape the reader wants: `double timeScale() const`
+# next to the setter it belongs with, not three lines and a blank line apart
+# from it. Inline keeps that for members and still breaks free functions.
+AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AlwaysBreakTemplateDeclarations: Yes
 BreakConstructorInitializers: BeforeColon
 PackConstructorInitializers: NextLine
-SeparateDefinitionBlocks: Always
+# Blank lines between definitions are grouping, so they are left to the author:
+# runs of related accessors read as a block, and Always would break them apart.
+SeparateDefinitionBlocks: Leave
 
 # Include blocks are grouped by hand (project, then third-party, then standard
 # library) and only sorted within a group, so the grouping survives formatting.

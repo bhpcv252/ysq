@@ -63,8 +63,8 @@ double periodFor(double semiMajorAxis) {
 /// anticlockwise in the xy plane and periapsis sits at -x.
 Phase startAtApoapsis(double semiMajorAxis, double eccentricity) {
     const double apoapsis = semiMajorAxis * (1.0 + eccentricity);
-    const double speed = std::sqrt((1.0 - eccentricity) /
-                                   (semiMajorAxis * (1.0 + eccentricity)));
+    const double speed =
+        std::sqrt((1.0 - eccentricity) / (semiMajorAxis * (1.0 + eccentricity)));
     return {Vec3{apoapsis, 0.0, 0.0}, Vec3{0.0, speed, 0.0}};
 }
 
@@ -94,11 +94,10 @@ double measurePeriod(Stepper& stepper, const System& system, const Phase& start,
     ysq::integrate(stepper, system, start, 0.0, until, step,
                    [&](double time, const Phase& state) {
                        const double y = state.position.y;
-                       if (!haveCrossing && time > 0.0 && previousY < 0.0 &&
-                           y >= 0.0 && state.position.x > 0.0) {
-                           crossing = previousTime +
-                                      (time - previousTime) * (-previousY) /
-                                          (y - previousY);
+                       if (!haveCrossing && time > 0.0 && previousY < 0.0 && y >= 0.0 &&
+                           state.position.x > 0.0) {
+                           crossing = previousTime + (time - previousTime) *
+                                                         (-previousY) / (y - previousY);
                            haveCrossing = true;
                        }
                        previousTime = time;
@@ -117,14 +116,13 @@ TEST(MathKepler, ThePeriodFollowsTheThreeHalvesPowerOfTheSemiMajorAxis) {
     for (const double semiMajorAxis : {0.5, 1.0, 2.0, 3.0}) {
         const double expected = periodFor(semiMajorAxis);
         ysq::VelocityVerletStepper<Vec3> stepper;
-        const double period = measurePeriod(stepper, acceleration,
-                                            startAtApoapsis(semiMajorAxis, 0.3),
-                                            expected * 1.5, expected / 20000.0);
+        const double period =
+            measurePeriod(stepper, acceleration, startAtApoapsis(semiMajorAxis, 0.3),
+                          expected * 1.5, expected / 20000.0);
 
         ASSERT_GT(period, 0.0) << "no crossing found at a = " << semiMajorAxis;
-        EXPECT_NEAR(period, expected, expected * 1e-6)
-            << std::format("a = {}, measured {:.9f}, expected {:.9f}",
-                           semiMajorAxis, period, expected);
+        EXPECT_NEAR(period, expected, expected * 1e-6) << std::format(
+            "a = {}, measured {:.9f}, expected {:.9f}", semiMajorAxis, period, expected);
 
         axes.push_back(semiMajorAxis);
         measured.push_back(period);
@@ -134,8 +132,7 @@ TEST(MathKepler, ThePeriodFollowsTheThreeHalvesPowerOfTheSemiMajorAxis) {
     // 4 pi^2 when the gravitational parameter is one.
     ysq::RunningStatistics<double> ratio;
     for (std::size_t i = 0; i < axes.size(); ++i) {
-        ratio.add(measured[i] * measured[i] /
-                  (axes[i] * axes[i] * axes[i]));
+        ratio.add(measured[i] * measured[i] / (axes[i] * axes[i] * axes[i]));
     }
     EXPECT_NEAR(ratio.mean(), 4.0 * kPi * kPi, 1e-4);
     EXPECT_LT(ratio.range(), 1e-4) << "the ratio must not depend on the orbit";
@@ -161,17 +158,15 @@ TEST(MathKepler, ACircularOrbitStaysCircularAtASlightlyShiftedRadius) {
     // breathe, and that the offset in the radius shrinks like the square of
     // the step, which is what makes it the method's order and not a defect.
     constexpr double radius = 1.5;
-    const Phase start{Vec3{radius, 0.0, 0.0},
-                      Vec3{0.0, std::sqrt(1.0 / radius), 0.0}};
+    const Phase start{Vec3{radius, 0.0, 0.0}, Vec3{0.0, std::sqrt(1.0 / radius), 0.0}};
     const double period = periodFor(radius);
 
     const auto offsetAtStep = [&](double step) {
         ysq::VelocityVerletStepper<Vec3> stepper;
         ysq::RunningStatistics<double> distances;
-        ysq::integrate(stepper, acceleration, start, 0.0, 20.0 * period, step,
-                       [&](double, const Phase& state) {
-                           distances.add(length(state.position));
-                       });
+        ysq::integrate(
+            stepper, acceleration, start, 0.0, 20.0 * period, step,
+            [&](double, const Phase& state) { distances.add(length(state.position)); });
         EXPECT_LT(distances.range(), 1e-5)
             << "a circular orbit that breathes is not circular";
         return std::abs(distances.mean() - radius);
@@ -182,8 +177,8 @@ TEST(MathKepler, ACircularOrbitStaysCircularAtASlightlyShiftedRadius) {
 
     EXPECT_LT(coarse, 1e-5);
     EXPECT_NEAR(std::log2(coarse / fine), 2.0, 0.15) << std::format(
-        "offset {:.3e} then {:.3e}: it has to fall as the square of the step",
-        coarse, fine);
+        "offset {:.3e} then {:.3e}: it has to fall as the square of the step", coarse,
+        fine);
 
     // And the orbit stays in the plane it started in.
     EXPECT_APPROX(angularMomentum(start).x, 0.0);
@@ -220,9 +215,8 @@ TEST(MathKepler, SymplecticEnergyErrorStaysBoundedOverManyOrbits) {
     const Phase start = startAtApoapsis(1.0, eccentricity);
 
     ysq::VelocityVerletStepper<Vec3> stepper;
-    const HalfByHalf drift =
-        driftHalves(stepper, acceleration, start, 200.0 * period, period / 2000.0,
-                    orbitalEnergy);
+    const HalfByHalf drift = driftHalves(stepper, acceleration, start, 200.0 * period,
+                                         period / 2000.0, orbitalEnergy);
 
     // The energy error of a symplectic method is set by the step size, not by
     // how long the run has been going. The second hundred orbits are no worse
@@ -242,9 +236,8 @@ TEST(MathKepler, RungeKuttaEnergyDriftsOverTheSameRun) {
     const Phase start = startAtApoapsis(1.0, eccentricity);
 
     ysq::Rk4Stepper<Phase> stepper;
-    const HalfByHalf drift =
-        driftHalves(stepper, ysq::asPhaseSystem(acceleration), start,
-                    200.0 * period, period / 2000.0, orbitalEnergy);
+    const HalfByHalf drift = driftHalves(stepper, ysq::asPhaseSystem(acceleration), start,
+                                         200.0 * period, period / 2000.0, orbitalEnergy);
 
     EXPECT_GT(drift.second / drift.first, 1.5) << std::format(
         "first half {:.3e}, second half {:.3e}: RK4 energy error has to grow",
@@ -265,12 +258,12 @@ TEST(MathKepler, VelocityVerletConservesAngularMomentumStructurally) {
     ysq::RunningStatistics<double> magnitudes;
     double worstDirection = 0.0;
 
-    ysq::integrate(stepper, acceleration, start, 0.0, 50.0 * period,
-                   period / 500.0, [&](double, const Phase& state) {
+    ysq::integrate(stepper, acceleration, start, 0.0, 50.0 * period, period / 500.0,
+                   [&](double, const Phase& state) {
                        const Vec3 current = angularMomentum(state);
                        magnitudes.add(length(current));
-                       worstDirection = std::max(
-                           worstDirection, length(cross(current, initial)));
+                       worstDirection =
+                           std::max(worstDirection, length(cross(current, initial)));
                    });
 
     EXPECT_NEAR(magnitudes.mean(), length(initial), 1e-12);
@@ -281,9 +274,8 @@ TEST(MathKepler, VelocityVerletConservesAngularMomentumStructurally) {
     // Which is more than the step size buys for the energy at the same
     // setting: that error is bounded, but it is nowhere near this small.
     ysq::VelocityVerletStepper<Vec3> comparison;
-    const HalfByHalf energyDrift =
-        driftHalves(comparison, acceleration, start, 50.0 * period, period / 500.0,
-                    orbitalEnergy);
+    const HalfByHalf energyDrift = driftHalves(
+        comparison, acceleration, start, 50.0 * period, period / 500.0, orbitalEnergy);
     EXPECT_GT(energyDrift.second, 1e-6)
         << "angular momentum is conserved for a structural reason that does "
            "not apply to the energy";
@@ -298,16 +290,15 @@ TEST(MathKepler, TheIntegratedPathSatisfiesTheConicEquation) {
     constexpr double semiMajorAxis = 1.0;
     constexpr double eccentricity = 0.6;
     const double period = periodFor(semiMajorAxis);
-    const double semiLatusRectum =
-        semiMajorAxis * (1.0 - eccentricity * eccentricity);
+    const double semiLatusRectum = semiMajorAxis * (1.0 - eccentricity * eccentricity);
 
     const auto worstResidualAtStep = [&](double step) {
         ysq::VelocityVerletStepper<Vec3> stepper;
         ysq::RunningStatistics<double> residuals;
 
         ysq::integrate(
-            stepper, acceleration, startAtApoapsis(semiMajorAxis, eccentricity),
-            0.0, period, step, [&](double, const Phase& state) {
+            stepper, acceleration, startAtApoapsis(semiMajorAxis, eccentricity), 0.0,
+            period, step, [&](double, const Phase& state) {
                 const ysq::Polar<double> polar = ysq::toPolar(state.position.xy());
                 // Periapsis sits at -x, so the conic is written about that axis.
                 const double predicted =
@@ -326,8 +317,8 @@ TEST(MathKepler, TheIntegratedPathSatisfiesTheConicEquation) {
     // Second order, again: the path is the right conic in the limit, and how
     // fast it gets there is the property worth pinning rather than whatever
     // residual one particular step happens to give.
-    EXPECT_NEAR(std::log2(coarse / fine), 2.0, 0.15) << std::format(
-        "worst radial residual {:.3e} then {:.3e}", coarse, fine);
+    EXPECT_NEAR(std::log2(coarse / fine), 2.0, 0.15)
+        << std::format("worst radial residual {:.3e} then {:.3e}", coarse, fine);
 }
 
 TEST(MathKepler, TheOrbitReachesTheApsidesItWasBuiltFrom) {
@@ -339,9 +330,8 @@ TEST(MathKepler, TheOrbitReachesTheApsidesItWasBuiltFrom) {
     ysq::RunningStatistics<double> radii;
     ysq::RunningStatistics<double> speeds;
 
-    ysq::integrate(stepper, acceleration,
-                   startAtApoapsis(semiMajorAxis, eccentricity), 0.0, period,
-                   period / 20000.0, [&](double, const Phase& state) {
+    ysq::integrate(stepper, acceleration, startAtApoapsis(semiMajorAxis, eccentricity),
+                   0.0, period, period / 20000.0, [&](double, const Phase& state) {
                        radii.add(length(state.position));
                        speeds.add(length(state.velocity));
                    });
@@ -350,10 +340,10 @@ TEST(MathKepler, TheOrbitReachesTheApsidesItWasBuiltFrom) {
     EXPECT_NEAR(radii.minimum(), semiMajorAxis * (1.0 - eccentricity), 1e-5);
 
     // The vis-viva relation at each apsis, which the integrator was never told.
-    const double apoapsisSpeed = std::sqrt(
-        (1.0 - eccentricity) / (semiMajorAxis * (1.0 + eccentricity)));
-    const double periapsisSpeed = std::sqrt(
-        (1.0 + eccentricity) / (semiMajorAxis * (1.0 - eccentricity)));
+    const double apoapsisSpeed =
+        std::sqrt((1.0 - eccentricity) / (semiMajorAxis * (1.0 + eccentricity)));
+    const double periapsisSpeed =
+        std::sqrt((1.0 + eccentricity) / (semiMajorAxis * (1.0 - eccentricity)));
     EXPECT_NEAR(speeds.minimum(), apoapsisSpeed, 1e-6);
     EXPECT_NEAR(speeds.maximum(), periapsisSpeed, 1e-4);
 }

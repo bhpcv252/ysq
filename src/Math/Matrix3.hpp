@@ -57,28 +57,23 @@ struct Matrix3 {
 
     [[nodiscard]] static constexpr Matrix3 zero() noexcept { return {}; }
 
-    [[nodiscard]] static constexpr Matrix3 fromColumns(const Column& c0,
-                                                       const Column& c1,
+    [[nodiscard]] static constexpr Matrix3 fromColumns(const Column& c0, const Column& c1,
                                                        const Column& c2) noexcept {
         return Matrix3{std::array<Column, 3>{{c0, c1, c2}}};
     }
 
     /// Takes its arguments the way a matrix is written on paper.
-    [[nodiscard]] static constexpr Matrix3 fromRows(const Column& r0,
-                                                    const Column& r1,
+    [[nodiscard]] static constexpr Matrix3 fromRows(const Column& r0, const Column& r1,
                                                     const Column& r2) noexcept {
-        return fromColumns({r0.x, r1.x, r2.x}, {r0.y, r1.y, r2.y},
-                           {r0.z, r1.z, r2.z});
+        return fromColumns({r0.x, r1.x, r2.x}, {r0.y, r1.y, r2.y}, {r0.z, r1.z, r2.z});
     }
 
     [[nodiscard]] static constexpr Matrix3 identity() noexcept {
-        return fromColumns({T{1}, T{0}, T{0}}, {T{0}, T{1}, T{0}},
-                           {T{0}, T{0}, T{1}});
+        return fromColumns({T{1}, T{0}, T{0}}, {T{0}, T{1}, T{0}}, {T{0}, T{0}, T{1}});
     }
 
     [[nodiscard]] static constexpr Matrix3 diagonal(const Column& d) noexcept {
-        return fromColumns({d.x, T{0}, T{0}}, {T{0}, d.y, T{0}},
-                           {T{0}, T{0}, d.z});
+        return fromColumns({d.x, T{0}, T{0}}, {T{0}, d.y, T{0}}, {T{0}, T{0}, d.z});
     }
 
     [[nodiscard]] static constexpr Matrix3 scale(const Column& s) noexcept {
@@ -251,8 +246,8 @@ template <Numeric T>
 /// nullopt when the matrix is singular or holds a NaN. Near-singular is not
 /// detected; use solve() for that.
 template <Numeric T>
-[[nodiscard]] constexpr std::optional<Matrix3<T>> tryInverse(
-    const Matrix3<T>& m) noexcept {
+[[nodiscard]] constexpr std::optional<Matrix3<T>>
+tryInverse(const Matrix3<T>& m) noexcept {
     const T det = determinant(m);
     // Finiteness as well as non-zero. A determinant that overflowed used to
     // pass both of the old checks and then divide the adjugate down to a zero
@@ -279,8 +274,7 @@ template <Numeric T>
 
 /// Solves M x = b by elimination with partial pivoting. nullopt if singular.
 template <Numeric T>
-[[nodiscard]] std::optional<Vector3<T>> solve(const Matrix3<T>& m,
-                                              const Vector3<T>& b) {
+[[nodiscard]] std::optional<Vector3<T>> solve(const Matrix3<T>& m, const Vector3<T>& b) {
     return detail::solveByElimination(m, b);
 }
 

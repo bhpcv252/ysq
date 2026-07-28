@@ -45,8 +45,8 @@ public:
     static constexpr int order = 2;
 
     template <AccelerationField<S> Acceleration>
-    void step(const Acceleration& acceleration, Scalar time, const State& state,
-              Scalar h, State& out) {
+    void step(const Acceleration& acceleration, Scalar time, const State& state, Scalar h,
+              State& out) {
         const Scalar half = h / Scalar{2};
 
         // Half a kick, a full drift, then the other half kick with the
@@ -91,8 +91,8 @@ public:
     static constexpr int order = 4;
 
     template <AccelerationField<S> Acceleration>
-    void step(const Acceleration& acceleration, Scalar time, const State& state,
-              Scalar h, State& out) {
+    void step(const Acceleration& acceleration, Scalar time, const State& state, Scalar h,
+              State& out) {
         // theta = 1 / (2 - 2^(1/3)), the root of the condition that the third
         // order error terms cancel. Computed rather than transcribed.
         const Scalar theta = Scalar{1} / (Scalar{2} - std::cbrt(Scalar{2}));
@@ -150,8 +150,8 @@ public:
     static constexpr int order = 4;
 
     template <AccelerationField<S> Acceleration>
-    void step(const Acceleration& acceleration, Scalar time, const State& state,
-              Scalar h, State& out) {
+    void step(const Acceleration& acceleration, Scalar time, const State& state, Scalar h,
+              State& out) {
         const auto xi = static_cast<Scalar>(0.1786178958448091);
         const auto lambda = static_cast<Scalar>(-0.2123418310626054);
         const auto chi = static_cast<Scalar>(-0.06626458266981849);

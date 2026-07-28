@@ -264,8 +264,8 @@ template <Numeric T>
 /// detected: the result is finite but inaccurate, which is what
 /// detail::solveByElimination exists for.
 template <Numeric T>
-[[nodiscard]] constexpr std::optional<Matrix2<T>> tryInverse(
-    const Matrix2<T>& m) noexcept {
+[[nodiscard]] constexpr std::optional<Matrix2<T>>
+tryInverse(const Matrix2<T>& m) noexcept {
     const T det = determinant(m);
     // Finiteness as well as non-zero. A determinant that overflowed used to
     // pass both of the old checks and then divide the adjugate down to a zero
@@ -286,8 +286,7 @@ template <Numeric T>
 
 /// Solves M x = b by elimination with partial pivoting. nullopt if singular.
 template <Numeric T>
-[[nodiscard]] std::optional<Vector2<T>> solve(const Matrix2<T>& m,
-                                              const Vector2<T>& b) {
+[[nodiscard]] std::optional<Vector2<T>> solve(const Matrix2<T>& m, const Vector2<T>& b) {
     return detail::solveByElimination(m, b);
 }
 

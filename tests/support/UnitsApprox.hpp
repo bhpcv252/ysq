@@ -42,10 +42,9 @@ std::ostream& operator<<(std::ostream& os, const Quantity<D, V>& value) {
 namespace ysq::test {
 
 template <class Q>
-[[nodiscard]] ::testing::AssertionResult quantitiesNear(const char* aExpr,
-                                                        const char* bExpr,
-                                                        const char* tolExpr, const Q& a,
-                                                        const Q& b, const Q& tolerance) {
+[[nodiscard]] ::testing::AssertionResult
+quantitiesNear(const char* aExpr, const char* bExpr, const char* tolExpr, const Q& a,
+               const Q& b, const Q& tolerance) {
     using T = typename Q::scalar_type;
     if (approxEqual(a, b, kDefaultRelTol<T>, tolerance)) {
         return ::testing::AssertionSuccess();
@@ -57,21 +56,19 @@ template <class Q>
 }
 
 template <class Q>
-[[nodiscard]] ::testing::AssertionResult quantitiesApprox(const char* aExpr,
-                                                          const char* bExpr, const Q& a,
-                                                          const Q& b) {
+[[nodiscard]] ::testing::AssertionResult
+quantitiesApprox(const char* aExpr, const char* bExpr, const Q& a, const Q& b) {
     using T = typename Q::scalar_type;
-    return quantitiesNear(aExpr, bExpr, "default", a, b,
-                          Q{kDefaultAbsTol<T>});
+    return quantitiesNear(aExpr, bExpr, "default", a, b, Q{kDefaultAbsTol<T>});
 }
 
 /// Componentwise, on the same terms, for a vector-valued quantity. The
 /// tolerance is the scalar-valued quantity of the same dimension, since a
 /// per-component tolerance is a magnitude rather than a direction.
 template <class Q, class Tol>
-[[nodiscard]] ::testing::AssertionResult quantityComponentsNear(
-    const char* aExpr, const char* bExpr, const char* tolExpr, const Q& a, const Q& b,
-    const Tol& tolerance) {
+[[nodiscard]] ::testing::AssertionResult
+quantityComponentsNear(const char* aExpr, const char* bExpr, const char* tolExpr,
+                       const Q& a, const Q& b, const Tol& tolerance) {
     using T = typename Q::scalar_type;
     static_assert(std::same_as<typename Q::dimension, typename Tol::dimension>,
                   "The tolerance must have the same dimension as the operands.");
@@ -83,19 +80,17 @@ template <class Q, class Tol>
             continue;
         }
         const T difference = (av[i] < bv[i]) ? (bv[i] - av[i]) : (av[i] - bv[i]);
-        return ::testing::AssertionFailure() << std::format(
-                   "\n  {} = {}\n  {} = {}\ncomponent {} differs by {:.6g}, "
-                   "tolerance {} ({})",
-                   aExpr, a, bExpr, b, i, difference, tolerance, tolExpr);
+        return ::testing::AssertionFailure()
+               << std::format("\n  {} = {}\n  {} = {}\ncomponent {} differs by {:.6g}, "
+                              "tolerance {} ({})",
+                              aExpr, a, bExpr, b, i, difference, tolerance, tolExpr);
     }
     return ::testing::AssertionSuccess();
 }
 
 template <class Q>
-[[nodiscard]] ::testing::AssertionResult quantityComponentsApprox(const char* aExpr,
-                                                                  const char* bExpr,
-                                                                  const Q& a,
-                                                                  const Q& b) {
+[[nodiscard]] ::testing::AssertionResult
+quantityComponentsApprox(const char* aExpr, const char* bExpr, const Q& a, const Q& b) {
     using T = typename Q::scalar_type;
     using Scalar = Quantity<typename Q::dimension, T>;
     return quantityComponentsNear(aExpr, bExpr, "default", a, b,
@@ -104,18 +99,18 @@ template <class Q>
 
 }  // namespace ysq::test
 
-#define EXPECT_QUANTITY_NEAR(a, b, tol) \
+#define EXPECT_QUANTITY_NEAR(a, b, tol)                                                  \
     EXPECT_PRED_FORMAT3(::ysq::test::quantitiesNear, a, b, tol)
-#define ASSERT_QUANTITY_NEAR(a, b, tol) \
+#define ASSERT_QUANTITY_NEAR(a, b, tol)                                                  \
     ASSERT_PRED_FORMAT3(::ysq::test::quantitiesNear, a, b, tol)
 
-#define EXPECT_QUANTITY_APPROX(a, b) \
+#define EXPECT_QUANTITY_APPROX(a, b)                                                     \
     EXPECT_PRED_FORMAT2(::ysq::test::quantitiesApprox, a, b)
-#define ASSERT_QUANTITY_APPROX(a, b) \
+#define ASSERT_QUANTITY_APPROX(a, b)                                                     \
     ASSERT_PRED_FORMAT2(::ysq::test::quantitiesApprox, a, b)
 
-#define EXPECT_QUANTITY_VEC_NEAR(a, b, tol) \
+#define EXPECT_QUANTITY_VEC_NEAR(a, b, tol)                                              \
     EXPECT_PRED_FORMAT3(::ysq::test::quantityComponentsNear, a, b, tol)
 
-#define EXPECT_QUANTITY_VEC_APPROX(a, b) \
+#define EXPECT_QUANTITY_VEC_APPROX(a, b)                                                 \
     EXPECT_PRED_FORMAT2(::ysq::test::quantityComponentsApprox, a, b)

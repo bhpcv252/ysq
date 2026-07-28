@@ -148,8 +148,7 @@ TEST(MathOde, StepCountAgreesWithWhatTheDriverDoes) {
         ysq::integrate(stepper, decay, 1.0, 0.0, 1.0, step,
                        [&](double, double) { ++observed; });
         // The observer fires once before the first step as well.
-        EXPECT_EQ(observed, ysq::stepCount(0.0, 1.0, step) + 1)
-            << "at step " << step;
+        EXPECT_EQ(observed, ysq::stepCount(0.0, 1.0, step) + 1) << "at step " << step;
     }
 
     EXPECT_EQ(ysq::stepCount(0.0, 1.0, 0.0), 0u);
@@ -246,8 +245,7 @@ TEST(MathOde, ASteppersScratchDoesNotLeakBetweenRuns) {
     EXPECT_EQ(ysq::integrate(fresh, decay, 1.0, 0.0, 1.0, 0.05), first);
 
     // Interleaving a different problem must not change the answer either.
-    ysq::integrate(reused, [](double, double y) { return 3.0 * y; }, 2.0, 0.0, 0.5,
-                   0.05);
+    ysq::integrate(reused, [](double, double y) { return 3.0 * y; }, 2.0, 0.0, 0.5, 0.05);
     EXPECT_EQ(ysq::integrate(reused, decay, 1.0, 0.0, 1.0, 0.05), first);
 }
 
@@ -365,9 +363,9 @@ TEST(MathOde, TheAdaptiveDriverRespectsItsStepBounds) {
     settings.maximumStep = 0.05;
 
     std::vector<double> times;
-    const auto result = ysq::integrateAdaptive(
-        stepper, decay, 1.0, 0.0, 1.0, 0.5, settings,
-        [&](double t, double) { times.push_back(t); });
+    const auto result =
+        ysq::integrateAdaptive(stepper, decay, 1.0, 0.0, 1.0, 0.5, settings,
+                               [&](double t, double) { times.push_back(t); });
 
     ASSERT_TRUE(result.succeeded);
     for (std::size_t i = 1; i < times.size(); ++i) {
@@ -408,8 +406,8 @@ TEST(MathOde, TheAdaptiveDriverIntegratesBackwardsToo) {
     ASSERT_TRUE(forward.succeeded);
 
     stepper.reset();
-    const auto back = ysq::integrateAdaptive(stepper, decay, forward.state, 1.0,
-                                             0.0, 0.1, settings);
+    const auto back =
+        ysq::integrateAdaptive(stepper, decay, forward.state, 1.0, 0.0, 0.1, settings);
 
     EXPECT_TRUE(back.succeeded);
     EXPECT_EQ(back.time, 0.0) << "it has to reach the end it was given";
@@ -420,9 +418,9 @@ TEST(MathOde, TheAdaptiveDriverIntegratesBackwardsToo) {
     ysq::AdaptiveSettings<double> bounded;
     bounded.maximumStep = 0.05;
     std::vector<double> times;
-    const auto clamped = ysq::integrateAdaptive(
-        stepper, decay, 1.0, 1.0, 0.0, 0.5, bounded,
-        [&](double t, double) { times.push_back(t); });
+    const auto clamped =
+        ysq::integrateAdaptive(stepper, decay, 1.0, 1.0, 0.0, 0.5, bounded,
+                               [&](double t, double) { times.push_back(t); });
     ASSERT_TRUE(clamped.succeeded);
     for (std::size_t i = 1; i < times.size(); ++i) {
         EXPECT_LE(times[i - 1] - times[i], 0.05 + 1e-12) << "step " << i;
@@ -438,8 +436,7 @@ TEST(MathOde, TheAdaptiveDriverSurvivesAnUnusableInitialStep) {
     settings.absoluteTolerance = 1e-9;
     settings.relativeTolerance = 1e-9;
 
-    for (const double guess : {0.0, -0.1,
-                               std::numeric_limits<double>::quiet_NaN()}) {
+    for (const double guess : {0.0, -0.1, std::numeric_limits<double>::quiet_NaN()}) {
         stepper.reset();
         const auto result =
             ysq::integrateAdaptive(stepper, decay, 1.0, 0.0, 1.0, guess, settings);
@@ -508,8 +505,8 @@ TEST(MathOde, TheAdaptiveDriverRunsAVectorValuedSystemToo) {
     settings.relativeTolerance = 1e-10;
 
     const auto system = [](double, const Vec3& y) { return y * -1.0; };
-    const auto result = ysq::integrateAdaptive(
-        stepper, system, Vec3{1.0, 2.0, 3.0}, 0.0, 1.0, 0.1, settings);
+    const auto result = ysq::integrateAdaptive(stepper, system, Vec3{1.0, 2.0, 3.0}, 0.0,
+                                               1.0, 0.1, settings);
 
     ASSERT_TRUE(result.succeeded);
     EXPECT_VEC_NEAR(result.state, (Vec3{1.0, 2.0, 3.0} * std::exp(-1.0)), 1e-9);

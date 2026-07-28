@@ -123,8 +123,8 @@ TEST(UnitsKinematics, ProjectileMatchesTheAnalyticSolution) {
     const auto acceleration = [&](double, const Vec3&) { return gravity.value(); };
 
     const PhaseState<Vec3> initial{start.value(), launch.value()};
-    const PhaseState<Vec3> final = integrate(stepper, acceleration, initial, 0.0,
-                                             flight.value(), 1.0 / 4096.0);
+    const PhaseState<Vec3> final =
+        integrate(stepper, acceleration, initial, 0.0, flight.value(), 1.0 / 4096.0);
 
     const Length3 position{final.position};
     const Velocity3 velocity{final.velocity};
@@ -137,8 +137,7 @@ TEST(UnitsKinematics, ProjectileMatchesTheAnalyticSolution) {
     // Velocity Verlet is exact for a constant acceleration, so the tolerance
     // here is accumulated rounding over 16384 steps and nothing else.
     EXPECT_QUANTITY_VEC_NEAR(position, expectedPosition, 1.0e-9 * units::metre);
-    EXPECT_QUANTITY_VEC_NEAR(velocity, expectedVelocity,
-                             1.0e-9 * units::metrePerSecond);
+    EXPECT_QUANTITY_VEC_NEAR(velocity, expectedVelocity, 1.0e-9 * units::metrePerSecond);
 
     // Apex height, by a route that never touches a raw number: v0y^2 / 2g.
     const Length apex =
@@ -186,15 +185,14 @@ TEST(UnitsKinematics, AnOrbitIntegratedForItsPeriodReturnsToItsStart) {
 
     VelocityVerletStepper<Vec3> stepper;
     const PhaseState<Vec3> initial{start.value(), launch.value()};
-    const PhaseState<Vec3> final = integrate(
-        stepper, acceleration, initial, 0.0, period.value(), period.value() / 20000.0);
+    const PhaseState<Vec3> final = integrate(stepper, acceleration, initial, 0.0,
+                                             period.value(), period.value() / 20000.0);
 
     const Length3 position{final.position};
     const Velocity3 velocity{final.velocity};
 
     // Back where it started, to a part in ten thousand of the orbit radius.
-    EXPECT_QUANTITY_NEAR(distance(position, start), Length{0.0},
-                         1.0e-4 * kOrbitRadius);
+    EXPECT_QUANTITY_NEAR(distance(position, start), Length{0.0}, 1.0e-4 * kOrbitRadius);
     EXPECT_QUANTITY_NEAR(length(position), kOrbitRadius, 1.0e-6 * kOrbitRadius);
     EXPECT_QUANTITY_NEAR(length(velocity), speed, 1.0e-6 * speed);
 }
@@ -212,8 +210,8 @@ TEST(UnitsKinematics, SpecificOrbitalEnergyIsConservedAndHasTheRightValue) {
 
     // For a circular orbit the specific energy is -GM / 2a, exactly.
     const SpecificEnergy expected = -kSunGM / (2.0 * kOrbitRadius);
-    static_assert(std::is_same_v<decltype(specificEnergy(start, launch)),
-                                 SpecificEnergy>);
+    static_assert(
+        std::is_same_v<decltype(specificEnergy(start, launch)), SpecificEnergy>);
     EXPECT_QUANTITY_NEAR(specificEnergy(start, launch), expected,
                          abs(expected) * 1.0e-12);
 
@@ -225,8 +223,8 @@ TEST(UnitsKinematics, SpecificOrbitalEnergyIsConservedAndHasTheRightValue) {
 
     VelocityVerletStepper<Vec3> stepper;
     const PhaseState<Vec3> initial{start.value(), launch.value()};
-    const PhaseState<Vec3> final = integrate(
-        stepper, acceleration, initial, 0.0, period.value(), period.value() / 20000.0);
+    const PhaseState<Vec3> final = integrate(stepper, acceleration, initial, 0.0,
+                                             period.value(), period.value() / 20000.0);
 
     // A symplectic method holds this bounded rather than letting it drift,
     // which is the property the whole integrator choice rests on.

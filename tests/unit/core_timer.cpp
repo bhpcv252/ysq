@@ -131,7 +131,9 @@ TEST_F(ScopedTimerTest, LogsItsLabelAndDurationWhenTheScopeEnds) {
 TEST_F(ScopedTimerTest, StaysSilentBelowTheActiveLevel) {
     initAt(ysq::LogLevel::Warn);
 
-    { const ysq::ScopedTimer timer("integrate"); }
+    {
+        const ysq::ScopedTimer timer("integrate");
+    }
 
     EXPECT_TRUE(captured.str().empty()) << captured.str();
 }
@@ -139,7 +141,9 @@ TEST_F(ScopedTimerTest, StaysSilentBelowTheActiveLevel) {
 TEST_F(ScopedTimerTest, HonoursAnExplicitLevel) {
     initAt(ysq::LogLevel::Warn);
 
-    { const ysq::ScopedTimer timer("integrate", ysq::LogLevel::Error); }
+    {
+        const ysq::ScopedTimer timer("integrate", ysq::LogLevel::Error);
+    }
 
     EXPECT_NE(captured.str().find("integrate took "), std::string::npos)
         << captured.str();

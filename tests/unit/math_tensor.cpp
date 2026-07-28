@@ -169,9 +169,8 @@ TEST(MathTensor, OuterProductAddsRanksAndMultipliesComponents) {
                          toTensor(Mat3::outerProduct(a, b)));
 
     // Rank keeps adding.
-    static_assert(std::is_same_v<decltype(outerProduct(distinctRank2(),
-                                                       distinctRank2())),
-                                 Rank4>);
+    static_assert(
+        std::is_same_v<decltype(outerProduct(distinctRank2(), distinctRank2())), Rank4>);
 }
 
 // --- Contraction ------------------------------------------------------------
@@ -192,8 +191,8 @@ TEST(MathTensor, ContractingAMatrixWithAVectorIsTheMatrixVectorProduct) {
 
     // Index 1 of the matrix is its column index, which is what a matrix-vector
     // product sums over.
-    EXPECT_TENSOR_NEAR((contract<1, 0>(toTensor(m), toTensor(v))),
-                       toTensor(m * v), zeroTolerance(50.0));
+    EXPECT_TENSOR_NEAR((contract<1, 0>(toTensor(m), toTensor(v))), toTensor(m * v),
+                       zeroTolerance(50.0));
 }
 
 TEST(MathTensor, ContractingTwoMatricesIsTheMatrixProduct) {
@@ -205,8 +204,8 @@ TEST(MathTensor, ContractingTwoMatricesIsTheMatrixProduct) {
     const Mat4 b = Mat4::fromRows({1.0, 2.0, -1.0, 3.0}, {3.0, -0.5, 2.0, 1.0},
                                   {0.25, 1.0, 4.0, -2.0}, {-1.0, 0.5, 1.5, 1.0});
 
-    EXPECT_TENSOR_NEAR((contract<1, 0>(toTensor(a), toTensor(b))),
-                       toTensor(a * b), zeroTolerance(200.0));
+    EXPECT_TENSOR_NEAR((contract<1, 0>(toTensor(a), toTensor(b))), toTensor(a * b),
+                       zeroTolerance(200.0));
 
     // Contracting the other index of the left operand transposes it.
     EXPECT_TENSOR_NEAR((contract<0, 0>(toTensor(a), toTensor(b))),
@@ -251,8 +250,7 @@ TEST(MathTensor, TracingARankTwoTensorMatchesItsOrdinaryTrace) {
     // And the trace of an outer product is the dot product.
     const Vec4 a{1.0, 2.0, 3.0, 4.0};
     const Vec4 b{5.0, -1.0, 0.5, 2.0};
-    EXPECT_APPROX((traceOver<0, 1>(outerProduct(toTensor(a), toTensor(b)))()),
-                  dot(a, b));
+    EXPECT_APPROX((traceOver<0, 1>(outerProduct(toTensor(a), toTensor(b)))()), dot(a, b));
 }
 
 TEST(MathTensor, TracingARankFourTensorContractsTheNamedIndices) {
@@ -312,8 +310,7 @@ TEST(MathTensor, SymmetricAndAntisymmetricPartsDecomposeTheTensor) {
                        zeroTolerance(100.0));
 
     // The projectors are idempotent, and each kills the other's image.
-    EXPECT_TENSOR_NEAR((symmetrize<0, 1>(symmetric)), symmetric,
-                       zeroTolerance(100.0));
+    EXPECT_TENSOR_NEAR((symmetrize<0, 1>(symmetric)), symmetric, zeroTolerance(100.0));
     EXPECT_TENSOR_NEAR((antisymmetrize<0, 1>(symmetric)), Rank2::zero(),
                        zeroTolerance(100.0));
     EXPECT_TENSOR_NEAR((symmetrize<0, 1>(antisymmetric)), Rank2::zero(),
@@ -346,11 +343,9 @@ TEST(MathTensor, SymmetryProjectorsWorkOnAnInnerPairOfIndices) {
 TEST(MathTensor, ConversionsWithTheFixedTypesRoundTrip) {
     const Vec3 v3{1.0, -2.0, 0.5};
     const Vec4 v4{1.0, -2.0, 0.5, 3.0};
-    const Mat3 m3 = Mat3::fromRows({1.0, 2.0, 3.0}, {4.0, 5.0, 6.0},
-                                   {7.0, 8.0, 9.0});
+    const Mat3 m3 = Mat3::fromRows({1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}, {7.0, 8.0, 9.0});
     const Mat4 m4 = Mat4::fromRows({2.0, -1.0, 3.0, 0.5}, {0.5, 4.0, -2.0, 1.0},
-                                   {-1.5, 1.0, 5.0, -3.0},
-                                   {1.0, 0.25, -0.5, 2.0});
+                                   {-1.5, 1.0, 5.0, -3.0}, {1.0, 0.25, -0.5, 2.0});
 
     EXPECT_EQ(toVector3(toTensor(v3)), v3);
     EXPECT_EQ(toVector4(toTensor(v4)), v4);
@@ -384,8 +379,7 @@ TEST(MathTensor, ComposesWithDualSoAMetricCanCarryItsOwnDerivatives) {
 
     const MetricDual doubled = g + g;
     EXPECT_NEAR(doubled(2, 2).derivative, 4.0 * r, 1e-13);
-    EXPECT_NEAR((contract<1, 0>(g, g)(2, 2).derivative), 2.0 * (r * r) * (2.0 * r),
-                1e-9);
+    EXPECT_NEAR((contract<1, 0>(g, g)(2, 2).derivative), 2.0 * (r * r) * (2.0 * r), 1e-9);
 }
 
 // --- Formatting -------------------------------------------------------------

@@ -42,8 +42,8 @@ struct PlatformSettings {
 /// that all of this happens on the main thread.
 class Platform {
 public:
-    [[nodiscard]] static std::optional<Platform> initialize(
-        const PlatformSettings& settings = {}, PlatformError* error = nullptr);
+    [[nodiscard]] static std::optional<Platform>
+    initialize(const PlatformSettings& settings = {}, PlatformError* error = nullptr);
 
     /// A handle on the already-initialised windowing system, or nullopt. Retains
     /// like a copy; it does not initialise.

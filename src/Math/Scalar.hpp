@@ -168,8 +168,7 @@ template <std::floating_point T>
 }
 
 template <std::floating_point T>
-[[nodiscard]] constexpr bool isNearZero(T value,
-                                        T absTol = kDefaultAbsTol<T>) noexcept {
+[[nodiscard]] constexpr bool isNearZero(T value, T absTol = kDefaultAbsTol<T>) noexcept {
     const T mag = (value < T{0}) ? -value : value;
     return mag <= absTol;
 }

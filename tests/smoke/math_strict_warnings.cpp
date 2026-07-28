@@ -175,8 +175,8 @@ T exercise() {
     acc += a4[0] + std::as_const(a4)[3];
     acc += a4.xy().x + a4.xyz().z;
     acc += V4::point(a3).w + V4::direction(a3).w;
-    acc += V4::splat(T{1}).x + V4::unitX().x + V4::unitY().y + V4::unitZ().z +
-           V4::unitW().w;
+    acc +=
+        V4::splat(T{1}).x + V4::unitX().x + V4::unitY().y + V4::unitZ().z + V4::unitW().w;
     acc += V4::zero().x;
     acc += (a4 == b4) ? T{1} : T{0};
     acc += static_cast<T>(V4::size());
@@ -238,8 +238,8 @@ T exerciseMatrices() {
     acc += M3::scale(V3::splat(T{2}))(0, 0);
     acc += M3::outerProduct(V3::unitX(), V3::unitY())(0, 1);
     acc += M3::crossMatrix(V3::unitZ())(0, 1);
-    acc += M3::rotationX(T{1})(1, 1) + M3::rotationY(T{1})(0, 0) +
-           M3::rotationZ(T{1})(0, 0);
+    acc +=
+        M3::rotationX(T{1})(1, 1) + M3::rotationY(T{1})(0, 0) + M3::rotationZ(T{1})(0, 0);
     acc += (a3 == b3) ? T{1} : T{0};
     acc += static_cast<T>(M3::rows() + M3::cols());
 
@@ -267,8 +267,8 @@ T exerciseMatrices() {
     acc += M4::zero()(0, 0) + M4::identity()(0, 0) + M4::diagonal(V4::unitX())(0, 0);
     acc += M4::translation(V3::unitX())(0, 3) + M4::scale(V3::splat(T{2}))(0, 0);
     acc += M4::fromLinear(b3)(0, 0) + M4::fromLinearTranslation(b3, V3::unitX())(0, 3);
-    acc += M4::rotationX(T{1})(1, 1) + M4::rotationY(T{1})(0, 0) +
-           M4::rotationZ(T{1})(0, 0);
+    acc +=
+        M4::rotationX(T{1})(1, 1) + M4::rotationY(T{1})(0, 0) + M4::rotationZ(T{1})(0, 0);
     acc += M4::lookAt(V3::splat(T{3}), V3::zero(), V3::unitY())(0, 0);
     acc += M4::perspective(ysq::radians(T{60}), T{2}, T{1}, T{100})(0, 0);
     acc += M4::orthographic(T{-1}, T{1}, T{-1}, T{1}, T{1}, T{100})(0, 0);
@@ -369,8 +369,7 @@ T exerciseScalars() {
     acc += ysq::sin(x).derivative + ysq::cos(x).derivative + ysq::tan(x).derivative;
     acc += ysq::asin(D{T{0}, T{1}}).derivative + ysq::acos(D{T{0}, T{1}}).derivative;
     acc += ysq::atan(x).derivative + ysq::atan2(x, y).derivative;
-    acc += ysq::sinh(x).derivative + ysq::cosh(x).derivative +
-           ysq::tanh(x).derivative;
+    acc += ysq::sinh(x).derivative + ysq::cosh(x).derivative + ysq::tanh(x).derivative;
     acc += ysq::asinh(x).derivative + ysq::acosh(x).derivative;
     acc += ysq::atanh(D{T{0}, T{1}}).derivative;
     acc += ysq::abs(x).derivative + ysq::hypot(x, y).derivative;
@@ -474,17 +473,14 @@ T exerciseNumerics() {
 
     acc += ysq::lerp(T{1}, T{2}, T{0.5}) + ysq::inverseLerp(T{1}, T{2}, T{1.5});
     acc += ysq::remap(T{1}, T{0}, T{2}, T{0}, T{10});
-    acc += ysq::smoothstep(T{0}, T{1}, T{0.5}) +
-           ysq::smootherstep(T{0}, T{1}, T{0.5});
+    acc += ysq::smoothstep(T{0}, T{1}, T{0.5}) + ysq::smootherstep(T{0}, T{1}, T{0.5});
     acc += ysq::bilinear(T{0}, T{1}, T{2}, T{3}, T{0.5}, T{0.5});
-    acc += ysq::trilinear(T{0}, T{1}, T{2}, T{3}, T{4}, T{5}, T{6}, T{7}, T{0.5},
-                          T{0.5}, T{0.5});
+    acc += ysq::trilinear(T{0}, T{1}, T{2}, T{3}, T{4}, T{5}, T{6}, T{7}, T{0.5}, T{0.5},
+                          T{0.5});
     acc += ysq::cubicHermite(T{0}, T{1}, T{1}, T{1}, T{0.5});
     acc += ysq::catmullRom(T{0}, T{1}, T{2}, T{3}, T{0.5});
     acc += ysq::cubicBezier(T{0}, T{1}, T{2}, T{3}, T{0.5});
-    acc += ysq::catmullRom(V3::zero(), V3::unitX(), V3::unitY(), V3::unitZ(),
-                           T{0.5})
-               .x;
+    acc += ysq::catmullRom(V3::zero(), V3::unitX(), V3::unitY(), V3::unitZ(), T{0.5}).x;
     acc += ysq::interpolateTable(values, values, T{3}).value_or(T{0});
 
     const auto spline = ysq::CubicSpline<T>::natural(values, values);
@@ -580,25 +576,24 @@ T exerciseIntegrators() {
     acc += ysq::integrate(rk4, decay, start, T{0}, T{1}, step).x;
     acc += ysq::integrate(dormandPrince, decay, start, T{0}, T{1}, step).x;
 
-    acc += static_cast<T>(euler.evaluations() + midpoint.evaluations() +
-                          heun.evaluations() + rk4.evaluations() +
-                          dormandPrince.evaluations());
-    acc += static_cast<T>(ysq::ExplicitEulerStepper<V3>::order +
-                          ysq::Rk4Stepper<V3>::order +
-                          ysq::DormandPrince54Stepper<V3>::embeddedOrder);
+    acc +=
+        static_cast<T>(euler.evaluations() + midpoint.evaluations() + heun.evaluations() +
+                       rk4.evaluations() + dormandPrince.evaluations());
+    acc +=
+        static_cast<T>(ysq::ExplicitEulerStepper<V3>::order + ysq::Rk4Stepper<V3>::order +
+                       ysq::DormandPrince54Stepper<V3>::embeddedOrder);
 
     ysq::SemiImplicitEulerStepper<V3> symplecticEuler;
     ysq::VelocityVerletStepper<V3> verlet;
     ysq::ForestRuthStepper<V3> forestRuth;
     ysq::PefrlStepper<V3> pefrl;
 
-    acc += ysq::integrate(symplecticEuler, springAcceleration, phaseStart, T{0},
-                          T{1}, step)
-               .position.x;
+    acc +=
+        ysq::integrate(symplecticEuler, springAcceleration, phaseStart, T{0}, T{1}, step)
+            .position.x;
     acc += ysq::integrate(verlet, springAcceleration, phaseStart, T{0}, T{1}, step)
                .velocity.x;
-    acc += ysq::integrate(forestRuth, springAcceleration, phaseStart, T{0}, T{1},
-                          step)
+    acc += ysq::integrate(forestRuth, springAcceleration, phaseStart, T{0}, T{1}, step)
                .position.x;
     acc += ysq::integrate(pefrl, springAcceleration, phaseStart, T{0}, T{1}, step)
                .position.x;
@@ -607,22 +602,22 @@ T exerciseIntegrators() {
 
     // The same problem through an explicit method, via the phase-space wrapper.
     ysq::Rk4Stepper<Phase> phaseRk4;
-    acc += ysq::integrate(phaseRk4, springSystem, phaseStart, T{0}, T{1}, step)
-               .position.x;
+    acc +=
+        ysq::integrate(phaseRk4, springSystem, phaseStart, T{0}, T{1}, step).position.x;
 
     // An observer, and the step count the driver will use.
     T sampled{};
-    acc += ysq::integrate(rk4, decay, start, T{0}, T{1}, step,
-                          [&](T, const V3& y) { sampled += y.x; })
-               .x;
+    acc += ysq::integrate(rk4, decay, start, T{0}, T{1}, step, [&](T, const V3& y) {
+               sampled += y.x;
+           }).x;
     acc += sampled;
     acc += static_cast<T>(ysq::stepCount(T{0}, T{1}, step));
 
     ysq::AdaptiveSettings<T> settings;
     settings.absoluteTolerance = static_cast<T>(1e-6);
     settings.relativeTolerance = static_cast<T>(1e-6);
-    const auto adaptive = ysq::integrateAdaptive(dormandPrince, decay, start, T{0},
-                                                 T{1}, step, settings);
+    const auto adaptive =
+        ysq::integrateAdaptive(dormandPrince, decay, start, T{0}, T{1}, step, settings);
     acc += adaptive.state.x + adaptive.time;
     acc += static_cast<T>(adaptive.acceptedSteps + adaptive.rejectedSteps +
                           adaptive.evaluations);
@@ -650,8 +645,8 @@ T exerciseIntegrators() {
 
     ysq::Rk4Stepper<Dynamic> dynamicRk4;
     const auto dynamicDecay = [](T, const Dynamic& y) { return y * T{-1}; };
-    acc += ysq::integrate(dynamicRk4, dynamicDecay, Dynamic{T{1}, T{2}, T{3}}, T{0},
-                          T{1}, step)[0];
+    acc += ysq::integrate(dynamicRk4, dynamicDecay, Dynamic{T{1}, T{2}, T{3}}, T{0}, T{1},
+                          step)[0];
 
     // Phase-space arithmetic in its own right.
     Phase phase = phaseStart;

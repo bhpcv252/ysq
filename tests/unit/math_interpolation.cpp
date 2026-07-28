@@ -60,19 +60,17 @@ TEST(MathInterpolation, SmoothstepIsClampedMonotonicAndFlatAtBothEnds) {
 
     double previous = -1.0;
     for (std::size_t i = 0; i <= 100; ++i) {
-        const double value =
-            ysq::smoothstep(0.0, 1.0, static_cast<double>(i) / 100.0);
+        const double value = ysq::smoothstep(0.0, 1.0, static_cast<double>(i) / 100.0);
         EXPECT_GE(value, previous) << "must not go backwards";
         previous = value;
     }
 
     // The slope vanishes at both ends, which is the whole point of it.
     constexpr double h = 1e-6;
-    EXPECT_NEAR((ysq::smoothstep(0.0, 1.0, h) - ysq::smoothstep(0.0, 1.0, 0.0)) / h,
+    EXPECT_NEAR((ysq::smoothstep(0.0, 1.0, h) - ysq::smoothstep(0.0, 1.0, 0.0)) / h, 0.0,
+                1e-5);
+    EXPECT_NEAR((ysq::smoothstep(0.0, 1.0, 1.0) - ysq::smoothstep(0.0, 1.0, 1.0 - h)) / h,
                 0.0, 1e-5);
-    EXPECT_NEAR(
-        (ysq::smoothstep(0.0, 1.0, 1.0) - ysq::smoothstep(0.0, 1.0, 1.0 - h)) / h,
-        0.0, 1e-5);
 
     // It works on any interval, not only the unit one.
     EXPECT_APPROX(ysq::smoothstep(10.0, 20.0, 15.0), 0.5);
@@ -116,10 +114,8 @@ TEST(MathInterpolation, BilinearReducesToLerpOnTheEdges) {
     EXPECT_APPROX(ysq::bilinear(v00, v10, v01, v11, 0.0, 1.0), v01);
     EXPECT_APPROX(ysq::bilinear(v00, v10, v01, v11, 1.0, 1.0), v11);
 
-    EXPECT_APPROX(ysq::bilinear(v00, v10, v01, v11, 0.5, 0.0),
-                  ysq::lerp(v00, v10, 0.5));
-    EXPECT_APPROX(ysq::bilinear(v00, v10, v01, v11, 0.0, 0.5),
-                  ysq::lerp(v00, v01, 0.5));
+    EXPECT_APPROX(ysq::bilinear(v00, v10, v01, v11, 0.5, 0.0), ysq::lerp(v00, v10, 0.5));
+    EXPECT_APPROX(ysq::bilinear(v00, v10, v01, v11, 0.0, 0.5), ysq::lerp(v00, v01, 0.5));
     EXPECT_APPROX(ysq::bilinear(v00, v10, v01, v11, 0.5, 0.5),
                   (v00 + v10 + v01 + v11) / 4.0);
 }
@@ -133,9 +129,9 @@ TEST(MathInterpolation, BilinearIsExactOnASeparableBilinearFunction) {
 
     for (const double tx : {0.0, 0.3, 0.5, 0.9, 1.0}) {
         for (const double ty : {0.0, 0.2, 0.5, 0.8, 1.0}) {
-            EXPECT_NEAR(ysq::bilinear(f(0.0, 0.0), f(1.0, 0.0), f(0.0, 1.0),
-                                      f(1.0, 1.0), tx, ty),
-                        f(tx, ty), 1e-13);
+            EXPECT_NEAR(
+                ysq::bilinear(f(0.0, 0.0), f(1.0, 0.0), f(0.0, 1.0), f(1.0, 1.0), tx, ty),
+                f(tx, ty), 1e-13);
         }
     }
 }
@@ -170,10 +166,10 @@ TEST(MathInterpolation, CubicHermiteMatchesItsEndpointsAndTangents) {
     EXPECT_APPROX(ysq::cubicHermite(p0, m0, p1, m1, 1.0), p1);
 
     constexpr double h = 1e-6;
-    EXPECT_NEAR((ysq::cubicHermite(p0, m0, p1, m1, h) -
-                 ysq::cubicHermite(p0, m0, p1, m1, -h)) /
-                    (2.0 * h),
-                m0, 1e-8);
+    EXPECT_NEAR(
+        (ysq::cubicHermite(p0, m0, p1, m1, h) - ysq::cubicHermite(p0, m0, p1, m1, -h)) /
+            (2.0 * h),
+        m0, 1e-8);
     EXPECT_NEAR((ysq::cubicHermite(p0, m0, p1, m1, 1.0 + h) -
                  ysq::cubicHermite(p0, m0, p1, m1, 1.0 - h)) /
                     (2.0 * h),
@@ -205,19 +201,20 @@ TEST(MathInterpolation, CatmullRomIsContinuousInValueAndSlopeAcrossSegments) {
     const std::vector<double> points{0.0, 1.0, 3.0, 2.0, 5.0, 4.0};
 
     // The end of one segment is the start of the next, by construction.
-    EXPECT_APPROX(
-        ysq::catmullRom(points[0], points[1], points[2], points[3], 1.0),
-        ysq::catmullRom(points[1], points[2], points[3], points[4], 0.0));
+    EXPECT_APPROX(ysq::catmullRom(points[0], points[1], points[2], points[3], 1.0),
+                  ysq::catmullRom(points[1], points[2], points[3], points[4], 0.0));
 
     // And so is the slope, which is what C1 means and what makes the path
     // usable for a camera or a trajectory.
     constexpr double h = 1e-6;
     const double leaving =
         (ysq::catmullRom(points[0], points[1], points[2], points[3], 1.0) -
-         ysq::catmullRom(points[0], points[1], points[2], points[3], 1.0 - h)) / h;
+         ysq::catmullRom(points[0], points[1], points[2], points[3], 1.0 - h)) /
+        h;
     const double arriving =
         (ysq::catmullRom(points[1], points[2], points[3], points[4], h) -
-         ysq::catmullRom(points[1], points[2], points[3], points[4], 0.0)) / h;
+         ysq::catmullRom(points[1], points[2], points[3], points[4], 0.0)) /
+        h;
     EXPECT_NEAR(leaving, arriving, 1e-4);
 }
 
@@ -258,10 +255,8 @@ TEST(MathInterpolation, TheCurvesWorkOnVectorsAsWellAsScalars) {
 
     // Componentwise, so each coordinate follows the scalar answer.
     const Vec3 midpoint = ysq::catmullRom(p0, p1, p2, p3, 0.4);
-    EXPECT_APPROX(midpoint.x,
-                  ysq::catmullRom(p0.x, p1.x, p2.x, p3.x, 0.4));
-    EXPECT_APPROX(midpoint.z,
-                  ysq::catmullRom(p0.z, p1.z, p2.z, p3.z, 0.4));
+    EXPECT_APPROX(midpoint.x, ysq::catmullRom(p0.x, p1.x, p2.x, p3.x, 0.4));
+    EXPECT_APPROX(midpoint.z, ysq::catmullRom(p0.z, p1.z, p2.z, p3.z, 0.4));
 }
 
 // --- Table lookup -----------------------------------------------------------
@@ -379,8 +374,7 @@ TEST(MathSpline, SecondDerivativeVanishesAtBothEnds) {
 
     constexpr double h = 1e-4;
     const auto secondDifference = [&](double at) {
-        return ((*spline)(at + h) - 2.0 * (*spline)(at) + (*spline)(at - h)) /
-               (h * h);
+        return ((*spline)(at + h) - 2.0 * (*spline)(at) + (*spline)(at - h)) / (h * h);
     };
 
     // Stated as a comparison rather than against a fixed tolerance. The
@@ -405,8 +399,8 @@ TEST(MathSpline, ConvergesOnASmoothFunctionAsKnotsAreAdded) {
         std::vector<double> xs;
         std::vector<double> ys;
         for (std::size_t i = 0; i <= intervals; ++i) {
-            const double x = 6.0 * static_cast<double>(i) /
-                             static_cast<double>(intervals);
+            const double x =
+                6.0 * static_cast<double>(i) / static_cast<double>(intervals);
             xs.push_back(x);
             ys.push_back(f(x));
         }
@@ -420,7 +414,7 @@ TEST(MathSpline, ConvergesOnASmoothFunctionAsKnotsAreAdded) {
         // error near the boundary converges more slowly.
         for (std::size_t i = 0; i <= 200; ++i) {
             const double at = 1.5 + 3.0 * static_cast<double>(i) / 200.0;
-            worst = std::max(worst, std::abs((*spline)(at) - f(at)));
+            worst = std::max(worst, std::abs((*spline)(at)-f(at)));
         }
         return worst;
     };
@@ -474,9 +468,8 @@ TEST(MathInterpolation, NonFiniteInputPropagatesOrIsRefused) {
 
     // A NaN knot fails the strictly-increasing test, so the spline refuses to
     // be built rather than being built wrong.
-    EXPECT_FALSE(ysq::CubicSpline<double>::natural(
-                     std::vector<double>{0.0, nan, 2.0}, std::vector<double>{
-                                                             0.0, 1.0, 2.0})
+    EXPECT_FALSE(ysq::CubicSpline<double>::natural(std::vector<double>{0.0, nan, 2.0},
+                                                   std::vector<double>{0.0, 1.0, 2.0})
                      .has_value());
 
     // The easing functions clamp, and a NaN passes through the clamp rather

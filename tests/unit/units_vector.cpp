@@ -118,8 +118,7 @@ TEST(UnitsVector, LengthKeepsTheDimensionAndLengthSquaredDoublesIt) {
     // The identity that ties them together, and the reason sqrt is
     // constrained to even dimensions: an area has a square root, a length has
     // no business having one.
-    EXPECT_QUANTITY_APPROX(sqrt(lengthSquared(kThreeFourZero)),
-                           length(kThreeFourZero));
+    EXPECT_QUANTITY_APPROX(sqrt(lengthSquared(kThreeFourZero)), length(kThreeFourZero));
 }
 
 TEST(UnitsVector, ADirectionIsDimensionless) {
@@ -191,8 +190,7 @@ TEST(UnitsVector, LerpAndAbsWorkComponentwise) {
     EXPECT_QUANTITY_VEC_APPROX(lerp(a, b, 1.0), b);
     EXPECT_VEC_APPROX(lerp(a, b, 0.25).value(), (Vec3{2.5, 5.0, 7.5}));
 
-    EXPECT_VEC_APPROX(abs(Length3{Vec3{-1.0, 2.0, -3.0}}).value(),
-                      (Vec3{1.0, 2.0, 3.0}));
+    EXPECT_VEC_APPROX(abs(Length3{Vec3{-1.0, 2.0, -3.0}}).value(), (Vec3{1.0, 2.0, 3.0}));
 }
 
 TEST(UnitsVector, AllFourWidthsExist) {
