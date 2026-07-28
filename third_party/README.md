@@ -12,9 +12,11 @@ files link those targets and never reach into these directories directly.
 | ------------- | --------- | ---------- | --------------------------------------- |
 | `glfw/`       | `3.4`     | submodule  | Window, input, OpenGL context           |
 | `imgui/`      | `v1.92.9` | submodule  | Control and debug panels                |
+| `implot/`     | `v1.0`    | submodule  | Charting on top of Dear ImGui           |
 | `spdlog/`     | `v1.17.0` | submodule  | Logging                                 |
 | `googletest/` | `v1.17.0` | submodule  | Test framework (only when tests are on) |
 | `glad/`       | GL 4.6 core | generated, committed | OpenGL function loader        |
+| `stb/`        | `stb_image.h` (public domain) | vendored, committed | Image loading for `Renderer::Texture` |
 
 Submodules are pinned to release tags, not branches. To fetch them:
 
@@ -37,10 +39,17 @@ the option, because a dependency bump can lose it silently.
 **Dear ImGui** ships sources with no build system, so `imgui` is a target we
 define: the five core translation units plus the GLFW and OpenGL3 backends.
 
-The OpenGL3 backend keeps its own minimal GL loader (`imgui_impl_opengl3_loader.h`).
-That loader is file-local to `imgui_impl_opengl3.cpp`, so it cannot collide with
-GLAD, and it is the configuration upstream actually tests. Overriding it with
-`IMGUI_IMPL_OPENGL_LOADER_CUSTOM` is possible but buys nothing.
+The OpenGL3 backend's default is its own minimal GL loader
+(`imgui_impl_opengl3_loader.h`), which `dlopen`s the system's real GL library
+independently of GLFW or GLAD. That works with a real display, but not on
+headless Linux CI: the runner has OSMesa, which GLAD reaches correctly
+through `glfwGetProcAddress`, and no system libGL/GLX for ImGui's own loader
+to find, so `ImGui_ImplOpenGL3_Init()` failed there ("Failed to initialize
+OpenGL loader!") even though every other GL path in this repo works fine on
+the same runner. `IMGUI_IMPL_OPENGL_LOADER_CUSTOM` skips that bundled loader
+and force-includes GLAD's header into `imgui_impl_opengl3.cpp` instead (the
+file is vendored, so this is a compiler flag, not an edit to it), reusing the
+GL entry points GLAD already loaded successfully.
 
 **GLFW** is built with every backend its host supports, including `Null`, which
 needs no display and creates its OpenGL contexts through OSMesa. OSMesa is
@@ -55,9 +64,21 @@ links against a system OpenGL library. The context provider supplies the loader:
 gladLoadGL(glfwGetProcAddress);
 ```
 
-**Graphics** as a whole (`glfw`, `glad`, `imgui`) is gated behind
-`YSQ_BUILD_GRAPHICS`. With it `OFF`, none of the three is configured at all,
-which is what keeps the headless build honest rather than merely claimed.
+**Dear ImPlot** is the same shape as ImGui: sources with no build system of
+its own, so `implot` is a target we define (`implot.cpp`, `implot_items.cpp`),
+linked against `imgui` since every ImPlot call needs a live ImGui context.
+`implot_demo.cpp` is not built; nothing here needs it.
+
+**stb_image** is a single public-domain header, so it is vendored and
+committed rather than submoduled, the same treatment as `glad/`.
+`stb/stb_image_impl.cpp` is the one translation unit that defines
+`STB_IMAGE_IMPLEMENTATION` and compiles the implementation; every consumer
+links the `stb_image` target and gets both the declarations and the symbols,
+rather than each risking a duplicate definition by defining the macro itself.
+
+**Graphics** as a whole (`glfw`, `glad`, `imgui`, `implot`, `stb_image`) is
+gated behind `YSQ_BUILD_GRAPHICS`. With it `OFF`, none of it is configured at
+all, which is what keeps the headless build honest rather than merely claimed.
 
 ## Regenerating GLAD
 

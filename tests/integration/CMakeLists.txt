@@ -49,3 +49,19 @@ ysq_add_test(test_lensing_deflection SOURCES lensing_deflection.cpp
 
 ysq_add_test(test_fluids_shocktube SOURCES fluids_shocktube.cpp
     LIBS ysq::Physics ysq::Math)
+
+# A real OpenGL context, same as test_platform_context: geometry drawn to an
+# offscreen framebuffer, and a fragment-shader ray trace with shadows and
+# reflections, both read back and checked pixel by pixel. See
+# support/GLContext.hpp.
+if(YSQ_BUILD_GRAPHICS)
+    ysq_add_test(test_renderer_framebuffer SOURCES renderer_framebuffer.cpp
+        LIBS ysq::Renderer ysq::Platform ysq::TestSupport)
+    ysq_add_test(test_renderer_raytracer SOURCES renderer_raytracer.cpp
+        LIBS ysq::Renderer ysq::Platform ysq::TestSupport)
+
+    # Links imgui directly, not just ysq::UI, because the test itself calls
+    # ImGui:: to inspect draw data, the same reason test_graphics_link does.
+    ysq_add_test(test_ui_imgui_layer SOURCES ui_imgui_layer.cpp
+        LIBS ysq::UI ysq::Platform ysq::TestSupport imgui)
+endif()

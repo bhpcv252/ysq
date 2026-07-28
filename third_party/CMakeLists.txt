@@ -31,6 +31,7 @@ endif()
 if(YSQ_BUILD_GRAPHICS)
     ysq_require_submodule(glfw CMakeLists.txt)
     ysq_require_submodule(imgui imgui.cpp)
+    ysq_require_submodule(implot implot.cpp)
 endif()
 
 # --- spdlog -------------------------------------------------------------------
@@ -89,10 +90,51 @@ if(YSQ_BUILD_GRAPHICS)
     target_include_directories(imgui SYSTEM PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/imgui
         ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends)
-    target_link_libraries(imgui PUBLIC glfw)
+    target_link_libraries(imgui PUBLIC glfw glad)
 
-    # ImGui's GL3 backend keeps its own minimal loader. It is file-local to
-    # imgui_impl_opengl3.cpp, so it cannot collide with GLAD, and it is the
-    # configuration upstream actually tests. Overriding it with
-    # IMGUI_IMPL_OPENGL_LOADER_CUSTOM is possible but buys nothing here.
+    # ImGui's GL3 backend defaults to its own bundled loader
+    # (imgui_impl_opengl3_loader.h), which dlopens the system's real GL
+    # library independently of GLFW or GLAD. That works with a real display,
+    # but not on headless Linux CI: the runner has OSMesa, which GLAD reaches
+    # correctly through glfwGetProcAddress, and no system libGL/GLX for
+    # ImGui's own loader to find, so ImGui_ImplOpenGL3_Init() fails there
+    # ("Failed to initialize OpenGL loader!") even though every other GL path
+    # in this repo works fine on the same runner.
+    #
+    # IMGUI_IMPL_OPENGL_LOADER_CUSTOM skips that bundled loader entirely and
+    # makes imgui_impl_opengl3.cpp use whatever GL declarations are already
+    # visible instead -- GLAD's, force-included here since the file is
+    # vendored and not ours to add an #include to. GLAD is already proven to
+    # load correctly under OSMesa by every other test in this suite.
+    target_compile_definitions(imgui PRIVATE IMGUI_IMPL_OPENGL_LOADER_CUSTOM)
+    # -include takes its path as a separate argv token, not attached to the
+    # flag, which is why this is a two-element list rather than one string.
+    if(MSVC)
+        set(_imgui_opengl3_force_include "/FI${CMAKE_CURRENT_SOURCE_DIR}/glad/include/glad/gl.h")
+    else()
+        set(_imgui_opengl3_force_include
+            "-include" "${CMAKE_CURRENT_SOURCE_DIR}/glad/include/glad/gl.h")
+    endif()
+    set_source_files_properties(imgui/backends/imgui_impl_opengl3.cpp PROPERTIES
+        COMPILE_OPTIONS "${_imgui_opengl3_force_include}")
+
+    # Dear ImPlot: charting on top of ImGui, same "ships sources, no build
+    # system" shape. Pinned to v1.0, whose own IMGUI_VERSION_NUM guards are
+    # satisfied by the imgui version pinned above.
+    add_library(implot STATIC
+        implot/implot.cpp
+        implot/implot_items.cpp)
+    target_include_directories(implot SYSTEM PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/implot)
+    target_link_libraries(implot PUBLIC imgui)
+
+    # stb_image: single public-domain header, vendored and committed rather
+    # than submoduled, the same treatment as glad/. stb_image_impl.cpp is the
+    # one translation unit that defines STB_IMAGE_IMPLEMENTATION and compiles
+    # the implementation; every consumer links this target and gets
+    # declarations plus symbols, rather than each risking a duplicate
+    # definition by defining the macro itself.
+    add_library(stb_image STATIC stb/stb_image_impl.cpp)
+    target_include_directories(stb_image SYSTEM PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/stb)
 endif()

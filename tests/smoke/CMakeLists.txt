@@ -17,5 +17,5 @@ ysq_add_test(test_units_strict_warnings STRICT
     LIBS ysq::Units)
 
 if(YSQ_BUILD_GRAPHICS)
-    ysq_add_test(test_graphics_link SOURCES graphics_link.cpp LIBS glad imgui)
+    ysq_add_test(test_graphics_link SOURCES graphics_link.cpp LIBS glad imgui implot stb_image)
 endif()
