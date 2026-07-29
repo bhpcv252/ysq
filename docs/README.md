@@ -6,15 +6,27 @@ Written for anyone from a hobbyist with no physics or math background to a
 working scientist: read top to bottom for the first, or skip straight to
 "Using it" and "Go deeper" on each page for the second.
 
-Each page is self-contained: the underlying concept, a survey of what YSQ
-provides, a worked example, and a link into the module's own
-`src/<Module>/README.md` for exact signatures and full derivations, which
-remains the authoritative technical reference.
+This documentation has three tiers, each with a different job:
+
+1. **The pages below** are concept-level: the underlying idea, a survey of
+   what YSQ provides, and a worked example. Read these first.
+2. **[docs/api/](api/README.md)** is pure reference: every public class and
+   function, organized by module, with signatures and edge-case behavior
+   but no explanation of why. Look something up here while writing
+   `Applications/` code.
+3. **Each module's own `src/<Module>/README.md`** is the authoritative
+   design record: full derivations, invariants, and the reasoning behind a
+   choice that a signature alone doesn't explain.
+
+Each page below is self-contained and links to both of the other two tiers
+under "Go deeper."
 
 ## Start here
 
 - [Getting started](getting-started.md): build YSQ, run the one example
   application that exists, change something in it
+- [API reference](api/README.md): every public class and function, by
+  module, if you already know roughly what you want
 
 ## Engine modules
 

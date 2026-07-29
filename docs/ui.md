@@ -61,6 +61,9 @@ the simulation's own state.
 
 ## Go deeper
 
+[docs/api/ui.md](api/ui.md) has every signature: `ImGuiLayer`, every
+`Panel` binding, `TimeSeriesPlot`/`ScatterPlot`, and `StatsOverlay`.
+
 [src/UI/README.md](../src/UI/README.md) has the full widget list and the
 `ScatterPlot` type for phase-space-style plots rather than time series.
 

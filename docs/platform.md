@@ -69,6 +69,9 @@ name for exactly that combination of settings.
 
 ## Go deeper
 
+[docs/api/platform.md](api/platform.md) has every signature: `Platform`,
+`Window`, `ContextSettings`, and the full `Key`/`InputState` surface.
+
 [src/Platform/README.md](../src/Platform/README.md) has the full interface,
 the backend table (`Win32`/`Cocoa`/`Wayland`/`X11`/`Null`, and why `Null`,
 the headless one, is never chosen automatically), the exact `WindowError`

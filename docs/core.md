@@ -27,6 +27,7 @@ else may depend on it.
 | `Core/UUID.hpp` | Random, unique identifiers |
 | `Core/Event.hpp` | A type-keyed event bus for anything copyable |
 | `Core/Config.hpp` | Key/value settings, read from a small INI-like text format |
+| `Core/Version.hpp` | The engine's own version, generated from the CMake project version |
 
 The one to understand first is `Clock`, because its shape is the shape of
 every YSQ simulation's main loop.
@@ -77,6 +78,10 @@ rather than throwing, so a malformed settings file degrades to defaults
 instead of crashing your simulation on startup.
 
 ## Go deeper
+
+[docs/api/core.md](api/core.md) has every signature: parameters, return
+values, and the exact edge-case behavior (what an invalid `advance()` delta
+does, what `Config::get` falls back to, and so on).
 
 [src/Core/README.md](../src/Core/README.md) has the full interface,
 including `UUID` and `Event` (useful once a simulation has enough moving

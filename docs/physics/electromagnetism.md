@@ -62,6 +62,10 @@ const double energy = field.totalEnergy();  // conserved, checked over many step
 
 ## Go deeper
 
+[docs/api/physics/electromagnetism.md](../api/physics/electromagnetism.md)
+has every signature: `electricField`/`magneticField`, `lorentzForce`, and
+`MaxwellField1D`'s full interface.
+
 [src/Physics/README.md](../../src/Physics/README.md) has the full field
 formulas (Coulomb's constant and vacuum permeability, and why both are
 computed rather than typed independently), the Yee staggering `Maxwell.hpp`

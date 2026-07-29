@@ -32,6 +32,8 @@ structure.
 | `Renderer/Texture.hpp` | 2D textures and cubemaps |
 | `Renderer/Renderer.hpp` | The frame orchestrator: `beginFrame`/`draw`/`endFrame` |
 | `Renderer/RayTracer.hpp` | A second way to render the same scene: ray-traced shadows and reflections |
+| `Renderer/Shader.hpp` | A compiled GLSL vertex+fragment program; `Renderer` and `RayTracer` build on this, not usually reached for directly |
+| `Renderer/Font.hpp` | The bitmap font `DebugDraw`'s text labels render with |
 
 An **orthographic** camera with everything at `z = 0` renders a genuinely
 planar scene (a top-down orbit view, say) with the exact same `Mesh` and
@@ -69,6 +71,10 @@ lighting model, lives in [docs/physics/optics.md](physics/optics.md), not
 here; `RayTracer` only decides where the trace runs.
 
 ## Go deeper
+
+[docs/api/renderer.md](api/renderer.md) has every signature: `Camera`,
+`CameraController`s, `Mesh`, `Material`, `Light`, `Texture`, `Shader`,
+`DebugDraw`, `Renderer`, and `RayTracer`.
 
 [src/Renderer/README.md](../src/Renderer/README.md) has the full interface,
 the matrix and coordinate conventions (column-major, OpenGL clip space),

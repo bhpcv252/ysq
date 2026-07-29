@@ -66,6 +66,10 @@ fluid.step(fluid.stableTimeStep(/*courantNumber=*/0.4));
 
 ## Go deeper
 
+[docs/api/physics/fluids.md](../api/physics/fluids.md) has every signature:
+`SPHParticle` and the kernel/density/pressure functions, and
+`EulerianFluid1D`'s full interface.
+
 [src/Physics/README.md](../../src/Physics/README.md) has the cubic spline
 kernel's exact form, the Rusanov flux the Eulerian solver uses, and a real
 pitfall its own test walked into: a periodic domain split into a left half

@@ -58,6 +58,9 @@ Christoffel symbols; see [docs/physics/spacetime.md](../physics/spacetime.md).
 | `Interpolation.hpp` | Lerp, and natural cubic splines |
 | `Calculus.hpp` | `derivative`/`gradient`/`jacobian`/`hessian` (exact, via `Dual`) and quadrature rules |
 | `CoordinateSystems.hpp` | Spherical, cylindrical, and polar conversions, with their local bases |
+| `Scalar.hpp` | The `Numeric` concept every type above is templated on, plus `clamp`/`approxEqual`/constants |
+| `Format.hpp` | `std::formatter` for every type above, so they drop into `Core`'s logger and `std::format` |
+| `Grid.hpp` | A uniform 1D grid with ghost cells, the shared storage `Physics`' PDE rungs (fluids, electromagnetism, thermodynamics) build on |
 
 Every one of these is templated on its scalar type (`Vector3<double>` versus
 `Vector3<float>`, aliased `Vec3`/`Vec3f`), and that's not just about
@@ -94,6 +97,11 @@ const double slope =
 ```
 
 ## Go deeper
+
+[docs/api/math/algebra.md](../api/math/algebra.md) has every signature in
+this file: the shared vector/matrix free-function table, every named
+constructor, and the exact failure behavior of `tryNormalized`/`tryInverse`/
+`solve`.
 
 [src/Math/README.md](../../src/Math/README.md) has the full interface for
 every type above, the conventions worth knowing before they cost you a
