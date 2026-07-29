@@ -9,7 +9,7 @@ namespace ysq {
 
 /// Which compute backend produced a result, and the priority selectComputeBackend
 /// tries them in: Cuda, then Vulkan, then OpenGL, then Cpu, which always
-/// succeeds. See docs/architecture.md.
+/// succeeds. See src/Compute/README.md.
 enum class ComputeBackendKind { Cpu, OpenGL, Cuda, Vulkan };
 
 [[nodiscard]] std::string_view toString(ComputeBackendKind kind) noexcept;
@@ -21,7 +21,7 @@ enum class ComputeBackendKind { Cpu, OpenGL, Cuda, Vulkan };
 /// defines what correct means, and every other backend is validated against it
 /// within tolerance, never for exact equality, because consumer GPUs are
 /// commonly weak at float64 and this interface runs float32 uniformly across
-/// every backend. See docs/architecture.md and src/Compute/README.md.
+/// every backend. See src/Compute/README.md.
 ///
 /// This is the one interface in the engine core built on runtime polymorphism.
 /// Everywhere else a compile-time concept is enough, because the choice is

@@ -68,7 +68,7 @@ TEST(SpacetimeSchwarzschild, RadialChristoffelMatchesTheDirectlyDerivedClosedFor
     // Gamma^r_TT = -(1/2) g^rr d_r g_TT, since g is diagonal and g_TT does
     // not depend on T. With g_TT = -(1 - r_s/r) and g^rr = (1 - r_s/r), that
     // works out to (1/2) r_s (1 - r_s/r) / r^2 exactly, not just in the weak
-    // field; docs/physics.md has the full derivation, and this is what
+    // field; src/Physics/README.md has the full derivation, and this is what
     // reduces to Newtonian gravity, GM/r^2, as r_s/r -> 0.
     const ysq::GravitationalParameter gm{5.0e14};
     const ysq::Schwarzschild schwarzschild{gm};

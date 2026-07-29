@@ -9,7 +9,7 @@
 namespace ysq {
 
 /// Doppler, gravitational and cosmological frequency shift are one
-/// computation, per docs/architecture.md: the ratio of a photon's
+/// computation: the ratio of a photon's
 /// four-momentum contracted with an observer's four-velocity, at emission
 /// and at observation. Nothing distinguishes "kinds" of shift here; which
 /// name applies is a property of the scenario, static observers near a mass

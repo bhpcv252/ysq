@@ -78,7 +78,7 @@ private:
 /// once per Mesh/Material/transform it wants on screen this frame, plus
 /// drawInstanced() for many identical ones and debugDraw() for lines and
 /// points. Nothing here decides what exists in a scene or how it is
-/// organized; see docs/rendering.md for why.
+/// organized; see src/Renderer/README.md for why.
 class Renderer {
 public:
     [[nodiscard]] static std::optional<Renderer> create(std::string* error = nullptr);

@@ -2,7 +2,7 @@
 
 Dear ImGui panels and Dear ImPlot charts, drawn as an overlay on whatever
 `Renderer` already put in the window's framebuffer that frame — same window,
-same frame, not a separate view. See `docs/rendering.md`.
+same frame, not a separate view.
 
 **Target:** `ysq::UI` (static)
 **Depends on:** `ysq::Math`, `ysq::Platform`, both `PUBLIC` since `Panel`
@@ -47,7 +47,9 @@ ui.endFrame();
 
 ## Charts are diagnostics, not the 3D view
 
-`docs/rendering.md` covers why plotting lives here rather than as a Renderer
-feature: a Minkowski diagram or an energy-drift curve is 2D data
-visualization, not a 3D scene, and `PlotPanel` composes with `Renderer`'s 3D
+A Minkowski diagram or an energy-drift curve is 2D data visualization, not a
+3D scene, and rendering the simulated world is a different concern from
+charting a measurement taken from it. `Renderer`'s own orthographic `Camera`
+already renders a genuinely planar *scene* (a top-down orbit view) when one
+is needed; `PlotPanel` is for *data*, and composes with `Renderer`'s 3D
 viewport in the same window rather than replacing it.

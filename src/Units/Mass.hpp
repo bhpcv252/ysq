@@ -35,7 +35,7 @@ inline constexpr Mass atomicMassUnit{1.66053906892e-27};
 /// *parameter* GM, not the mass; recovering kilograms means dividing by a
 /// measured G, so these carry G's uncertainty of roughly two parts in 100000.
 /// The exact parameters are in Constants.hpp and are what an orbit should
-/// actually be integrated with. docs/units.md records the G used here.
+/// actually be integrated with. src/Units/README.md records the G used here.
 inline constexpr Mass solarMass{1.988409870698051e30};
 inline constexpr Mass earthMass{5.972167867791379e24};
 

@@ -12,7 +12,7 @@
 
 // Every backend that reports itself available is run against the same input
 // as the CPU reference and checked within a tolerance, never for exact
-// equality: docs/architecture.md is explicit that a GPU generally runs
+// equality: src/Compute/README.md is explicit that a GPU generally runs
 // float32 arithmetic in a different order than the CPU, so bit-identical
 // output is not the bar. This is the test that makes "a kernel produces
 // matching results on every available backend" a checked claim.

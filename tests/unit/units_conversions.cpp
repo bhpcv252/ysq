@@ -10,7 +10,7 @@
 /// astronomical unit has been an exact number of metres since IAU 2012, and a
 /// parsec carries a factor of pi and therefore cannot be. Asserting equality
 /// where equality holds is what would catch a factor quietly rounded when
-/// someone retypes it. docs/units.md carries the values and their sources.
+/// someone retypes it. src/Units/README.md carries the values and their sources.
 
 #include <Units/Acceleration.hpp>
 #include <Units/Constants.hpp>
@@ -177,8 +177,8 @@ TEST(UnitsConversions, TheDefiningConstantsAreTheirDefinedValues) {
 
 TEST(UnitsConversions, NominalSolarValuesAreConventionsNotMeasurements) {
     // What the IAU fixes exactly is GM, not M. The mass in kilograms is GM
-    // divided by a measured G, so it is the lossy form; docs/units.md records
-    // the G used. This test pins the relationship so the two cannot drift
+    // divided by a measured G, so it is the lossy form; src/Units/README.md
+    // records the G used. This test pins the relationship so the two cannot drift
     // apart when either is retyped.
     constexpr double gravitationalConstant = 6.67430e-11;
     const Mass reconstructed{constants::nominalSolarMassParameter.value() /

@@ -17,8 +17,10 @@ that shared description of reality.
 - Dependencies vendored under `third_party/` (GLAD is generated and committed; the
   rest are submodules)
 
-Full detail is in `README.md`. Longer design notes and derivations are in `docs/`.
-Read them before working on a module.
+Full detail is in `README.md`. Each module's derivations and design notes live
+in its own `src/<Module>/README.md`; read the relevant one before working on a
+module. `docs/` holds consumer-facing documentation for building simulations
+in `Applications/`, not internal design notes.
 
 ## Architecture
 

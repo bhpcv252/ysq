@@ -18,7 +18,7 @@ endif()
 add_subdirectory(Compute)
 
 # Physics builds on Compute (falling back to its CPU backend with no GPU) and
-# on Math/Units below it; see docs/architecture.md.
+# on Math/Units below it; see the root README's Project structure section.
 add_subdirectory(Physics)
 
 # Renderer and UI are the presentation layer: they depend only on Platform

@@ -31,8 +31,8 @@ namespace constants {
 ///
 /// This lives here rather than in Units/Constants.hpp on purpose: it is not
 /// one of the seven constants that define the SI, it parameterizes one
-/// specific interaction, and docs/units.md is explicit that it belongs with
-/// the gravity that uses it. Wherever a source's mass parameter GM is already
+/// specific interaction, and src/Units/README.md is explicit that it belongs
+/// with the gravity that uses it. Wherever a source's mass parameter GM is already
 /// known directly (Constants.hpp's nominalSolarMassParameter, for instance),
 /// prefer that: it does not carry this uncertainty, because it is what an
 /// orbit actually measures, and G only re-enters when recovering it from a
@@ -43,13 +43,15 @@ inline constexpr GravitationalConstant G{6.67430e-11};
 
 /// Newtonian gravity: F = G m1 m2 / r^2, toward the source. The weak-field,
 /// slow-motion limit of general relativity, and the rung of the gravity
-/// ladder that drives dynamical many-body systems; see docs/architecture.md.
+/// ladder that drives dynamical many-body systems; see src/Physics/README.md's
+/// "The gravity ladder" section.
 ///
 /// Every function here that takes a softening length uses Plummer softening,
 /// a = GM (r_j - r_i) / (|r_j - r_i|^2 + softening^2)^(3/2): the same, exact
 /// Newtonian force at separations well above the softening length, and finite
 /// rather than singular as two bodies approach each other. A direct-summation
-/// N-body integration needs it; see docs/physics.md.
+/// N-body integration needs it; see src/Physics/README.md's "Softening"
+/// section.
 
 [[nodiscard]] Force3 newtonianForce(const Body& on, const Body& from);
 

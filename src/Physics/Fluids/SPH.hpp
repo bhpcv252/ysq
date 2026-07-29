@@ -35,8 +35,8 @@ struct SPHParticle {
 ///     q = r / h,  sigma = 1 / pi
 ///
 /// compact support at 2h, so a particle only feels neighbours within that
-/// radius. See docs/physics.md for the density estimate, the equation of
-/// state, and the symmetric pressure force's conservation properties.
+/// radius. See src/Physics/README.md for the density estimate, the equation
+/// of state, and the symmetric pressure force's conservation properties.
 ///
 /// **Scope.** No artificial viscosity, so this is suited to smooth, low
 /// Mach-number flows rather than anything with a shock; Physics/Fluids'

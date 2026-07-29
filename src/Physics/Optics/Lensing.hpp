@@ -14,9 +14,9 @@
 
 namespace ysq {
 
-/// Gravitational lensing: not a separate phenomenon from propagation, per
-/// docs/architecture.md, just the same null geodesic evaluated past a
-/// source massive enough for the bending to be measurable.
+/// Gravitational lensing: not a separate phenomenon from propagation, just
+/// the same null geodesic evaluated past a source massive enough for the
+/// bending to be measurable.
 ///
 /// **The radial coordinate convention.** deflectionAngle assumes the
 /// metric's chart puts a radial coordinate in position.y (as Schwarzschild,
@@ -99,7 +99,7 @@ template <SpacetimeMetric M>
 ///
 /// This is the standard way an impact parameter is turned into an initial
 /// condition, and it is exact, not an approximation valid only at large
-/// startRadius: docs/physics.md has the full derivation.
+/// startRadius: src/Physics/README.md has the full derivation.
 [[nodiscard]] inline PhaseState<Vector4<double>>
 schwarzschildRayFromImpactParameter(const Schwarzschild& metric, double impactParameter,
                                     double startRadius) {

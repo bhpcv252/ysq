@@ -18,6 +18,7 @@ target_link_libraries(ysq_platform
     PUBLIC glad
     PRIVATE glfw ysq::Core ysq::warnings)
 
-# Deliberately not ysq::warnings_strict. docs/architecture.md keeps the
-# conversion warnings on the engine core, where a silent narrowing is a physics
-# bug; here every int/float conversion is one GLFW or OpenGL asked for.
+# Deliberately not ysq::warnings_strict. The root README's Warnings section
+# keeps the conversion warnings on the engine core, where a silent narrowing
+# is a physics bug; here every int/float conversion is one GLFW or OpenGL
+# asked for.

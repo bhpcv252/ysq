@@ -1,6 +1,6 @@
 # Renderer: camera, shaders, meshes, textures, and both a forward rasterizer
 # and a fragment-shader ray tracer. Presentation layer, so ysq::warnings not
-# _strict; see docs/architecture.md.
+# _strict; see the root README's Warnings section.
 
 include(${CMAKE_SOURCE_DIR}/cmake/YsqEmbedShader.cmake)
 
@@ -74,8 +74,7 @@ target_include_directories(ysq_renderer
 # Math and Platform are PUBLIC: Camera/CameraController headers hand back
 # Math types and CameraController::update() takes a Platform::InputState by
 # reference, so a consumer of Renderer needs both. Core, glad and stb_image
-# are implementation details, PRIVATE. See docs/architecture.md and
-# src/Renderer/README.md.
+# are implementation details, PRIVATE. See src/Renderer/README.md.
 target_link_libraries(ysq_renderer
     PUBLIC ysq::Math ysq::Platform
     PRIVATE ysq::Core glad stb_image ysq::warnings)

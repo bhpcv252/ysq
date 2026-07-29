@@ -9,8 +9,8 @@
 /// std::formatter for every Quantity, so a dimensioned value drops straight
 /// into Core/Logger and std::format.
 ///
-///     log::info("v = {:.3f}", speed);        // v = 7800.000 m s^-1
-///     log::info("r = {:.2e}", position);     // r = (1.50e+11, 0.00e+00, ...) m
+///     logging::info("v = {:.3f}", speed);        // v = 7800.000 m s^-1
+///     logging::info("r = {:.2e}", position);     // r = (1.50e+11, 0.00e+00, ...) m
 ///
 /// Separate from Unit.hpp for the same reason Math/Format.hpp is separate from
 /// the vector headers: <format> is a heavy include and quantities sit on the

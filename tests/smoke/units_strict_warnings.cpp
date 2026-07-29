@@ -3,9 +3,9 @@
 /// equivalents). In CI those are errors.
 ///
 /// Units is an INTERFACE library and cannot carry the strict set itself
-/// without pushing it onto Renderer, UI and Applications, which
-/// docs/architecture.md rules out. So the check lives here, exactly as it does
-/// for Math in math_strict_warnings.cpp.
+/// without pushing it onto Renderer, UI and Applications, which the root
+/// README's Warnings section rules out. So the check lives here, exactly as
+/// it does for Math in math_strict_warnings.cpp.
 ///
 /// The explicit instantiations are the point. An uninstantiated template is
 /// barely checked at all, so without them this file would compile clean no

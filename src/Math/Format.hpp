@@ -18,7 +18,7 @@
 /// std::formatter specializations for the Math types, so they drop straight
 /// into Core/Logger and std::format.
 ///
-///     log::info("v = {:.3f}", velocity);   // v = (1.000, 0.000, -9.810)
+///     logging::info("v = {:.3f}", velocity);   // v = (1.000, 0.000, -9.810)
 ///
 /// Separate from the type headers on purpose. <format> is a heavy include and
 /// the vector headers sit on the integration inner path, where every

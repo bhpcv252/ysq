@@ -18,7 +18,8 @@ namespace ysq {
 /// OdeState in Math/ODE.hpp): addition, subtraction, and scaling. Units cross
 /// the boundary once, converting a span of Body into this and back, the same
 /// boundary units_kinematics.cpp draws for a single body; see
-/// docs/architecture.md. Every force law under Physics/Gravity that plugs
+/// src/Physics/README.md's "Units cross the boundary once" section. Every
+/// force law under Physics/Gravity that plugs
 /// into a symplectic or Runge-Kutta stepper produces and consumes this type
 /// rather than a span of Body directly.
 class NBodyState {

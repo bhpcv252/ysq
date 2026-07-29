@@ -40,7 +40,7 @@ protected:
 TEST_F(LoggerTest, FormatsThroughTheConfiguredSink) {
     initTo(captured, ysq::LogLevel::Info);
 
-    ysq::log::info("{} bodies at t={}", 3, 1.5);
+    ysq::logging::info("{} bodies at t={}", 3, 1.5);
 
     EXPECT_TRUE(captured.str().starts_with("info 3 bodies at t=1.5")) << captured.str();
 }
@@ -48,12 +48,12 @@ TEST_F(LoggerTest, FormatsThroughTheConfiguredSink) {
 TEST_F(LoggerTest, SuppressesBelowTheActiveLevel) {
     initTo(captured, ysq::LogLevel::Warn);
 
-    ysq::log::trace("trace line");
-    ysq::log::debug("debug line");
-    ysq::log::info("info line");
-    ysq::log::warn("warn line");
-    ysq::log::error("error line");
-    ysq::log::critical("critical line");
+    ysq::logging::trace("trace line");
+    ysq::logging::debug("debug line");
+    ysq::logging::info("info line");
+    ysq::logging::warn("warn line");
+    ysq::logging::error("error line");
+    ysq::logging::critical("critical line");
 
     const std::string text = captured.str();
     EXPECT_EQ(text.find("trace line"), std::string::npos);
@@ -67,14 +67,14 @@ TEST_F(LoggerTest, SuppressesBelowTheActiveLevel) {
 TEST_F(LoggerTest, LevelChangesTakeEffectImmediately) {
     initTo(captured, ysq::LogLevel::Error);
 
-    ysq::log::info("before");
+    ysq::logging::info("before");
     EXPECT_EQ(ysq::Logger::level(), ysq::LogLevel::Error);
     EXPECT_FALSE(ysq::Logger::enabled(ysq::LogLevel::Info));
 
     ysq::Logger::setLevel(ysq::LogLevel::Debug);
     EXPECT_EQ(ysq::Logger::level(), ysq::LogLevel::Debug);
     EXPECT_TRUE(ysq::Logger::enabled(ysq::LogLevel::Info));
-    ysq::log::info("after");
+    ysq::logging::info("after");
 
     const std::string text = captured.str();
     EXPECT_EQ(text.find("before"), std::string::npos);
@@ -84,7 +84,7 @@ TEST_F(LoggerTest, LevelChangesTakeEffectImmediately) {
 TEST_F(LoggerTest, OffSuppressesEveryLevel) {
     initTo(captured, ysq::LogLevel::Off);
 
-    ysq::log::critical("critical line");
+    ysq::logging::critical("critical line");
 
     EXPECT_FALSE(ysq::Logger::enabled(ysq::LogLevel::Critical));
     EXPECT_TRUE(captured.str().empty()) << captured.str();
@@ -92,10 +92,10 @@ TEST_F(LoggerTest, OffSuppressesEveryLevel) {
 
 TEST_F(LoggerTest, ReinitialisingSwapsTheSink) {
     initTo(captured, ysq::LogLevel::Info);
-    ysq::log::info("to the first sink");
+    ysq::logging::info("to the first sink");
 
     initTo(alternate, ysq::LogLevel::Info);
-    ysq::log::info("to the second sink");
+    ysq::logging::info("to the second sink");
 
     EXPECT_NE(captured.str().find("to the first sink"), std::string::npos);
     EXPECT_EQ(captured.str().find("to the second sink"), std::string::npos);
@@ -108,7 +108,7 @@ TEST_F(LoggerTest, ReinitialisingSwapsTheSink) {
 TEST_F(LoggerTest, DoesNotReinterpretBracesInAFormattedValue) {
     initTo(captured, ysq::LogLevel::Info);
 
-    ysq::log::info("{}", "literal {braces} and {0} and {:>9}");
+    ysq::logging::info("{}", "literal {braces} and {0} and {:>9}");
 
     EXPECT_NE(captured.str().find("literal {braces} and {0} and {:>9}"),
               std::string::npos)
@@ -127,7 +127,7 @@ TEST_F(LoggerTest, WritesToAFileSink) {
     settings.console = false;
     settings.file = path;
     ysq::Logger::init(settings);
-    ysq::log::info("to the file sink");
+    ysq::logging::info("to the file sink");
     ysq::Logger::shutdown();
 
     {
@@ -153,8 +153,8 @@ TEST_F(LoggerTest, LoggingBeforeInitUsesDefaultsAndKeepsTheLevel) {
     ysq::Logger::shutdown();
     ysq::Logger::setLevel(ysq::LogLevel::Critical);
 
-    ysq::log::info("suppressed: below the level set before the first log call");
-    ysq::log::critical("expected on stdout: logging before init does not crash");
+    ysq::logging::info("suppressed: below the level set before the first log call");
+    ysq::logging::critical("expected on stdout: logging before init does not crash");
 
     EXPECT_EQ(ysq::Logger::level(), ysq::LogLevel::Critical);
 }

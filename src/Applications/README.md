@@ -3,8 +3,8 @@
 Runnable programs built on the engine. Each one sets up a scenario — what
 bodies exist, their initial state, which rungs of the physics ladder apply —
 and runs it against the shared description of reality `src/` provides.
-Presentation layer's top; see `docs/architecture.md` for why nothing lower
-may depend on this.
+Presentation layer's top; see the root `README.md`'s Project structure
+section for why nothing lower may depend on this.
 
 **Target:** none of its own. Each subdirectory is its own executable,
 `add_subdirectory`'d here, linking whichever engine libraries it needs.

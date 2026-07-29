@@ -14,7 +14,7 @@ namespace ysq {
 /// where r and v are the position and velocity of `testParticle` relative to
 /// `source`, n is the unit vector from source to testParticle, and GM uses
 /// only source's mass. This is the correction that produces perihelion
-/// precession; docs/physics.md has the derivation and the analytic
+/// precession; src/Physics/README.md has the derivation and the analytic
 /// precession-per-orbit formula it is validated against.
 ///
 /// **Scope: two bodies, one of them a test particle.** This is exact in the

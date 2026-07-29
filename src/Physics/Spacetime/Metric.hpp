@@ -22,7 +22,7 @@ namespace ysq {
 /// **Convention, fixed across every metric in this module.** Signature
 /// (-,+,+,+). Four-position components are (x0, x1, x2, x3) with x0 = c t,
 /// so every component is in metres and no metric needs its own unit
-/// conversion; docs/physics.md has the full statement. Which spatial
+/// conversion; src/Physics/README.md has the full statement. Which spatial
 /// coordinates x1..x3 mean, Cartesian or spherical, is each metric's own
 /// choice of chart, documented on the metric itself: the geodesic solver
 /// only ever calls components(), so it does not need to know.

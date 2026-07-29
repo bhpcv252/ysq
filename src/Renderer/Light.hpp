@@ -6,7 +6,7 @@ namespace ysq {
 
 /// A light with a position: attenuates with distance. Shared by Renderer's
 /// forward shader and RayTracer's shading, so both light a scene the same
-/// way regardless of where the trace runs; see docs/rendering.md.
+/// way regardless of where the trace runs; see src/Renderer/README.md.
 struct PointLight {
     Vec3f position = Vec3f::zero();
     Vec3f color = Vec3f::splat(1.0f);

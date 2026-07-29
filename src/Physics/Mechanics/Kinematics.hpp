@@ -55,7 +55,7 @@ namespace ysq {
 /// Quadrature over a callable rather than a closed-form step, because a
 /// worldline's speed history is data, not a formula, in general. Units cross
 /// the boundary once, at the call into Simpson's rule, and back on the way
-/// out; see docs/architecture.md on where that boundary is drawn.
+/// out; see src/Physics/README.md's "Units cross the boundary once" section.
 template <class SpeedAt>
 [[nodiscard]] Time properTimeElapsed(SpeedAt&& speedAt, Time from, Time to,
                                      std::size_t intervals = 1000) {

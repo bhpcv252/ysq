@@ -53,8 +53,8 @@ struct RaytracedScene {
 /// A full-screen-quad fragment-shader ray tracer: shadows and reflections
 /// against an analytic scene. Not a compute shader — compute shaders are a
 /// 4.3 feature and this stays portable to OpenGL 4.1 (macOS), the same
-/// portability call docs/architecture.md flagged before Renderer existed.
-/// See docs/rendering.md.
+/// portability tradeoff src/Compute/README.md makes for the OpenGL compute
+/// backend. See src/Renderer/README.md.
 ///
 /// Renders into whatever framebuffer is currently bound, same convention as
 /// Renderer; the context that created this must already be current for every

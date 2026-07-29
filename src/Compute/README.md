@@ -47,18 +47,55 @@ lands and needs GPU-accelerated N-body summation, that kernel is added then,
 against a data model `Physics` actually settles on.
 
 `selectComputeBackend()` probes `Cuda -> Vulkan -> OpenGL -> Cpu` in that order
-and returns the first available, matching docs/architecture.md.
+and returns the first available; see
+[Backend selection and fallback](#backend-selection-and-fallback) below.
 `forceBackend` skips probing for debugging and benchmarking, returning nullptr
 if that backend genuinely is not available. `computeBackendAvailable(kind)` is
 the same probe exposed standalone; for OpenGL/CUDA/Vulkan it opens and
 discards a context or device to answer, so it costs more than a flag check and
 is meant to be called at startup, not per frame.
 
+## Backend selection and fallback
+
+Selection probes candidates in priority order and takes the first that
+reports available, with a manual override (`forceBackend`) for debugging and
+benchmarking:
+
+```
+CUDA         -> NVIDIA GPU and toolkit present
+Vulkan       -> Vulkan 1.1+ loader with a compute queue
+OpenGL 4.3+  -> context reports 4.3 or higher (compute shaders)
+CPU          -> always succeeds
+```
+
+The bottom rung has no hardware requirement, so there is no machine where the
+engine fails to start. What varies is throughput, not capability.
+
+| Platform                    | Best compute available          | Rendering    |
+| --------------------------- | -------------------------------- | ------------ |
+| macOS                       | CPU today; Vulkan via MoltenVK, or a native Metal backend | OpenGL 4.1 |
+| Linux / Windows, NVIDIA     | CUDA, then Vulkan, then GL compute | OpenGL 4.6 |
+| Linux / Windows, AMD/Intel  | Vulkan, then GL compute          | OpenGL 4.5+  |
+| Headless server, CI         | CPU                              | none needed  |
+
+macOS is the constrained case and it is worth being precise about why. Apple
+deprecated OpenGL at 4.1 and never shipped compute shaders, which are a 4.3
+feature, so the OpenGL compute backend cannot run there (see
+[OpenGL backend](#opengl-backend) below). NVIDIA drivers have not been
+available for years, so CUDA is permanently out. Vulkan is not native
+either, but MoltenVK translates it to Metal and does support compute. So
+macOS has a GPU compute path; it just runs through Vulkan or Metal rather
+than OpenGL or CUDA.
+
+Rendering is a separate axis and is not constrained the same way. OpenGL 4.1
+is sufficient for the real-time rasterized visualizer with ImGui panels, so
+macOS is a first-class rendering target.
+
 ## Precision: float32 uniformly, with a CPU-only float64 escape hatch
 
 The interface is `float` in, `float` out on every backend, so they are
 interchangeable at the call site regardless of which one was selected. This
-follows docs/architecture.md: consumer GPUs are commonly weak at `float64`,
+is a deliberate choice: consumer GPUs are commonly weak at `float64`,
 often 1/32 to 1/64 of `float32` throughput, so a `double` interface would not
 be something a GPU backend could implement well even in principle.
 
@@ -78,8 +115,8 @@ cpu.saxpyD(xd, yd, a);      // double throughout, no GPU equivalent exists
 ```
 
 This is for scenarios that must stay on CPU for accuracy regardless of
-hardware, per docs/architecture.md's note on long-baseline orbital
-integration; it is CPU-specific and not part of backend selection.
+hardware (long-baseline orbital integration in particular may need it), and
+it is CPU-specific, not part of backend selection.
 
 ## OpenGL backend
 
@@ -89,8 +126,8 @@ shaders are a 4.3 feature; see the comment on `ContextSettings` in
 purpose). `create()` returns `nullptr` cleanly if that context can't be had,
 which is the normal case on macOS: OpenGL is capped at 4.1 there, so this
 backend is compiled in under `YSQ_BUILD_GRAPHICS` but `available()` always
-answers false. See docs/architecture.md for the Vulkan/Metal path that exists
-on macOS instead.
+answers false. See [Backend selection and fallback](#backend-selection-and-fallback)
+above for the Vulkan/Metal path that exists on macOS instead.
 
 Both kernels are compiled from GLSL source held as inline string literals in
 `OpenGLBackend.cpp`, not separate `.comp` files. There is no shader-embedding

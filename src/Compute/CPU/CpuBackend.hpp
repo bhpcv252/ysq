@@ -6,7 +6,7 @@ namespace ysq {
 
 /// The reference implementation. Always available, and correctness is defined
 /// by this: every other backend is validated against it within tolerance,
-/// never the reverse. See docs/architecture.md.
+/// never the reverse. See src/Compute/README.md.
 class CpuBackend final : public ComputeBackend {
 public:
     [[nodiscard]] static std::unique_ptr<ComputeBackend> create();
@@ -20,7 +20,7 @@ public:
 
     /// Outside ComputeBackend: no GPU backend can offer float64, so these are
     /// not virtual. For scenarios that must stay on CPU for accuracy
-    /// regardless of hardware; see docs/architecture.md.
+    /// regardless of hardware; see src/Compute/README.md.
     void saxpyD(std::span<const double> x, std::span<double> y, double a) const;
     [[nodiscard]] double sumD(std::span<const double> x) const;
 };

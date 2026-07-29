@@ -1,7 +1,7 @@
 # Compute backends: a CPU reference (always built) plus GPU acceleration that
 # is only as available as the hardware and SDKs on the machine building it.
 # Physics dispatches through ComputeBackend and never talks to a GPU directly;
-# see docs/architecture.md.
+# see src/Compute/README.md.
 
 add_library(ysq_compute STATIC
     ComputeBackend.hpp
@@ -14,8 +14,9 @@ target_include_directories(ysq_compute PUBLIC ${YSQ_SOURCE_INCLUDE_DIR})
 
 # A real STATIC target, unlike Math and Units, so it carries the strict
 # warning set directly instead of needing a smoke test to apply it. Compute is
-# in the engine core per docs/architecture.md: a silent double -> float
-# narrowing here is the same class of physics bug it would be in Math.
+# in the engine core per the root README's Warnings section: a silent
+# double -> float narrowing here is the same class of physics bug it would be
+# in Math.
 target_link_libraries(ysq_compute
     PRIVATE ysq::Core ysq::warnings_strict)
 

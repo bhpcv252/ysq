@@ -75,11 +75,11 @@ int main() {
     ysq::Logger::init();
 
     const ysq::UUID runId = ysq::UUID::generate();
-    ysq::log::info("solar-system run {}", runId.toString());
+    ysq::logging::info("solar-system run {}", runId.toString());
 
     const auto platform = ysq::Platform::initialize();
     if (!platform) {
-        ysq::log::error("no windowing system available");
+        ysq::logging::error("no windowing system available");
         return EXIT_FAILURE;
     }
 
@@ -88,14 +88,14 @@ int main() {
     ysq::WindowError windowError;
     auto window = ysq::Window::create(windowSettings, &windowError);
     if (!window) {
-        ysq::log::error("failed to create window: {}", windowError.message);
+        ysq::logging::error("failed to create window: {}", windowError.message);
         return EXIT_FAILURE;
     }
 
     std::string rendererError;
     std::optional<ysq::Renderer> rendererOpt = ysq::Renderer::create(&rendererError);
     if (!rendererOpt) {
-        ysq::log::error("failed to create renderer: {}", rendererError);
+        ysq::logging::error("failed to create renderer: {}", rendererError);
         return EXIT_FAILURE;
     }
     ysq::Renderer renderer = std::move(*rendererOpt);
@@ -103,21 +103,21 @@ int main() {
     std::string uiError;
     std::optional<ysq::ImGuiLayer> uiOpt = ysq::ImGuiLayer::create(*window, {}, &uiError);
     if (!uiOpt) {
-        ysq::log::error("failed to create UI layer: {}", uiError);
+        ysq::logging::error("failed to create UI layer: {}", uiError);
         return EXIT_FAILURE;
     }
     ysq::ImGuiLayer ui = std::move(*uiOpt);
 
     std::optional<ysq::Mesh> sphereMeshOpt = ysq::Mesh::sphere();
     if (!sphereMeshOpt) {
-        ysq::log::error("failed to build sphere mesh");
+        ysq::logging::error("failed to build sphere mesh");
         return EXIT_FAILURE;
     }
     ysq::Mesh sphereMesh = std::move(*sphereMeshOpt);
 
     const std::unique_ptr<ysq::ComputeBackend> computeBackend =
         ysq::selectComputeBackend();
-    ysq::log::info("compute backend: {}", ysq::toString(computeBackend->kind()));
+    ysq::logging::info("compute backend: {}", ysq::toString(computeBackend->kind()));
 
     // Optional: tunables read from a config file next to the working
     // directory if present, with defaults otherwise. Config::load never
@@ -131,11 +131,11 @@ int main() {
     const Scenario scenario = makeScenario();
     std::vector<ysq::Body> bodies = scenario.allBodies();
 
-    ysq::log::info("scenario: Sun + {} planets", scenario.planets.size());
+    ysq::logging::info("scenario: Sun + {} planets", scenario.planets.size());
     for (const Planet& planet : scenario.planets) {
-        ysq::log::info("  {}: {:.3f} AU", planet.name,
-                       length(planet.body.position.value()) /
-                           ysq::units::astronomicalUnit.value());
+        ysq::logging::info("  {}: {:.3f} AU", planet.name,
+                           length(planet.body.position.value()) /
+                               ysq::units::astronomicalUnit.value());
     }
 
     // Mercury's own orbital period: the fastest-moving body, so the fixed
@@ -172,8 +172,8 @@ int main() {
                 haveInitialEnergy = true;
             } else if (std::abs(event.totalEnergy - initialEnergy) >
                        std::abs(initialEnergy) * 0.01) {
-                ysq::log::warn("energy drift exceeded 1% at t={:.0f}s",
-                               event.simulationTime);
+                ysq::logging::warn("energy drift exceeded 1% at t={:.0f}s",
+                                   event.simulationTime);
             }
         });
 

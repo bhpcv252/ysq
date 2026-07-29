@@ -8,7 +8,7 @@
 /// The Sod shock tube: the standard test problem for a compressible flow
 /// solver, a single initial discontinuity between two states at rest that
 /// separates into a rarefaction fan, a contact discontinuity and a shock.
-/// docs/physics.md explains why this validates against the qualitative
+/// src/Physics/README.md explains why this validates against the qualitative
 /// structure of the exact Riemann solution rather than the solution
 /// itself, which the first-order scheme used here is not built to resolve
 /// exactly.

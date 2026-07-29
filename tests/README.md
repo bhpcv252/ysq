@@ -71,7 +71,8 @@ in something unrelated.
   `ysq::warnings_strict` and explicitly instantiates every template for both
   `float` and `double`. `Math` is an INTERFACE library and cannot carry those
   flags itself without pushing them onto `Renderer`, `UI` and `Applications`,
-  which `docs/architecture.md` rules out, so the check lives here. The explicit
+  which the root README's Warnings section rules out, so the check lives
+  here. The explicit
   instantiations are the point: an uninstantiated template is barely checked,
   and `-Wdouble-promotion` has nothing to say above single precision.
 - `units_strict_warnings.cpp` is the same check for `Units`, which is INTERFACE
