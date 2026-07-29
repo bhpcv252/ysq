@@ -28,3 +28,8 @@ if(YSQ_BUILD_GRAPHICS)
     add_subdirectory(Renderer)
     add_subdirectory(UI)
 endif()
+
+# Applications sit on top of everything. Added unconditionally: an
+# application's executable is graphics-only and says so itself, but its
+# scenario-construction code is pure physics and tests/e2e/ links it headless.
+add_subdirectory(Applications)

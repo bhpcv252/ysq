@@ -150,6 +150,11 @@ private:
     Matrix4<float> m_view = Matrix4<float>::identity();
     Matrix4<float> m_projection = Matrix4<float>::identity();
     Vec3f m_cameraPosition = Vec3f::zero();
+    /// Cached from the Camera passed to beginFrame(), for DebugDraw's
+    /// billboard text: flush() needs them but a Camera is not otherwise
+    /// part of Renderer's per-frame state.
+    Vec3f m_cameraRight = Vec3f::unitX();
+    Vec3f m_cameraUp = Vec3f::unitY();
     std::uint32_t m_drawCallCount = 0;
 };
 

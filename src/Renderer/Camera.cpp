@@ -10,6 +10,10 @@ Vec3f Camera::right() const {
     return normalized(cross(forward(), up));
 }
 
+Vec3f Camera::trueUp() const {
+    return cross(right(), forward());
+}
+
 Matrix4<float> Camera::viewMatrix() const {
     return Matrix4<float>::lookAt(position, target, up);
 }

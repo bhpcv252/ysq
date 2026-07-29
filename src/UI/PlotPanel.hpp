@@ -7,6 +7,16 @@
 
 namespace ysq {
 
+namespace detail {
+
+/// Resets the default vertical cascade TimeSeriesPlot and ScatterPlot open
+/// into, so a fresh ImGuiLayer session starts back at the first slot rather
+/// than wherever a previous session's plots left off. Called by
+/// ImGuiLayer::create(); not for application code to call directly.
+void resetPlotLayoutCascade();
+
+}  // namespace detail
+
 /// A live-updating time-series chart: energy/momentum drift, orbital
 /// elements, or any scalar tracked against simulation time. Backed by
 /// ImPlot, drawn alongside the 3D viewport in the same window and frame —
@@ -31,6 +41,9 @@ private:
     std::size_t m_maxSamples;
     std::deque<double> m_times;
     std::deque<double> m_values;
+    /// Which slot in the default vertical cascade this instance opens into,
+    /// assigned once at construction; see PlotPanel.cpp.
+    int m_layoutSlot;
 };
 
 /// A static 2D scatter plot: phase space (position vs. momentum), a
@@ -52,6 +65,7 @@ private:
     std::string m_yLabel;
     std::vector<double> m_x;
     std::vector<double> m_y;
+    int m_layoutSlot;
 };
 
 }  // namespace ysq

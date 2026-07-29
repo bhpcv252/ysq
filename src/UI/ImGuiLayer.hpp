@@ -7,6 +7,17 @@
 
 namespace ysq {
 
+struct ImGuiLayerSettings {
+    /// Remember every ImGui window's position, size and collapsed state in
+    /// an imgui.ini next to the working directory, across runs. Off by
+    /// default: nothing built on this engine currently needs it, and a
+    /// stale .ini silently masks whether a panel's *default* layout is
+    /// actually right, which matters for anything (like PlotPanel's default
+    /// cascade) whose default position is itself part of what's being
+    /// verified.
+    bool persistLayout = false;
+};
+
 /// Owns the ImGui and ImPlot contexts and their GLFW+OpenGL3 backends, tied
 /// to one Window.
 ///
@@ -22,8 +33,9 @@ namespace ysq {
 /// current, the same rule as Renderer.
 class ImGuiLayer {
 public:
-    [[nodiscard]] static std::optional<ImGuiLayer> create(Window& window,
-                                                          std::string* error = nullptr);
+    [[nodiscard]] static std::optional<ImGuiLayer>
+    create(Window& window, const ImGuiLayerSettings& settings = {},
+           std::string* error = nullptr);
 
     ImGuiLayer(const ImGuiLayer&) = delete;
     ImGuiLayer& operator=(const ImGuiLayer&) = delete;

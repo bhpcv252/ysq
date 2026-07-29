@@ -23,7 +23,8 @@ Built only under `YSQ_BUILD_GRAPHICS`, same as `Platform`.
 | `Renderer/Material.hpp` | Blinn-Phong surface parameters, shared by the rasterizer and the ray tracer |
 | `Renderer/Shader.hpp` | Vertex+fragment GLSL program, RAII |
 | `Renderer/Mesh.hpp` | Vertex/index buffer, RAII; sphere/quad/disk/cube generators; instanced draw |
-| `Renderer/DebugDraw.hpp` | Immediate-mode lines, points, arrows, grid, axes |
+| `Renderer/DebugDraw.hpp` | Immediate-mode lines, points, arrows, grid, axes, and billboard/fixed text labels |
+| `Renderer/Font.hpp` | The bitmap font `DebugDraw`'s text labels rasterize with |
 | `Renderer/Texture.hpp` | 2D texture and `Cubemap`, from raw pixels or a decoded file |
 | `Renderer/Renderer.hpp` | `RenderTarget` (offscreen FBO) and `Renderer`, the draw-call-level frame orchestrator |
 | `Renderer/RayTracer.hpp` | Full-screen fragment-shader ray tracer: shadows, reflections |
@@ -62,6 +63,37 @@ identical meshes (a galaxy's worth of stars) in one draw call rather than one
 per body. `Renderer::debugDraw()` accumulates lines and points — orbit
 trails, force/velocity vectors, field lines, geodesics — into one batch,
 flushed once at `endFrame()`.
+
+## Text labels
+
+`DebugDraw::text()` and `textFixed()` draw short strings tied to a world
+position — a planet's name, an axis label, a readout — using a classic 8x8
+monospace bitmap font (`Font.hpp`; ASCII 32-126, the widely-redistributed
+public-domain IBM PC/VGA ROM charset), baked into a small texture atlas at
+`DebugDraw::create()` time. No font file and no TrueType parsing: this
+engine's text is short debug/label strings, and a fixed bitmap this small is
+worth owning outright rather than taking a dependency for.
+
+```cpp
+renderer.debugDraw().text(labelPosition, "Jupiter");
+renderer.debugDraw().textFixed(signPosition, right, up, "N");
+```
+
+`text()` billboards: the vertex shader adds the glyph quad's local offset
+along the *camera's* right/up every frame, so a label always faces the
+viewer regardless of orbit. `textFixed()` resolves that same offset once, on
+the CPU, against a caller-supplied fixed right/up instead — the quad's
+orientation is baked in and does not track the camera, so it foreshortens
+and skews with perspective exactly like any other piece of scene geometry.
+Both share one vertex format and one shader; `textFixed()` simply passes a
+zero local offset so the shader's billboard term is a no-op.
+
+Text is depth-tested against the rest of the scene, so a label behind a body
+is properly occluded, but not depth-written, so glyphs within one label (or
+overlapping labels) don't z-fight each other. `GL_BLEND` is enabled only for
+the scoped duration of the text draw call inside `flush()` — nothing else in
+this renderer blends, so leaving it enabled any longer would be ambient
+state a later, unrelated draw call would silently inherit.
 
 ## Multisampling
 

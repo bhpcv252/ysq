@@ -59,6 +59,8 @@ if(YSQ_BUILD_GRAPHICS)
         LIBS ysq::Renderer ysq::Platform ysq::TestSupport)
     ysq_add_test(test_renderer_raytracer SOURCES renderer_raytracer.cpp
         LIBS ysq::Renderer ysq::Platform ysq::TestSupport)
+    ysq_add_test(test_renderer_text SOURCES renderer_text.cpp
+        LIBS ysq::Renderer ysq::Platform ysq::TestSupport)
 
     # Links imgui directly, not just ysq::UI, because the test itself calls
     # ImGui:: to inspect draw data, the same reason test_graphics_link does.

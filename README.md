@@ -19,8 +19,9 @@ description of reality.
   (including symplectic)
 - Strongly-typed, dimensioned quantities (scalar or vector)
 - Real-time OpenGL rendering: instanced meshes, multi-light Blinn-Phong,
-  immediate-mode debug drawing, skyboxes, plus a fragment-shader ray tracer
-  with shadows and reflections
+  immediate-mode debug drawing with billboard and fixed-orientation text
+  labels, skyboxes, plus a fragment-shader ray tracer with shadows and
+  reflections
 - ImGui controls and ImPlot charts (live time-series and scatter) in the same
   window and frame as the 3D view
 - GPU compute backends: OpenGL compute shaders, CUDA, Vulkan
@@ -463,7 +464,7 @@ ysq/
 | `Platform`     | Window, GL context, and input, wrapping GLFW                                                                                                                                                                                                         |
 | `Compute`      | Backend `Physics` dispatches to: a CPU reference implementation plus GPU acceleration (OpenGL compute shaders, CUDA, Vulkan)                                                                                                                         |
 | `Physics`      | Mechanics; relativistic spacetime (Minkowski, Schwarzschild, Kerr, FLRW) with a geodesic solver; gravity (Newtonian, post-Newtonian, Barnes-Hut summation); electromagnetism; fluids; thermodynamics; optics (propagation, lensing, frequency shift) |
-| `Renderer`     | Camera and controllers, shaders, instanced meshes, textures, immediate-mode debug drawing, and both a forward rasterizer and a fragment-shader ray tracer                                                                                          |
+| `Renderer`     | Camera and controllers, shaders, instanced meshes, textures, immediate-mode debug drawing and text labels, and both a forward rasterizer and a fragment-shader ray tracer                                                                          |
 | `UI`           | Dear ImGui panels bound to plain references, Dear ImPlot charts, a stats overlay                                                                                                                                                                    |
 | `Applications` | Runnable simulation programs built on the engine                                                                                                                                                                                                     |
 

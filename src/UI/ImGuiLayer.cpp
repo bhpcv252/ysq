@@ -1,4 +1,5 @@
 #include <UI/ImGuiLayer.hpp>
+#include <UI/PlotPanel.hpp>
 
 #define GLFW_INCLUDE_NONE  // GLAD provides the GL headers, not GLFW
 #include <GLFW/glfw3.h>
@@ -11,7 +12,9 @@
 
 namespace ysq {
 
-std::optional<ImGuiLayer> ImGuiLayer::create(Window& window, std::string* error) {
+std::optional<ImGuiLayer> ImGuiLayer::create(Window& window,
+                                             const ImGuiLayerSettings& settings,
+                                             std::string* error) {
     IMGUI_CHECKVERSION();
     ImGuiContext* context = ImGui::CreateContext();
     if (context == nullptr) {
@@ -20,6 +23,17 @@ std::optional<ImGuiLayer> ImGuiLayer::create(Window& window, std::string* error)
         }
         return std::nullopt;
     }
+    if (!settings.persistLayout) {
+        // No ini file: a fresh run gets the same default layout every time
+        // rather than one that quietly depends on whatever a previous run
+        // (or a previous version of that run's own default positions) left
+        // behind.
+        ImGui::GetIO().IniFilename = nullptr;
+    }
+    // A new session starts plots back at the first cascade slot, regardless
+    // of how many a previous session (or, in a test binary, a previous
+    // TEST()) already constructed.
+    detail::resetPlotLayoutCascade();
     ImPlot::CreateContext();
 
     if (!ImGui_ImplGlfw_InitForOpenGL(window.nativeHandle(), true)) {
