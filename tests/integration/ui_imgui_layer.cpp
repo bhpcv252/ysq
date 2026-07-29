@@ -8,6 +8,10 @@
 #include <support/MathApprox.hpp>
 
 #include <imgui.h>
+// FindWindowByName is how StatsOverlayAndPlotPanelDrawWithoutCrashing checks
+// that each plot actually opened its own window rather than falling through
+// to ImGui's implicit fallback one; there is no public-API way to ask that.
+#include <imgui_internal.h>
 
 #include <gtest/gtest.h>
 
@@ -33,13 +37,17 @@
 // longer populates (see imgui.h: "Use CmdLists.Size instead"); CmdLists.Size
 // is what these tests actually check.
 //
-// IniFilename is disabled on every context: ImGui persists window
-// positions/sizes to disk by default, and a test suite must not depend on
-// -- or leave behind -- state from a previous run.
+// ImGuiLayer::create() disables ini persistence by default, for exactly the
+// reason a test suite cares about: ImGui persists window positions/sizes to
+// disk by default, and a test must not depend on -- or leave behind --
+// state from a previous run. PersistLayoutSettingControlsIniFile is the one
+// test that asks for it explicitly, to prove the setting actually reaches
+// ImGui; it only checks that IniFilename got set, not any real file I/O.
 
 namespace {
 
 using ysq::ImGuiLayer;
+using ysq::ImGuiLayerSettings;
 using ysq::Panel;
 using ysq::StatsOverlay;
 using ysq::TimeSeriesPlot;
@@ -56,9 +64,8 @@ TEST(UIImGuiLayer, ARealFrameProducesDrawDataWithoutCrashing) {
     }
 
     std::string error;
-    std::optional<ImGuiLayer> ui = ImGuiLayer::create(*session.window, &error);
+    std::optional<ImGuiLayer> ui = ImGuiLayer::create(*session.window, {}, &error);
     ASSERT_TRUE(ui) << error;
-    ImGui::GetIO().IniFilename = nullptr;
 
     for (int frame = 0; frame < 2; ++frame) {
         ui->beginFrame();
@@ -127,17 +134,58 @@ TEST(UIImGuiLayer, StatsOverlayAndPlotPanelDrawWithoutCrashing) {
     StatsOverlay stats;
     stats.update(0.016f, 5);
 
-    TimeSeriesPlot plot("Energy");
-    plot.addSample(0.0, 1.0);
-    plot.addSample(1.0, 0.99);
+    // Two plots, not one: a single plot could still land inside ImGui's
+    // implicit fallback window and look fine. Two only both come out right
+    // if each opened its own window, which is the bug this guards against --
+    // TimeSeriesPlot::draw() used to call ImPlot::BeginPlot() with no
+    // surrounding ImGui::Begin()/End(), so every plot drawn in the same
+    // frame piled into the same implicit "Debug" window instead of each
+    // getting one of its own.
+    TimeSeriesPlot energyPlot("Energy");
+    energyPlot.addSample(0.0, 1.0);
+    energyPlot.addSample(1.0, 0.99);
+
+    TimeSeriesPlot momentumPlot("Momentum");
+    momentumPlot.addSample(0.0, 0.0);
+    momentumPlot.addSample(1.0, 1e-9);
 
     for (int frame = 0; frame < 2; ++frame) {
         ui->beginFrame();
         stats.draw();
-        plot.draw();
+        energyPlot.draw();
+        momentumPlot.draw();
         ui->endFrame();
     }
 
     ASSERT_NE(ImGui::GetDrawData(), nullptr);
     EXPECT_GT(ImGui::GetDrawData()->CmdLists.Size, 0);
+
+    EXPECT_NE(ImGui::FindWindowByName("Energy"), nullptr);
+    EXPECT_NE(ImGui::FindWindowByName("Momentum"), nullptr);
+    EXPECT_EQ(ImGui::FindWindowByName("Debug"), nullptr)
+        << "a plot that opened no window of its own falls through to ImGui's "
+           "implicit fallback window";
+}
+
+TEST(UIImGuiLayer, PersistLayoutSettingControlsIniFile) {
+    GLSession session = openGLSession(256, 256);
+    if (!session.opened()) {
+        YSQ_SKIP_UNLESS_HEADLESS_GL_REQUIRED("no OpenGL context: " + session.failure);
+    }
+
+    {
+        const std::optional<ImGuiLayer> ui = ImGuiLayer::create(*session.window);
+        ASSERT_TRUE(ui);
+        EXPECT_EQ(ImGui::GetIO().IniFilename, nullptr)
+            << "off by default: nothing should persist unless asked to";
+    }
+
+    {
+        ImGuiLayerSettings settings;
+        settings.persistLayout = true;
+        const std::optional<ImGuiLayer> ui =
+            ImGuiLayer::create(*session.window, settings);
+        ASSERT_TRUE(ui);
+        EXPECT_NE(ImGui::GetIO().IniFilename, nullptr);
+    }
 }

@@ -184,6 +184,8 @@ void Renderer::beginFrame(const Camera& camera, float aspect, int viewportWidth,
     m_view = camera.viewMatrix();
     m_projection = camera.projectionMatrix(aspect);
     m_cameraPosition = camera.position;
+    m_cameraRight = camera.right();
+    m_cameraUp = camera.trueUp();
     m_pointLights.clear();
     m_directionalLights.clear();
     m_drawCallCount = 0;
@@ -284,7 +286,7 @@ void Renderer::drawSkybox(const Cubemap& sky) {
 }
 
 void Renderer::endFrame() {
-    m_debugDraw.flush(m_projection * m_view);
+    m_debugDraw.flush(m_projection * m_view, m_cameraRight, m_cameraUp);
 }
 
 }  // namespace ysq

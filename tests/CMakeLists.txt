@@ -44,6 +44,7 @@ endfunction()
 add_subdirectory(unit)
 add_subdirectory(integration)
 add_subdirectory(smoke)
+add_subdirectory(e2e)
 
 # Targets that are expected to fail to compile. Off by default only if asked:
 # each one costs a nested compiler invocation, which is noticeable on Windows.

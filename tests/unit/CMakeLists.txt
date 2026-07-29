@@ -67,6 +67,9 @@ endif()
 if(YSQ_BUILD_GRAPHICS)
     ysq_add_test(test_renderer_camera SOURCES renderer_camera.cpp
         LIBS ysq::Renderer ysq::TestSupport)
+    # Pure atlas/UV logic, no GL context; see
+    # tests/integration/renderer_text.cpp for the part that draws.
+    ysq_add_test(test_renderer_font SOURCES renderer_font.cpp LIBS ysq::Renderer)
 endif()
 
 ysq_add_test(test_compute_cpu SOURCES compute_cpu.cpp LIBS ysq::Compute)
@@ -115,3 +118,8 @@ ysq_add_test(test_thermodynamics SOURCES thermodynamics.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_thermodynamics_heatequation SOURCES thermodynamics_heatequation.cpp
     LIBS ysq::Physics ysq::TestSupport)
+
+# Applications' scenario-construction code, not the windowed executables
+# themselves; see src/Applications/README.md. No graphics dependency.
+ysq_add_test(test_solar_system_scenario SOURCES solar_system_scenario.cpp
+    LIBS ysq::SolarSystemScenario ysq::Math)

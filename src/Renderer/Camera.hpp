@@ -42,6 +42,11 @@ struct Camera {
 
     [[nodiscard]] Vec3f forward() const;
     [[nodiscard]] Vec3f right() const;
+    /// cross(right(), forward()): the true orthonormal up axis. up (the
+    /// member) is only a hint used to build the view matrix and is not
+    /// guaranteed orthogonal to forward() itself; DebugDraw's billboard text
+    /// needs the orthonormal one.
+    [[nodiscard]] Vec3f trueUp() const;
 
     [[nodiscard]] Matrix4<float> viewMatrix() const;
     [[nodiscard]] Matrix4<float> projectionMatrix(float aspect) const;

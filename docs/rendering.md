@@ -115,3 +115,28 @@ creates: orbit trails, force/velocity vectors, field lines, geodesic paths.
 It accumulates a batch of lines and points and flushes them once per frame
 in one draw call each, rather than drawing them as `Mesh` objects one at a
 time.
+
+## Text labels
+
+`DebugDraw::text()`/`textFixed()` are the same idea applied to naming what's
+being shown, not just drawing it. The one design choice worth writing down:
+text is depth-tested against the rest of the scene but not depth-written.
+Depth-testing is what makes a label properly disappear behind an occluding
+body rather than always drawing on top like a HUD element; not writing
+depth is what keeps two overlapping glyphs (or two overlapping labels) from
+z-fighting each other, since a text quad's "background" pixels are fully
+transparent rather than absent; the fragment shader still discards them,
+but the quad's four corners are still real triangles as far as the depth
+buffer is concerned. `GL_BLEND` itself is enabled only for the scoped
+duration of that one draw call inside `flush()`, since nothing else in this
+renderer blends and leaving it on would be silent, ambient state.
+
+Billboarding — always facing the camera — happens in `shaders/text.vert` by
+adding the glyph's local offset along the camera's right/up, extracted from
+the `Camera` passed to `beginFrame()` each frame rather than the raw
+combined view-projection matrix, which only `Renderer` (not `DebugDraw`)
+had cached before this. `textFixed()` reuses the identical shader and
+vertex format by resolving that same offset on the CPU against its own
+fixed right/up instead, and passing a zero local offset — the billboard
+term in the shader becomes a no-op, and the vertex sits exactly where it
+was baked, skewing with perspective like any other piece of geometry.

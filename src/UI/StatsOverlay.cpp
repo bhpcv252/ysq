@@ -17,6 +17,10 @@ void StatsOverlay::update(float deltaSeconds, std::uint32_t drawCallCount) noexc
 }
 
 void StatsOverlay::draw() {
+    // FirstUseEver: a corner to start in, not a place the user is locked to
+    // -- there is nothing to lock them to anyway, since NoMove already
+    // covers that.
+    ImGui::SetNextWindowPos(ImVec2(10.0f, 10.0f), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowBgAlpha(0.5f);
     ImGui::Begin("Stats", nullptr,
                  ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |

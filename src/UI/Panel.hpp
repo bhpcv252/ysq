@@ -56,6 +56,11 @@ private:
 
     std::string m_title;
     std::vector<Widget> m_widgets;
+    /// The display size draw() last anchored its default position against.
+    /// Negative means never: the very first draw() always counts as a
+    /// change. See Panel.cpp.
+    float m_lastDisplayWidth = -1.0f;
+    float m_lastDisplayHeight = -1.0f;
 };
 
 }  // namespace ysq
