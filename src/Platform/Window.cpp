@@ -211,8 +211,8 @@ std::optional<Window> Window::create(const WindowSettings& settings, WindowError
     const PlatformBackend backend = Platform::backend().value_or(PlatformBackend::Null);
     const ContextSettings context = effectiveContext(settings.context, backend);
     if (context.forwardCompatible != settings.context.forwardCompatible) {
-        log::debug("Forward compatibility dropped: the {} backend refuses it",
-                   toString(backend));
+        logging::debug("Forward compatibility dropped: the {} backend refuses it",
+                       toString(backend));
     }
     applyHints(settings, context);
 
@@ -266,8 +266,8 @@ std::optional<Window> Window::create(const WindowSettings& settings, WindowError
     window.bindCallbacks();
     window.setVSync(settings.vsync);
 
-    log::debug("Window \"{}\" {}x{} on OpenGL {}.{}", settings.title, settings.width,
-               settings.height, version.major, version.minor);
+    logging::debug("Window \"{}\" {}x{} on OpenGL {}.{}", settings.title, settings.width,
+                   settings.height, version.major, version.minor);
 
     return std::optional<Window>{std::move(window)};
 }
@@ -368,7 +368,7 @@ void Window::makeContextCurrent() {
     }
     bindContext(m_handle);
     if (g_loaderContext != m_handle) {
-        log::error("Could not resolve OpenGL entry points after a context switch");
+        logging::error("Could not resolve OpenGL entry points after a context switch");
     }
 }
 

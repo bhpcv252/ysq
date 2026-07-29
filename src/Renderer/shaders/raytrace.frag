@@ -2,7 +2,7 @@
 
 // A fragment-shader ray tracer, not a compute shader: compute shaders are a
 // 4.3 feature and macOS never gets past 4.1, so this is the form that stays
-// portable everywhere the rasterizer already runs. See docs/rendering.md.
+// portable everywhere the rasterizer already runs. See src/Renderer/README.md.
 //
 // Scene data arrives as plain "structure of arrays" uniform arrays rather
 // than a UBO: no std140 padding to get right by hand, and it is exactly as

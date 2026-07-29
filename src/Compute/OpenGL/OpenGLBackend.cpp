@@ -111,7 +111,7 @@ std::unique_ptr<ComputeBackend> OpenGLBackend::create() {
     WindowError windowError;
     std::optional<Window> window = Window::createOffscreen(1, 1, context, &windowError);
     if (!window) {
-        log::debug("OpenGL compute backend unavailable: {}", windowError.message);
+        logging::debug("OpenGL compute backend unavailable: {}", windowError.message);
         return nullptr;
     }
 
@@ -119,12 +119,13 @@ std::unique_ptr<ComputeBackend> OpenGLBackend::create() {
     std::optional<ComputeShader> saxpy =
         ComputeShader::compile(kSaxpySource, &shaderError);
     if (!saxpy) {
-        log::debug("OpenGL compute backend unavailable: saxpy shader: {}", shaderError);
+        logging::debug("OpenGL compute backend unavailable: saxpy shader: {}",
+                       shaderError);
         return nullptr;
     }
     std::optional<ComputeShader> sum = ComputeShader::compile(kSumSource, &shaderError);
     if (!sum) {
-        log::debug("OpenGL compute backend unavailable: sum shader: {}", shaderError);
+        logging::debug("OpenGL compute backend unavailable: sum shader: {}", shaderError);
         return nullptr;
     }
 

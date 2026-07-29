@@ -46,7 +46,7 @@ settings.level = ysq::LogLevel::Debug;
 settings.file = "ysq.log";
 ysq::Logger::init(settings);
 
-ysq::log::info("{} bodies at t={}", count, t);
+ysq::logging::info("{} bodies at t={}", count, t);
 ysq::Logger::setLevel(ysq::LogLevel::Warn);
 ```
 

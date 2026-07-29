@@ -25,7 +25,7 @@ namespace ysq {
 /// solver, which is what a genuine radiating source (a dipole, say) needs,
 /// is future work; this rung validates against what 1D vacuum
 /// electrodynamics actually predicts: a wave travelling at exactly c, and a
-/// closed system's energy staying constant. See docs/physics.md.
+/// closed system's energy staying constant. See src/Physics/README.md.
 ///
 /// Ey lives at the grid's integer points, Bz at the half-integer points in
 /// between (the Yee staggering): magneticField(i) is Bz at x_i +

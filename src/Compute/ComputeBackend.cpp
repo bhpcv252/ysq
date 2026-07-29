@@ -70,8 +70,8 @@ selectComputeBackend(std::optional<ComputeBackendKind> forceBackend) {
     if (forceBackend) {
         std::unique_ptr<ComputeBackend> backend = createBackend(*forceBackend);
         if (!backend) {
-            log::debug("Compute backend {} was forced but is not available",
-                       toString(*forceBackend));
+            logging::debug("Compute backend {} was forced but is not available",
+                           toString(*forceBackend));
         }
         return backend;
     }
@@ -81,7 +81,7 @@ selectComputeBackend(std::optional<ComputeBackendKind> forceBackend) {
         ComputeBackendKind::Cpu};
     for (const ComputeBackendKind kind : kPriority) {
         if (std::unique_ptr<ComputeBackend> backend = createBackend(kind)) {
-            log::debug("Selected the {} compute backend", toString(kind));
+            logging::debug("Selected the {} compute backend", toString(kind));
             return backend;
         }
     }

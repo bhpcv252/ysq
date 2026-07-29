@@ -18,8 +18,8 @@ namespace ysq {
 /// recurses into its children. theta = 0 degenerates to direct summation
 /// (every node is opened); a large theta accepts coarse, distant
 /// approximations more readily. 0.5 is the conventional default. See
-/// docs/physics.md and nbody_energy's error-vs-theta check for what that
-/// trades off.
+/// src/Physics/README.md and nbody_energy's error-vs-theta check for what
+/// that trades off.
 ///
 /// The tree is monopole only: each internal node carries a total mass and a
 /// center of mass, not the mass distribution's higher moments. A quadrupole

@@ -52,7 +52,7 @@ public:
     }
 };
 
-namespace log {
+namespace logging {
 
 /// Args are const lvalue references rather than forwarding references because
 /// P2905 made std::make_format_args bind lvalues only; forwarding rvalues here
@@ -95,6 +95,6 @@ void critical(std::format_string<Args...> fmt, const Args&... args) {
     emit<LogLevel::Critical>(fmt, args...);
 }
 
-}  // namespace log
+}  // namespace logging
 
 }  // namespace ysq

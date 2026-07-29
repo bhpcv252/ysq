@@ -9,7 +9,7 @@ namespace ysq {
 /// This is not a physically-based material system: nothing this engine
 /// renders needs one yet (analytic bodies, fields, grids), and a BRDF-based
 /// pipeline would be complexity spent on a problem that does not exist here.
-/// See docs/rendering.md.
+/// See src/Renderer/README.md.
 struct Material {
     Vec3f albedo = Vec3f::splat(0.8f);
     /// Self-lit contribution, independent of any light: what makes a star a

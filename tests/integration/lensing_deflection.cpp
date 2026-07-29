@@ -15,7 +15,7 @@
 #include <vector>
 
 /// Schwarzschild + Geodesic + Optics, validated against the two closed-form
-/// results docs/physics.md and the module layout both name: the weak-field
+/// results src/Physics/README.md and the module layout both name: the weak-field
 /// deflection angle, and the perihelion precession that is Gravity's 1PN
 /// rung's own prediction (physics_gravity.cpp), now reproduced from an
 /// exact null and an exact timelike geodesic respectively rather than a
@@ -54,7 +54,7 @@ TEST(LensingDeflection, WeakFieldDeflectionMatchesTheAnalyticFormula) {
 
 /// The exact conserved energy and angular momentum (per unit mass) of a
 /// Schwarzschild equatorial timelike orbit with the given turning points,
-/// found by requiring dr/dtau = 0 at both: see docs/physics.md.
+/// found by requiring dr/dtau = 0 at both: see src/Physics/README.md.
 struct TurningPointOrbit {
     double energy;
     double angularMomentum;

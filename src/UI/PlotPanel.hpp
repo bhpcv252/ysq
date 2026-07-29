@@ -20,7 +20,7 @@ void resetPlotLayoutCascade();
 /// A live-updating time-series chart: energy/momentum drift, orbital
 /// elements, or any scalar tracked against simulation time. Backed by
 /// ImPlot, drawn alongside the 3D viewport in the same window and frame —
-/// see docs/rendering.md for why this lives in UI rather than Renderer.
+/// see src/UI/README.md for why this lives in UI rather than Renderer.
 class TimeSeriesPlot {
 public:
     explicit TimeSeriesPlot(std::string title, std::string yLabel = "value",

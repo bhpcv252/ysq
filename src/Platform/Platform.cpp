@@ -59,7 +59,8 @@ std::optional<PlatformBackend> backendFromNative(int nativeId) noexcept {
 /// PlatformError or WindowError, so the code that knows whether a failure was
 /// fatal is the code that decides how loudly to say so.
 void errorCallback(int code, const char* description) {
-    log::debug("GLFW error {}: {}", code, description ? description : "no description");
+    logging::debug("GLFW error {}: {}", code,
+                   description ? description : "no description");
 }
 
 /// Takes GLFW's pending error, which also clears it, so the next failure is not
@@ -127,7 +128,7 @@ std::optional<Platform> Platform::initialize(const PlatformSettings& settings,
     g_handles = 1;
 
     if (const std::optional<PlatformBackend> active = backend()) {
-        log::debug("Platform initialised on the {} backend", toString(*active));
+        logging::debug("Platform initialised on the {} backend", toString(*active));
     }
 
     return std::optional<Platform>{std::move(handle)};

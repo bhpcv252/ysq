@@ -103,7 +103,7 @@ TEST(CoreRuntime, ConfigDrivesALoggedTimedDeterministicRun) {
     const ysq::Subscription onCompletion = bus.subscribe<RunCompleted>(
         [&completion](const RunCompleted& e) { completion = e; });
 
-    ysq::log::info("run {} starting", runId.toString());
+    ysq::logging::info("run {} starting", runId.toString());
 
     const ysq::Timer wallClock;
     for (int frame = 0; frame < frames; ++frame) {
@@ -111,7 +111,8 @@ TEST(CoreRuntime, ConfigDrivesALoggedTimedDeterministicRun) {
         while (clock.consumeStep()) {
             bus.publish(StepCompleted{clock.stepCount(), clock.simulationTime()});
         }
-        ysq::log::info("frame {} ran {} steps, t={}", frame, due, clock.simulationTime());
+        ysq::logging::info("frame {} ran {} steps, t={}", frame, due,
+                           clock.simulationTime());
     }
     const double wallSeconds = wallClock.elapsedSeconds();
 
@@ -119,8 +120,8 @@ TEST(CoreRuntime, ConfigDrivesALoggedTimedDeterministicRun) {
     EXPECT_FALSE(completion.has_value()) << "a queued event was delivered early";
     bus.dispatchQueued();
 
-    ysq::log::info("run {} finished: {} steps of simulation in {:.6f}s of wall clock",
-                   runId.toString(), clock.stepCount(), wallSeconds);
+    ysq::logging::info("run {} finished: {} steps of simulation in {:.6f}s of wall clock",
+                       runId.toString(), clock.stepCount(), wallSeconds);
     ysq::Logger::shutdown();
 
     // 0.5 real seconds per frame at 2x is 1.0 simulated second, which is four

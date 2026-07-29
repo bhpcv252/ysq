@@ -9,7 +9,8 @@ target_link_libraries(ysq_units INTERFACE ysq::Math)
 # No ysq::warnings_strict here, for the same reason as src/Math/CMakeLists.txt:
 # on an INTERFACE target the flags propagate to every consumer's own sources,
 # which would put -Wconversion -Wsign-conversion -Wdouble-promotion on
-# Renderer, UI and Applications. docs/architecture.md rules that out.
+# Renderer, UI and Applications. The root README's Warnings section rules
+# that out.
 #
 # The strict set is applied instead in tests/smoke/units_strict_warnings.cpp,
 # which includes every header here and instantiates the templates so the

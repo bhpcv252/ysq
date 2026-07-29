@@ -58,7 +58,7 @@ TEST(Thermodynamics, AdiabaticRelationRoundTrips) {
 
 TEST(Thermodynamics, BlackBodyLuminosityOfASolarLikeStarIsOfTheRightOrderOfMagnitude) {
     // Not the IAU nominal L_sun, which fixes a specific reference
-    // temperature and radius by convention (docs/units.md): this checks
+    // temperature and radius by convention (src/Units/README.md): this checks
     // the formula against realistic solar parameters instead, to within
     // the accuracy those parameters themselves carry.
     const ysq::Length radius = ysq::units::solarRadius;

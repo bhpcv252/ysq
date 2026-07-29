@@ -25,7 +25,7 @@ struct ImGuiLayerSettings {
 /// window's framebuffer that frame: beginFrame() starts a new ImGui frame
 /// without clearing anything, endFrame() renders every ImGui:: call made
 /// since on top of it. Renderer and UI drawing into the same window in the
-/// same frame is the whole point; see docs/rendering.md.
+/// same frame is the whole point; see src/UI/README.md.
 ///
 /// One at a time: ImGui's context is global process state, the same
 /// constraint GLAD's loader has, so a second live ImGuiLayer would fight the

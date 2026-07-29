@@ -25,8 +25,8 @@ description of reality.
 - ImGui controls and ImPlot charts (live time-series and scatter) in the same
   window and frame as the 3D view
 - GPU compute backends: OpenGL compute shaders, CUDA, Vulkan
-- Example applications: solar system, binary stars, galaxy collision, black hole,
-  light deflection
+- Example application: solar system (Newtonian N-body, energy/momentum tracked
+  live)
 
 ## Physical models
 
@@ -81,7 +81,7 @@ below is optional acceleration, selected at runtime with a fallback to CPU:
 | Vulkan SDK          | The Vulkan compute backend (via MoltenVK on macOS)       |
 
 macOS caps OpenGL at 4.1, so the visualizer works there but the OpenGL compute
-backend does not. See [docs/architecture.md](docs/architecture.md) for how
+backend does not. See [src/Compute/README.md](src/Compute/README.md) for how
 backend selection and fallback work per platform.
 
 ### Linux build dependencies
@@ -140,8 +140,7 @@ Each program under `Applications/` builds to its own executable in `build/bin/`:
 ./build/bin/solar-system
 ```
 
-Available: `solar-system`, `binary-stars`, `galaxy-collision`, `black-hole`,
-`light-deflection`.
+Available: `solar-system`.
 
 ## Testing
 
@@ -172,6 +171,45 @@ exception is the OpenGL context test, which still needs no display: it uses a
 software context where there is no display server, and skips where even that is
 unavailable. Configure with `-DYSQ_REQUIRE_HEADLESS_GL=ON` to make those skips
 failures. See [tests/README.md](tests/README.md).
+
+## Continuous integration
+
+Six jobs: Linux, macOS and Windows, each with graphics on and off, all built
+with warnings as errors. Windows is not optional coverage: the project
+claims MSVC support and `cmake/YsqWarnings.cmake` carries an MSVC-specific
+warning set, so without a Windows job neither the claim nor the code behind
+it would be tested. Every job is CPU-only and needs no display, so none needs
+a GPU or a virtual framebuffer.
+
+The one test whose outcome depends on the machine is the OpenGL context test,
+which skips where no context can exist. A test that skips on all six jobs
+tests nothing, so the Linux graphics-on job installs OSMesa and configures
+with `YSQ_REQUIRE_HEADLESS_GL=ON`, turning that skip into a failure on the one
+runner where a context is guaranteed to be available.
+
+## Warnings
+
+`cmake/YsqWarnings.cmake` defines two `INTERFACE` targets, linked `PRIVATE` so
+they apply to a module's own sources without leaking to its consumers:
+`ysq::warnings` for everything, and `ysq::warnings_strict`, which adds
+`-Wconversion -Wsign-conversion -Wdouble-promotion` on top and goes on the
+engine core (`Math`, `Units`, `Physics`, `Compute`).
+
+The split is deliberate. In the engine core a silent `double`-to-`float`
+narrowing is a physics bug: an energy accumulator or an integrator tolerance
+quietly loses precision and a conservation invariant drifts. In the
+presentation layer (`Renderer`, `UI`, `Applications`) the same conversions are
+constant and intentional, since OpenGL and ImGui are `float`/`int` APIs, and
+the strict set there would only train people to reach for `static_cast`
+without fixing anything. `-Wsign-conversion` is listed explicitly because
+Clang's `-Wconversion` implies it for C++ and GCC's does not; without it a
+build clean on one compiler fails on the other.
+
+`Math` and `Units` are header-only `INTERFACE` targets, so they cannot carry
+the strict set on their own target: on an `INTERFACE` target the flags would
+reach every consumer's own sources instead. Both apply it in a smoke test
+that includes every header and explicitly instantiates every template, since
+an uninstantiated template is barely checked at all.
 
 ## Formatting
 
@@ -204,8 +242,11 @@ presentation layer, drawing on `Platform` and `Math`. `Applications` sit on top.
 Nothing lower depends on anything higher. A headless visual run uses an offscreen
 context; the simulation core and tests need no graphics context at all.
 
-The tree below is the target layout. Modules appear as they are implemented, so
-not all of it exists yet.
+Directory layout; each library module under `src/` carries its own `README.md`
+listing its headers in full, so the tree below stops at the module boundary
+rather than duplicating that per file. That duplication had drifted out of
+sync with the code before this line was written, which is the reason it isn't
+done that way anymore.
 
 ```
 ysq/
@@ -214,244 +255,58 @@ ysq/
 ├── LICENSE
 ├── .clang-format
 ├── .github/workflows/ci.yml
-├── cmake/
-│   └── YsqWarnings.cmake       Shared warning sets
-├── docs/
-│   ├── README.md
-│   ├── architecture.md
-│   ├── math.md
-│   ├── physics.md
-│   └── rendering.md
+├── cmake/                           Shared CMake modules (warning sets, shader embedding)
+├── docs/                            Consumer-facing documentation
 │
 ├── third_party/                    Vendored dependencies
 │   ├── README.md
 │   ├── glfw/                        submodule
 │   ├── glad/                        generated loader, committed
 │   ├── imgui/                       submodule
+│   ├── implot/                      submodule
+│   ├── stb/                         submodule (stb_image)
 │   ├── spdlog/                      submodule
 │   └── googletest/                  submodule (tests)
 │
 ├── src/
 │   ├── CMakeLists.txt
 │   │
-│   ├── Core/
-│   │   ├── README.md
-│   │   ├── CMakeLists.txt
-│   │   ├── Version.hpp.in          Version, generated from the CMake project version
-│   │   ├── Logger.hpp              Facade over spdlog; spdlog stays out of the header
-│   │   ├── Timer.hpp               Wall-clock stopwatch
-│   │   ├── Clock.hpp               Simulation time: fixed steps, time scale, pause
-│   │   ├── UUID.hpp
-│   │   ├── Event.hpp               Type-keyed event bus
-│   │   └── Config.hpp
+│   ├── Core/                        Logging, timing, identity, events, configuration
+│   ├── Math/                        Vectors, matrices, quaternions, tensors, calculus, ODE integrators
+│   ├── Units/                       Dimensioned quantities over the SI
+│   ├── Platform/                    Window, GL context, input (graphics builds only)
 │   │
-│   ├── Math/
-│   │   ├── README.md
-│   │   ├── CMakeLists.txt
-│   │   ├── Scalar.hpp              The Numeric concept, constants, tolerances
-│   │   ├── Vector2.hpp
-│   │   ├── Vector3.hpp
-│   │   ├── Vector4.hpp
-│   │   ├── Matrix2.hpp
-│   │   ├── Matrix3.hpp
-│   │   ├── Matrix4.hpp
-│   │   ├── Quaternion.hpp
-│   │   ├── Complex.hpp
-│   │   ├── Dual.hpp                Dual numbers (automatic differentiation)
-│   │   ├── Tensor.hpp
-│   │   ├── Statistics.hpp
-│   │   ├── Interpolation.hpp
-│   │   ├── Calculus.hpp            Numerical differentiation and integration
-│   │   ├── ODE.hpp                 ODE system interface: dy/dt = f(t, y)
-│   │   ├── CoordinateSystems.hpp
-│   │   ├── Format.hpp              std::formatter for every Math type
-│   │   └── Integrators/            Methods that advance an ODE
-│   │       ├── Euler.hpp
-│   │       ├── RK4.hpp
-│   │       ├── Adaptive.hpp        Adaptive step size
-│   │       └── Symplectic.hpp      Verlet / leapfrog (energy-conserving)
+│   ├── Compute/                     Backend Physics dispatches to
+│   │   ├── CPU/                      Reference implementation, always available
+│   │   ├── OpenGL/                   4.3+ compute shaders, graphics builds only
+│   │   ├── CUDA/                     Built only when the CUDA Toolkit is found
+│   │   └── Vulkan/                   Built only when the Vulkan SDK is found
 │   │
-│   ├── Units/
-│   │   ├── README.md
-│   │   ├── CMakeLists.txt
-│   │   ├── Unit.hpp                Dimensioned-quantity machinery (scalar or vector)
-│   │   ├── Constants.hpp           The seven constants that define the SI
-│   │   ├── Length.hpp              Length, area, volume, wave number
-│   │   ├── Mass.hpp                Mass and densities
-│   │   ├── Time.hpp                Time, frequency, angular velocity
-│   │   ├── Velocity.hpp
-│   │   ├── Acceleration.hpp        Acceleration and jerk
-│   │   ├── Force.hpp               Force, momentum, torque, pressure
-│   │   ├── Energy.hpp              Energy, power, action
-│   │   ├── Temperature.hpp         Temperature, heat capacity, entropy
-│   │   ├── Luminosity.hpp          Radiometry and photometry
-│   │   └── Format.hpp              std::formatter for every quantity
-│   │
-│   ├── Platform/
-│   │   ├── README.md
-│   │   ├── CMakeLists.txt
-│   │   ├── Platform.hpp            Windowing system lifetime and backend
-│   │   ├── Window.hpp              Window and GL context (GLFW)
-│   │   └── Input.hpp               Keyboard and mouse, sampled per frame
-│   │
-│   ├── Compute/
-│   │   ├── README.md
-│   │   ├── CMakeLists.txt
-│   │   ├── ComputeBackend.hpp      Backend interface, selection and fallback
-│   │   ├── CPU/                    Reference backend (no GPU required)
-│   │   │   └── CpuBackend.hpp
-│   │   ├── OpenGL/                 Built only under YSQ_BUILD_GRAPHICS
-│   │   │   ├── ComputeShader.hpp   Compile/link/dispatch a GLSL compute program
-│   │   │   └── OpenGLBackend.hpp   ComputeBackend over a 4.3+ offscreen context
-│   │   ├── CUDA/                   Built only when the CUDA Toolkit is found
-│   │   │   ├── CudaBackend.hpp     Device probe; kernels are a follow-up task
-│   │   │   └── kernels/            *.cu (not yet written)
-│   │   └── Vulkan/                 Built only when the Vulkan SDK is found
-│   │       ├── VulkanBackend.hpp   Device probe; kernels are a follow-up task
-│   │       └── shaders/            *.comp (SPIR-V, not yet written)
-│   │
-│   ├── Physics/
-│   │   ├── README.md
-│   │   ├── CMakeLists.txt
-│   │   ├── Body.hpp                Matter state: mass, charge, position, momentum
-│   │   │
+│   ├── Physics/                     Mechanics, Spacetime, Gravity, Electromagnetism,
+│   │   │                            Fluids, Thermodynamics, Optics: organized by theory
 │   │   ├── Mechanics/
-│   │   │   ├── Frame.hpp           Reference frames
-│   │   │   ├── Kinematics.hpp      Worldlines, proper time (Newtonian = low-v limit)
-│   │   │   └── Dynamics.hpp        Equations of motion
-│   │   │
 │   │   ├── Spacetime/
-│   │   │   ├── Metric.hpp          Abstract metric
-│   │   │   ├── Minkowski.hpp       Flat spacetime (special relativity)
-│   │   │   ├── Schwarzschild.hpp   Non-rotating mass
-│   │   │   ├── Kerr.hpp            Rotating mass
-│   │   │   ├── FLRW.hpp            Expanding universe (cosmological)
-│   │   │   └── Geodesic.hpp        Timelike and null geodesic solver
-│   │   │
 │   │   ├── Gravity/
-│   │   │   ├── Newtonian.hpp       Weak-field limit; dynamical many-body gravity
-│   │   │   ├── PostNewtonian.hpp   Relativistic corrections
-│   │   │   └── BarnesHut.hpp       Tree-based force summation
-│   │   │
 │   │   ├── Electromagnetism/
-│   │   │   ├── Field.hpp           E and B fields
-│   │   │   ├── Maxwell.hpp         Field evolution
-│   │   │   └── Lorentz.hpp         Force on charges
-│   │   │
 │   │   ├── Fluids/
-│   │   │   └── FluidDynamics.hpp
-│   │   │
 │   │   ├── Thermodynamics/
-│   │   │   └── Thermodynamics.hpp
-│   │   │
 │   │   └── Optics/
-│   │       ├── Propagation.hpp     Light as null geodesics (uses Spacetime)
-│   │       ├── Lensing.hpp         Gravitational lensing
-│   │       └── FrequencyShift.hpp  Doppler, gravitational, and cosmological shift
 │   │
-│   ├── Renderer/
-│   │   ├── README.md
-│   │   ├── CMakeLists.txt
-│   │   ├── Camera.hpp              Perspective/orthographic projection, view matrix
-│   │   ├── CameraController.hpp    Orbit and free-fly controllers, driven from Platform input
-│   │   ├── Light.hpp               PointLight, DirectionalLight
-│   │   ├── Material.hpp            Blinn-Phong parameters, shared by rasterizer and ray tracer
-│   │   ├── Shader.hpp
-│   │   ├── Mesh.hpp                Sphere/quad/disk/cube generators, instanced draw
-│   │   ├── DebugDraw.hpp           Immediate-mode lines, points, arrows, grid, axes
-│   │   ├── Texture.hpp             2D texture and Cubemap, raw pixels or a decoded file
-│   │   ├── Renderer.hpp            RenderTarget (offscreen FBO) and the frame orchestrator
-│   │   ├── RayTracer.hpp           Ray-traced rendering; light physics in Physics/Optics
-│   │   └── shaders/                *.vert, *.frag, embedded at configure time
+│   ├── Renderer/                    Camera, shaders, meshes, textures, rasterizer, ray tracer
+│   │   └── shaders/                  *.vert, *.frag, embedded at configure time
 │   │
-│   ├── UI/
-│   │   ├── README.md
-│   │   ├── CMakeLists.txt
-│   │   ├── ImGuiLayer.hpp          Owns the ImGui/ImPlot contexts and their backends
-│   │   ├── Panel.hpp               Generic bound-widget vocabulary
-│   │   ├── StatsOverlay.hpp        Frame time, FPS, draw-call count
-│   │   └── PlotPanel.hpp           TimeSeriesPlot, ScatterPlot: live ImPlot charts
+│   ├── UI/                          Dear ImGui panels, Dear ImPlot charts
 │   │
-│   └── Applications/
-│       ├── README.md
-│       ├── CMakeLists.txt
-│       ├── SolarSystem/
-│       │   ├── CMakeLists.txt
-│       │   └── main.cpp
-│       ├── BinaryStars/
-│       │   ├── CMakeLists.txt
-│       │   └── main.cpp
-│       ├── GalaxyCollision/
-│       │   ├── CMakeLists.txt
-│       │   └── main.cpp
-│       ├── BlackHole/
-│       │   ├── CMakeLists.txt
-│       │   └── main.cpp
-│       └── LightDeflection/
-│           ├── CMakeLists.txt
-│           └── main.cpp
+│   └── Applications/                Runnable simulation programs
+│       └── SolarSystem/
+│
 └── tests/
-    ├── README.md
-    ├── CMakeLists.txt
     ├── support/                    Test-only helpers, outside the engine
-    │   ├── MathApprox.hpp          Approximate comparison and printing for Math values
-    │   └── GLContext.hpp           An offscreen OpenGL context, however the machine can provide one
     ├── smoke/                      Build wiring: dependencies link, options took effect
-    │   ├── CMakeLists.txt
-    │   ├── spdlog_format.cpp
-    │   ├── graphics_link.cpp
-    │   ├── math_strict_warnings.cpp  Math's templates under the strict warning set
-    │   └── units_strict_warnings.cpp The same for Units
-    ├── unit/                       Isolated module tests
-    │   ├── CMakeLists.txt
-    │   ├── core_version.cpp
-    │   ├── core_logger.cpp
-    │   ├── core_timer.cpp
-    │   ├── core_clock.cpp
-    │   ├── core_uuid.cpp
-    │   ├── core_event.cpp
-    │   ├── core_config.cpp
-    │   ├── math_vector.cpp
-    │   ├── math_matrix.cpp
-    │   ├── math_quaternion.cpp
-    │   ├── math_complex.cpp
-    │   ├── math_dual.cpp
-    │   ├── math_tensor.cpp
-    │   ├── math_statistics.cpp
-    │   ├── math_interpolation.cpp
-    │   ├── math_calculus.cpp
-    │   ├── math_coordinates.cpp
-    │   ├── math_ode.cpp
-    │   ├── math_integrators.cpp    Observed order of every method
-    │   ├── units_dimensions.cpp    The algebra, and what must not compile
-    │   ├── units_quantity.cpp
-    │   ├── units_conversions.cpp
-    │   ├── units_vector.cpp
-    │   ├── units_format.cpp
-    │   ├── platform_input.cpp      Key mapping and per-frame edges, no window
-    │   ├── platform_window.cpp     Settings a window refuses, no context
-    │   ├── physics_gravity.cpp
-    │   ├── spacetime_geodesic.cpp
-    │   ├── optics_frequencyshift.cpp
-    │   └── renderer_camera.cpp     Projection/view matrices and both camera controllers
-    ├── compile_fail/               Targets that must not compile (CTest WILL_FAIL)
-    │   └── CMakeLists.txt
-    ├── integration/                Cross-module behavior
-    │   ├── CMakeLists.txt
-    │   ├── core_runtime.cpp        Config + Logger + Clock + Timer + Event + UUID
-    │   ├── math_kepler.cpp         Integrators + vectors + coordinates + statistics
-    │   ├── units_kinematics.cpp    Units across the Math integrator boundary
-    │   ├── platform_context.cpp    A real GL context, onscreen or headless
-    │   ├── orbit_stability.cpp     Gravity + symplectic integrator
-    │   ├── lensing_deflection.cpp  Spacetime + optics
-    │   ├── nbody_energy.cpp        Barnes-Hut + conservation
-    │   ├── renderer_framebuffer.cpp  Geometry, instancing, and debug lines to an offscreen FBO
-    │   ├── renderer_raytracer.cpp    Shadows and reflections, read back and checked pixel by pixel
-    │   └── ui_imgui_layer.cpp        ImGuiLayer lifecycle and Panel binding through a real frame
-    └── e2e/                        Full application runs (headless)
-        ├── CMakeLists.txt
-        ├── solar_system.cpp        Energy & momentum conservation
-        └── black_hole.cpp          Photon paths vs. analytic
+    ├── unit/                       One module in isolation
+    ├── integration/                Modules in combination
+    ├── compile_fail/               Constructs that must not compile (CTest WILL_FAIL)
+    └── e2e/                        Full application runs, headless
 ```
 
 ## Modules
@@ -460,7 +315,7 @@ ysq/
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Core`         | Logging (spdlog behind a facade), timing (simulation and wall-clock), UUIDs, events, configuration                                                                                                                                                                                   |
 | `Math`         | Vectors, matrices, quaternions, complex/dual numbers, tensors, statistics, interpolation, calculus, ODE interface and integrators (Euler, RK4, adaptive, symplectic)                                                                                 |
-| `Units`        | Dimensioned quantities (scalar or vector) over the seven SI base dimensions: length, mass, time, velocity, acceleration, force, energy, temperature, luminosity, and the derived quantities the physics is written in, plus the constants that define the SI. Built on `Math` |
+| `Units`        | Dimensioned quantities (scalar or vector) built from the SI's seven base dimensions: length, mass, time, velocity, acceleration, force, energy, temperature, electromagnetism, luminosity, and the constants that define the SI. Built on `Math` |
 | `Platform`     | Window, GL context, and input, wrapping GLFW                                                                                                                                                                                                         |
 | `Compute`      | Backend `Physics` dispatches to: a CPU reference implementation plus GPU acceleration (OpenGL compute shaders, CUDA, Vulkan)                                                                                                                         |
 | `Physics`      | Mechanics; relativistic spacetime (Minkowski, Schwarzschild, Kerr, FLRW) with a geodesic solver; gravity (Newtonian, post-Newtonian, Barnes-Hut summation); electromagnetism; fluids; thermodynamics; optics (propagation, lensing, frequency shift) |
@@ -470,8 +325,12 @@ ysq/
 
 ## Documentation
 
-Each library module under `src/` has its own `README.md` describing its interface
-and dependencies. Longer notes and derivations are in `docs/`.
+Each library module under `src/` has its own `README.md` describing its
+interface, dependencies, and the derivations behind it: the authoritative
+reference for how the engine works. `docs/` holds consumer-facing
+documentation: tutorials and conceptual explanations for building a
+simulation in `Applications/`, cross-linking down into the module READMEs
+rather than restating them.
 
 ## License
 

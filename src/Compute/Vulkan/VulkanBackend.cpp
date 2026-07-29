@@ -51,15 +51,15 @@ std::unique_ptr<ComputeBackend> VulkanBackend::create() {
     VkInstance instance = VK_NULL_HANDLE;
     const VkResult result = vkCreateInstance(&createInfo, nullptr, &instance);
     if (result != VK_SUCCESS) {
-        log::debug("Vulkan compute backend unavailable: vkCreateInstance failed ({})",
-                   static_cast<int>(result));
+        logging::debug("Vulkan compute backend unavailable: vkCreateInstance failed ({})",
+                       static_cast<int>(result));
         return nullptr;
     }
 
     const bool hasDevice = hasComputeCapableDevice(instance);
     vkDestroyInstance(instance, nullptr);
     if (!hasDevice) {
-        log::debug("Vulkan compute backend unavailable: no compute-capable device");
+        logging::debug("Vulkan compute backend unavailable: no compute-capable device");
         return nullptr;
     }
     return std::make_unique<VulkanBackend>();

@@ -13,8 +13,8 @@ std::unique_ptr<ComputeBackend> CudaBackend::create() {
     int deviceCount = 0;
     const cudaError_t status = cudaGetDeviceCount(&deviceCount);
     if (status != cudaSuccess || deviceCount == 0) {
-        log::debug("CUDA compute backend unavailable: {}",
-                   status == cudaSuccess ? "no device" : cudaGetErrorString(status));
+        logging::debug("CUDA compute backend unavailable: {}",
+                       status == cudaSuccess ? "no device" : cudaGetErrorString(status));
         return nullptr;
     }
     return std::make_unique<CudaBackend>();

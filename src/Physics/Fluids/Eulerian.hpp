@@ -28,8 +28,8 @@ namespace ysq {
 /// than resolving it sharply, the standard tradeoff a first-order
 /// Godunov-type scheme makes. A higher-order reconstruction and a sharper
 /// Riemann solver (HLLC, or an exact one) are natural refinements, not
-/// implemented here; see docs/physics.md for what is validated instead of
-/// an exact Riemann solution.
+/// implemented here; see src/Physics/README.md for what is validated instead
+/// of an exact Riemann solution.
 ///
 /// Periodic boundaries throughout, the same as MaxwellField1D: exact
 /// conservation of mass, momentum and energy follows directly, and a

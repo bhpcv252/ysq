@@ -13,7 +13,7 @@ namespace ysq {
 ///
 /// macOS caps OpenGL at 4.1, so create() always fails there: there is no
 /// route to a 4.3 context through OpenGL on that platform at all. See
-/// docs/architecture.md for the Vulkan/Metal path that exists instead.
+/// src/Compute/README.md for the Vulkan/Metal path that exists instead.
 class OpenGLBackend final : public ComputeBackend {
 public:
     /// Nullptr if no 4.3 context is available, or either reference kernel

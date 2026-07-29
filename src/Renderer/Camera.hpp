@@ -30,7 +30,7 @@ struct OrthographicSettings {
 ///
 /// An orthographic projection with every object at z = 0 is a 2D scene: a
 /// planar orbit is this, not a separate rendering path. See
-/// docs/rendering.md.
+/// src/Renderer/README.md.
 struct Camera {
     Vec3f position = {0.0f, 0.0f, 5.0f};
     Vec3f target = Vec3f::zero();

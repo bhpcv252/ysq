@@ -2,8 +2,11 @@
 
 Draws a scene: camera, shaders, meshes, textures, a forward rasterizer, a
 fragment-shader ray tracer, and immediate-mode debug drawing. Presentation
-layer; see `docs/architecture.md` for why it depends only on `Math` and
-`Platform`, never `Physics`.
+layer: it depends only on `Math` and `Platform`, never `Physics`. A scene
+needs positions, colors and geometry, not what a body's mass or charge
+means, and keeping that split is what lets the same `Renderer` draw a solar
+system, a galaxy collision or a black hole without knowing anything about
+any of them.
 
 **Target:** `ysq::Renderer` (static)
 **Depends on:** `ysq::Math`, `ysq::Platform`, both `PUBLIC` since `Camera` and
@@ -12,6 +15,20 @@ by reference. `ysq::Core`, `glad` and `stb_image` are implementation details,
 linked `PRIVATE`.
 
 Built only under `YSQ_BUILD_GRAPHICS`, same as `Platform`.
+
+## Conventions
+
+Column-major matrices, column-vector convention, OpenGL clip space (`z` in
+`[-1, 1]`, right-handed eye space looking down `-Z`), the same conventions
+`Math/Matrix4.hpp` already documents, since `Renderer` builds directly on its
+`lookAt`/`perspective`/`orthographic` factories rather than reimplementing
+them.
+
+`float`, not `double`, throughout `Renderer` and `UI`: OpenGL and ImGui are
+`float`/`int` APIs, and this is the presentation layer, where that narrowing
+is constant and deliberate rather than a physics bug. See the root
+`README.md`'s Warnings section for why `ysq::warnings_strict` stops at the
+engine core.
 
 ## Contents
 
@@ -36,7 +53,8 @@ any number of `draw()` / `drawInstanced()` / `debugDraw()` calls, then
 `endFrame()`. A caller — an `Application`, or a test — owns its own list of
 objects and decides what exists and how it's organized. Nothing here is a
 scene graph, because nothing this engine renders (analytic bodies, fields,
-grids, geodesics) needs one; see `docs/rendering.md`.
+grids, geodesics) needs one. If a future `Application` genuinely needs one,
+it can be built on top of this layer without `Renderer` itself changing.
 
 ```cpp
 ysq::Renderer renderer = *ysq::Renderer::create();
@@ -54,7 +72,12 @@ renderer.endFrame();
 
 An orthographic `Camera` with every object at `z = 0` renders a planar scene
 — a top-down orbit view is this, not a different renderer. `Mesh` and
-`DebugDraw` both work unchanged in that plane.
+`DebugDraw` both work unchanged in that plane. Spacetime's own 4th dimension
+(time) is handled by re-rendering a 3D snapshot each simulation step, not by
+a 4th render axis. Charting 2D *data* (energy drift, phase space, a
+Minkowski diagram) is a different concern again and lives in
+`UI/PlotPanel.hpp`, composed alongside the 3D viewport rather than folded
+into `Renderer`.
 
 ## Instancing and debug drawing
 
@@ -112,8 +135,51 @@ out. It traces a small, capped set of analytic primitives (spheres, planes,
 disks) with hard shadows and reflections up to a configurable bounce depth.
 Scene data uploads as plain "structure of arrays" uniform arrays rather than
 a UBO — no manual `std140` padding to get right by hand, and exactly as
-GL-4.1-portable. See `docs/rendering.md` for the capacities and the full
-design reasoning.
+GL-4.1-portable. See
+[Scene upload: structure-of-arrays uniforms, not a UBO](#scene-upload-structure-of-arrays-uniforms-not-a-ubo)
+below for the capacities and the full design reasoning.
+
+### Scene upload: structure-of-arrays uniforms, not a UBO
+
+The scene `RayTracer` traces (spheres, planes, disks, lights) has to reach
+the shader somehow, and a UBO (uniform buffer object, `std140` layout) is
+the obvious first idea. It was rejected: `std140`'s alignment rules for an
+array of structs (every element padded to a 16-byte boundary, nested
+`vec3`s padded to `vec4`) are easy to get subtly wrong by hand, and getting
+them wrong produces silently corrupted scene data rather than a compile or
+link error.
+
+Instead, each field of each primitive type is its own plain `uniform`
+array: "structure of arrays" rather than "array of structures":
+`uSphereCenter[MAX_SPHERES]`, `uSphereRadius[MAX_SPHERES]`,
+`uSphereAlbedo[MAX_SPHERES]`, and so on. `glUniform3fv`/`glUniform1fv` have
+well-defined layouts with no padding to reason about, and this is exactly as
+GL-4.1-portable as a UBO would have been: the actual constraint was never
+UBOs themselves, only SSBOs and compute, which are 4.3+. See
+`Renderer/RayTracer.cpp`'s `MaterialArrays` helper for the upload, and
+`RayTracer.hpp` for the resulting capacities:
+
+| Primitive             | Capacity |
+| ---------------------- | -------- |
+| Spheres                | 32       |
+| Planes                 | 8        |
+| Disks                  | 8        |
+| Point lights           | 8        |
+| Directional lights     | 4        |
+| Reflection bounce depth | 8 (shader-side hard cap; `render()`'s `maxBounces` argument is clamped to it) |
+
+A scene beyond these capacities is truncated, not rejected: `render()`
+uploads only the first `N` of each list. An `Application` that needs more
+either raises the constant (recompiling the shader) or accepts the
+truncation; neither has come up yet.
+
+Reflections are iterative, not recursive (GLSL has no function
+recursion), accumulating a `throughput` factor across up to `maxBounces`
+trace-and-reflect steps and breaking early once a surface isn't reflective.
+Shadow rays are hard shadows only: a single visibility test per light per
+shaded point, no penumbra. Rays that hit nothing, primary or reflected,
+sample `RaytracedScene::environment` (a `Cubemap`) if set, or fall back to
+`backgroundColor`.
 
 ## Shader embedding
 

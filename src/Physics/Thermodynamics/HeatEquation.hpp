@@ -22,7 +22,7 @@ namespace ysq {
 /// Nicolson, say), which trades an unconditionally stable, more expensive
 /// implicit solve for this scheme's simplicity and its very direct
 /// validation against the exact spreading Gaussian solution; see
-/// docs/physics.md.
+/// src/Physics/README.md.
 ///
 /// Periodic boundaries, the same choice Maxwell and Eulerian make: total
 /// heat, `sum T dx`, is exactly conserved, and a domain large enough
