@@ -68,6 +68,10 @@ observer.
 
 ## Go deeper
 
+[docs/api/physics/optics.md](../api/physics/optics.md) has every signature:
+`nullTangent`/`propagate`, `deflectionAngle` and its helpers, and
+`frequencyShift`/`staticObserverFourVelocity`.
+
 [src/Physics/README.md](../../src/Physics/README.md) has the full
 derivations: `nullTangent`'s quadratic solve for a future-directed photon,
 the exact flat-space sweep formula the lensing correction above uses, and

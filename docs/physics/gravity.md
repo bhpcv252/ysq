@@ -102,6 +102,10 @@ for a worked example moving between rungs.
 
 ## Go deeper
 
+[docs/api/physics/gravity.md](../api/physics/gravity.md) has every
+signature: `newtonianForce`/`Acceleration`/`Accelerations`, `NewtonianField`,
+`BarnesHutTree`, and `postNewtonianCorrection`.
+
 [src/Physics/README.md](../../src/Physics/README.md) has the full
 derivations: the exact 1PN acceleration formula and the perihelion
 precession it predicts, the Barnes-Hut opening-angle error analysis, and

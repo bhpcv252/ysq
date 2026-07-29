@@ -92,6 +92,10 @@ radius forever, the unstable circular photon orbit, which is what
 
 ## Go deeper
 
+[docs/api/physics/spacetime.md](../api/physics/spacetime.md) has every
+signature: the `SpacetimeMetric` concept, `christoffelSymbols`, each
+metric's constructor and line element, and `geodesicSystem`.
+
 [src/Physics/README.md](../../src/Physics/README.md) has every metric's
 full line element, the Christoffel symbol formula and how it's evaluated
 exactly, and the spacetime conventions (signature, four-position in metres)

@@ -55,6 +55,11 @@ scenario in `Applications/` composes the theories and the rung of gravity
 it needs; the theories themselves stay ignorant of any particular scenario.
 See [docs/applications.md](../applications.md).
 
+Each theory page above links to its own entry in
+[docs/api/](../api/README.md) for exact signatures; there's no separate
+combined API index for `Physics` since the seven theories don't depend on
+one another.
+
 ---
 Notice something missing or wrong on this page?
 [Open an issue](https://github.com/bhpcv252/ysq/issues/new?title=docs:+physics/index)

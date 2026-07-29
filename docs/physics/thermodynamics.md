@@ -52,6 +52,10 @@ heat.step(heat.stableTimeStep(/*safetyFactor=*/0.9));
 
 ## Go deeper
 
+[docs/api/physics/thermodynamics.md](../api/physics/thermodynamics.md) has
+every signature: the gas-law and black-body functions, and
+`HeatEquation1D`'s full interface.
+
 [src/Physics/README.md](../../src/Physics/README.md) has the exact
 Stefan-Boltzmann constant and why it's computed from the SI-defining
 constants rather than typed as its own measured value, the FTCS stability

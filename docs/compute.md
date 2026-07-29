@@ -77,6 +77,10 @@ another one.
 
 ## Go deeper
 
+[docs/api/compute.md](api/compute.md) has every signature: `ComputeBackend`,
+each backend's constructor and availability, and the platform availability
+table.
+
 [src/Compute/README.md](../src/Compute/README.md) has the full interface,
 the OpenGL backend's two-pass reduction, and the current state of the CUDA
 and Vulkan backends (real device detection, kernels not yet implemented,

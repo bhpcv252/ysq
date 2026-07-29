@@ -162,6 +162,10 @@ actual numbers, is in [Go deeper](#go-deeper) below.
 
 ## Go deeper
 
+[docs/api/math/integrators.md](../api/math/integrators.md) has every
+stepper's exact signature, `PhaseState`/`StateVector`/`AdaptiveSettings`,
+and the fixed-step and adaptive drivers' parameters.
+
 [src/Math/README.md](../../src/Math/README.md) has the full interface
 (every stepper's exact signature, `OdeState`/`OdeSystem`/`AccelerationField`
 as concepts rather than base classes, why steppers are objects), the

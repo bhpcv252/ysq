@@ -72,6 +72,10 @@ stepper needs; `applyState` writes the result back. Every gravity model in
 
 ## Go deeper
 
+[docs/api/physics/mechanics.md](../api/physics/mechanics.md) has every
+signature: `Body`, `Frame`'s Galilean transform, the relativistic
+`Kinematics` functions, and `NBodyState`.
+
 [src/Physics/README.md](../../src/Physics/README.md) has the full
 interface, including the exact `Body` layout and the concept boundary
 (`NBodyState` satisfying `OdeState` while `Body` itself doesn't need to).

@@ -40,6 +40,7 @@ hand.
 | `Units/Temperature.hpp` | Temperature, heat capacity, entropy |
 | `Units/Electromagnetism.hpp` | Electric field, magnetic flux density |
 | `Units/Luminosity.hpp` | Radiometry and photometry |
+| `Units/Format.hpp` | `std::formatter` for every `Quantity`, printing honest base-unit powers rather than a guessed symbol |
 
 A `Length` is not tied to any one unit: `units::kilometre` is just a
 `Length` whose value is 1000, so converting into or out of a unit is
@@ -78,6 +79,9 @@ vector times a length vector" says whether you mean `dot` or `cross`, so
 `Units` makes you say which.
 
 ## Go deeper
+
+[docs/api/units.md](api/units.md) has every dimension alias, `Quantity`
+free function, unit constant, and literal suffix, per header.
 
 [src/Units/README.md](../src/Units/README.md) has the full type catalogue,
 the design rationale (why `Vector3<Length>` can't exist, why storage is
