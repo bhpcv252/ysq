@@ -10,6 +10,7 @@ namespace dim {
 using Density = Div<Mass, Volume>;
 using SurfaceDensity = Div<Mass, Area>;
 using LinearDensity = Div<Mass, Length>;
+using MomentOfInertia = Mul<Mass, Area>;
 
 }  // namespace dim
 
@@ -17,6 +18,8 @@ using Mass = Quantity<dim::Mass>;
 using Density = Quantity<dim::Density>;
 using SurfaceDensity = Quantity<dim::SurfaceDensity>;
 using LinearDensity = Quantity<dim::LinearDensity>;
+using MomentOfInertia = Quantity<dim::MomentOfInertia>;
+using MomentOfInertia3 = Quantity<dim::MomentOfInertia, Vec3>;
 
 namespace units {
 

@@ -10,6 +10,8 @@ ysq_add_test(test_math_vector SOURCES math_vector.cpp
     LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_matrix SOURCES math_matrix.cpp
     LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_intersection SOURCES math_intersection.cpp
+    LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_quaternion SOURCES math_quaternion.cpp
     LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_complex SOURCES math_complex.cpp
@@ -79,6 +81,8 @@ ysq_add_test(test_physics_body SOURCES physics_body.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_physics_mechanics SOURCES physics_mechanics.cpp
     LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_rigidbody SOURCES physics_rigidbody.cpp
+    LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_physics_gravity SOURCES physics_gravity.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_physics_barneshut SOURCES physics_barneshut.cpp
@@ -96,6 +100,12 @@ ysq_add_test(test_spacetime_geodesic SOURCES spacetime_geodesic.cpp
     LIBS ysq::Physics ysq::TestSupport)
 
 ysq_add_test(test_optics_propagation SOURCES optics_propagation.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_optics_refractivemedium SOURCES optics_refractivemedium.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_optics_rayleighscattering SOURCES optics_rayleighscattering.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_optics_illumination SOURCES optics_illumination.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_optics_lensing SOURCES optics_lensing.cpp
     LIBS ysq::Physics ysq::TestSupport)

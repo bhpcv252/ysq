@@ -22,6 +22,7 @@ using Time = Quantity<dim::Time>;
 /// velocity can at least say so.
 using Frequency = Quantity<dim::Frequency>;
 using AngularVelocity = Quantity<dim::Frequency>;
+using AngularVelocity3 = Quantity<dim::Frequency, Vec3>;
 
 namespace units {
 

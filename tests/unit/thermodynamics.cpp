@@ -1,4 +1,5 @@
 #include <Physics/Thermodynamics/Thermodynamics.hpp>
+#include <Units/Acceleration.hpp>
 #include <Units/Constants.hpp>
 #include <Units/Force.hpp>
 #include <Units/Length.hpp>
@@ -82,6 +83,41 @@ TEST(Thermodynamics, WiensLawIsExactlyItsOwnDefinition) {
     const ysq::Length peak = ysq::wienPeakWavelength(temperature);
     EXPECT_NEAR(peak.value() * temperature.value(),
                 ysq::constants::wienDisplacementConstant.value(), 1e-15);
+}
+
+TEST(Thermodynamics, IsothermalScaleHeightOfAirIsTheKnownAtmosphericValue) {
+    const ysq::SpecificGasConstant airConstant{287.0};
+    const ysq::Temperature temperature{288.15};
+    const ysq::Acceleration gravity{9.80665};
+
+    const ysq::Length scaleHeight =
+        ysq::isothermalScaleHeight(airConstant, temperature, gravity);
+
+    // The commonly cited value for Earth's air is about 8.4-8.5 km.
+    EXPECT_NEAR(scaleHeight.value(), 8434.5, 8434.5 * 0.01);
+}
+
+TEST(Thermodynamics, IsothermalAtmosphereDensityIsSeaLevelDensityAtZeroAltitude) {
+    const ysq::Density seaLevel{1.225};
+    const ysq::Length scaleHeight{8434.5};
+
+    const ysq::Density density =
+        ysq::isothermalAtmosphereDensity(seaLevel, ysq::Length::zero(), scaleHeight);
+    EXPECT_QUANTITY_NEAR(density, seaLevel, seaLevel * 1e-12);
+}
+
+TEST(Thermodynamics, IsothermalAtmosphereDensityFallsByOneOverEPerScaleHeight) {
+    const ysq::Density seaLevel{1.225};
+    const ysq::Length scaleHeight{8434.5};
+
+    const ysq::Density atOneScaleHeight =
+        ysq::isothermalAtmosphereDensity(seaLevel, scaleHeight, scaleHeight);
+    EXPECT_NEAR(atOneScaleHeight.value(), seaLevel.value() / std::exp(1.0),
+                seaLevel.value() * 1e-9);
+
+    const ysq::Density atTwoScaleHeights =
+        ysq::isothermalAtmosphereDensity(seaLevel, scaleHeight * 2.0, scaleHeight);
+    EXPECT_LT(atTwoScaleHeights, atOneScaleHeight);
 }
 
 }  // namespace

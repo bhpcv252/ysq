@@ -29,7 +29,8 @@ far.
 | `Physics/Mechanics/Frame.hpp` | Inertial reference frames, Galilean transform |
 | `Physics/Mechanics/Kinematics.hpp` | Lorentz factor, four-velocity, proper time, relativistic velocity addition |
 | `Physics/Mechanics/Dynamics.hpp` | `NBodyState`, the boundary between a span of `Body` and Math's integrators |
-| `Physics/Gravity/Newtonian.hpp` | Pairwise gravity, direct-sum N-body, potential energy |
+| `Physics/Mechanics/RigidBody.hpp` | Gravity-gradient torque and Euler's rotation equation, general for any oblate body |
+| `Physics/Gravity/Newtonian.hpp` | Pairwise gravity, direct-sum N-body, potential energy, J2 oblateness |
 | `Physics/Gravity/PostNewtonian.hpp` | The 1PN two-body correction (perihelion precession) |
 | `Physics/Gravity/BarnesHut.hpp` | O(N log N) approximate N-body gravity |
 | `Physics/Spacetime/Metric.hpp` | The `SpacetimeMetric` concept, Christoffel symbols, causal character |
@@ -41,6 +42,9 @@ far.
 | `Physics/Optics/Propagation.hpp` | Light as a null geodesic |
 | `Physics/Optics/Lensing.hpp` | Gravitational deflection angle |
 | `Physics/Optics/FrequencyShift.hpp` | Doppler, gravitational and cosmological shift, one formula |
+| `Physics/Optics/RefractiveMedium.hpp` | A graded-index medium, exposed as a metric: refraction is a null geodesic too |
+| `Physics/Optics/RayleighScattering.hpp` | Scattering cross-section and optical depth, general for any gas |
+| `Physics/Optics/Illumination.hpp` | Extended-source visibility through occlusion, refraction and scattering |
 | `Physics/Electromagnetism/Field.hpp` | Point-charge E and B fields, quasi-static |
 | `Physics/Electromagnetism/Lorentz.hpp` | Force on a charged body |
 | `Physics/Electromagnetism/Maxwell.hpp` | 1D FDTD: a field that actually propagates |
@@ -113,6 +117,14 @@ entry point.
 - **`BarnesHutTree`**: an octree built fresh every call, trading exact
   pairwise summation for O(N log N) at an accuracy set by its opening angle.
   Monopole only.
+- **Oblateness**: every function above adds a source's J2 term when its
+  `Body::j2` is nonzero, not a second law but the same integral of Newton's
+  law evaluated for a non-point mass distribution to its first non-trivial
+  order; see [Oblateness (J2)](#oblateness-j2) below. `Mechanics/RigidBody.hpp`
+  is its rotational counterpart: the gravity-gradient torque an external mass
+  exerts on that same asymmetry, and Euler's rotation equation to integrate
+  it, general for any body with a nonzero `principalMomentsOfInertia`; see
+  [Gravity-gradient torque and rigid-body rotation](#gravity-gradient-torque-and-rigid-body-rotation).
 
 `NewtonianField` and `BarnesHutTree` both implement
 `AccelerationField<NBodyState>` (see `Math/ODE.hpp`), so either drops
@@ -200,6 +212,23 @@ Doppler observer instead reuses `Mechanics/Kinematics.hpp`'s `fourVelocity`
 directly, since a Minkowski four-velocity and this module's four-velocity
 convention are the same object once Kinematics's `x0 = ct` and this
 module's agree, which they do by construction.
+
+**Refraction is the same computation once more, against a different
+metric.** `RefractiveMedium.hpp` exposes a static, spherically symmetric
+graded-index medium (n(r)) as a `SpacetimeMetric`, not because it curves
+spacetime, it does not, but because a null geodesic of its particular
+"ultra-static" form has exactly the spatial path Fermat's principle gives
+for that medium. Everything above, `nullTangent`, `propagate`,
+`deflectionAngle`, works on it unchanged; see
+[The optical metric](#the-optical-metric) below. `RayleighScattering.hpp`
+supplies the one genuinely new law this needed, a gas's scattering
+cross-section and the resulting wavelength-dependent transmission along a
+path, general for any gas; see [Rayleigh scattering](#rayleigh-scattering).
+`Illumination.hpp` is a thin orchestrator over both: how much of an
+extended light source is visible from a point, through a scene of opaque
+and refracting-and-scattering bodies. It carries no scenario knowledge of
+its own; what a caller does with the color and geometric visibility it
+returns is entirely up to `Applications/`.
 
 ## Electromagnetism is a ladder too
 
@@ -330,6 +359,109 @@ system actually being integrated against itself over time, and that system is
 the softened one whenever `epsilon != 0`. Comparing the softened trajectory
 against the unsoftened potential would report a discrepancy that is really
 just softening's own effect at close range, not an integration error.
+
+### Oblateness (J2)
+
+A point mass is the zeroth term of the multipole expansion of Newton's law
+integrated over an extended mass distribution. J2 is the next, non-trivial
+term, for a body whose distribution is an oblate spheroid rather than a
+sphere: not a second law, the same integral, carried one term further. The
+standard result (Vallado, *Fundamentals of Astrodynamics and Applications*),
+for a query point at separation `r` from an oblate source's center, `rHat`
+the unit vector toward it, `spinAxis` the source's polar axis, and
+`s = rHat . spinAxis` the sine of the point's latitude above the source's
+equatorial plane:
+
+```
+a = -(3/2) J2 mu Req^2 / r^4 * [(1 - 5 s^2) rHat + 2 s spinAxis]
+```
+
+`mu = G * sourceMass`, `Req` the source's equatorial radius. Two closed-form
+checks validate this directly: in the source's equatorial plane (`s = 0`)
+the bracket reduces to `rHat` alone, a purely radial correction that adds to
+the point-mass attraction (`Physics/Gravity/Newtonian.hpp`'s equatorial
+bulge sits closer to a satellite there than a point mass would);
+on the polar axis (`s = 1`) the bracket becomes `-4 rHat + 2 spinAxis`, a
+net outward correction, a *weaker* pull than the point-mass term, since the
+bulge's extra mass sits away from the poles.
+
+**Newton's third law is not automatic here.** The monopole term is
+symmetric in the two bodies (the same `G m1 m2 / r^2` regardless of which
+one is called the source), so a per-source accumulation loop conserves
+momentum structurally. J2 comes from one specific body's shape, so it is
+not symmetric that way: the force an oblate body's bulge exerts on a point
+mass has an equal-and-opposite reaction the point mass exerts back on the
+oblate body, and a loop that only ever asks "is the source oblate" misses
+that reaction whenever only one of a pair is. `newtonianForce`,
+`newtonianAccelerations` and `NewtonianField` all check *both* bodies in a
+pair, applying the reaction explicitly when only one carries a nonzero
+`j2`; `tests/unit/physics_gravity.cpp`'s
+`ForceIsEqualAndOppositeWhenOnlyOneBodyIsOblate` and
+`MutualAccelerationsConserveMomentumWhenOnlyOneBodyIsOblate` are exactly
+the cases a per-source loop would fail.
+
+The matching potential energy, needed for any energy-conservation check on
+a J2-perturbed orbit, is `(1/2) G Mquery Msource J2 (Req/r)^2 (3 s^2 - 1) /
+r`, verified by differentiating it component-by-component against the
+acceleration above rather than derived independently:
+`EnergyIsConservedForAJ2PerturbedOrbit` catches the sign this formula is
+easy to get backwards (the corrected version conserves energy to floating-point
+precision over many orbits; the flipped sign drifted by parts in 10^4 and
+did not improve with a finer step, the signature of a formula error rather
+than truncation error).
+
+### Gravity-gradient torque and rigid-body rotation
+
+The rotational consequence of the identical asymmetry J2 is: an external
+mass does not just pull an oblate body's bulge translationally, it exerts a
+torque on it, tending to align the bulge with the line to that mass. The
+standard result (Hughes, *Spacecraft Attitude Dynamics*), for a body with
+principal moments of inertia `I` (diagonal, in its own frame) and an
+external mass `M` at distance `r` along unit vector `rHat` from the body's
+center:
+
+```
+tau = (3 GM / r^3) rHat x (I . rHat)
+```
+
+evaluated in the body's own frame (where `I` is diagonal) and rotated back
+to the inertial frame by the body's current orientation.
+`Mechanics/RigidBody.hpp::gravityGradientTorque` computes exactly this,
+reusing the same `principalMomentsOfInertia` the rotational state carries,
+not a value derived from `j2` (the two are related for a body in
+hydrostatic equilibrium by MacCullagh's formula, but this engine treats
+them as two independently-supplied real physical constants, the same way a
+scenario supplies both a real mass and a real radius rather than deriving
+one from the other).
+
+**Angular momentum, not angular velocity, kept in the inertial frame.**
+`dL/dt = tau` is exactly true in an inertial frame for any rigid body, no
+extra term. Keeping angular *velocity* as the integrated state instead
+would mean working in the body's own rotating frame, where the identical
+physics picks up an `omega x (I omega)` term purely from the frame's own
+rotation, the textbook form of Euler's equations. Both describe the same
+physics; `RigidBody.cpp`'s internal `RotationalState` (orientation quaternion
+plus inertial-frame angular momentum) is the simpler one to integrate,
+because nothing in it ever needs that cross term. The angular velocity
+Euler's equations actually needs, to build `dq/dt = (1/2) q (0, omega_body)`,
+comes from rotating the state's angular momentum into the body frame and
+dividing through the diagonal `I` there.
+
+RK4 does not preserve the unit-quaternion constraint exactly over a step,
+the standard reason quaternion integration renormalizes the orientation
+after each accepted step rather than never or at every intermediate stage;
+`stepRigidBody` does this once per call.
+
+Two closed-form checks validate the whole chain independently of each
+other: a torque-free axisymmetric top's body-frame angular velocity
+precesses at the textbook rate `(I_axial - I_equatorial) / I_equatorial *
+omega_spin` (Goldstein, *Classical Mechanics*), and the same torque-free
+case conserves angular momentum magnitude and rotational kinetic energy
+exactly over many steps; `gravityGradientTorque` itself is checked against
+the closed form directly, including that it vanishes for a spherically
+symmetric body (no asymmetry, no torque) and on an oblate body's own
+equatorial limb (a perturber exactly in the equatorial plane pulls straight
+along a principal axis, no torque either).
 
 ### Barnes-Hut
 
@@ -620,6 +752,86 @@ the source.
 `lensing_deflection.cpp` validates the result against
 `4GM/(c^2 b) = 2 r_s / b`, the standard weak-field deflection formula, deep
 in the regime `b >> r_s` where that leading-order formula is accurate.
+
+### The optical metric
+
+Fermat's principle says a ray through a medium of refractive index `n(x)`
+extremizes the optical path length `integral n dl`. That is a spatial
+geodesic problem for the Riemannian metric `h_ij = n(x)^2 delta_ij`, a
+different mathematical object from this module's 4D pseudo-Riemannian
+`(-,+,+,+)` metrics, at first. The standard "optical metric" construction
+(Gordon 1923's moving-medium metric, specialized to a medium at rest)
+embeds it as one of those after all:
+
+```
+ds^2 = -dT^2 + n(r)^2 (dr^2 + r^2 dpolar^2 + r^2 sin^2(polar) dazimuth^2)
+```
+
+`g_TT = -1` exactly, so `T` never appears in any component: there is a
+Killing vector along `T`, and the null condition `(dT)^2 = n(r)^2 dl^2`
+makes `T`, along any null geodesic, equal to the optical path traveled so
+far. For a metric of the "ultra-static" form `-dT^2 + h_ij(x) dx^i dx^j`
+(`h` depending on space alone), the spatial projections of its null
+geodesics are exactly the spatial geodesics of `h_ij`, a standard result
+also used the other direction, describing Schwarzschild's own light
+bending as an effective refractive index. `RefractiveMedium.hpp` uses it
+to go from a real, ordinary medium to something `Spacetime/Geodesic.hpp`'s
+unmodified solver already knows how to propagate through: `nullTangent`,
+`propagate`, `deflectionAngle` and `refractiveMediumRayFromImpactParameter`
+(the same `E = 1`, `L = impactParameter` shooting construction
+`schwarzschildRayFromImpactParameter` uses, adapted to this metric's
+constant `g_TT`) all work on it unchanged, because none of them assume
+which metric they are given.
+
+`n(r) = 1 + surfaceRefractivity * exp(-(r - radius) / scaleHeight)`, the
+same exponential shape Gladstone-Dale (`n - 1` proportional to density)
+gives for any isothermal barometric atmosphere
+(`Thermodynamics::isothermalAtmosphereDensity`); `RefractiveMedium.hpp`
+does not depend on `Thermodynamics` itself, `surfaceRefractivity` and
+`scaleHeight` are two plain numbers a scenario supplies however it derived
+them.
+
+`optics_refractivemedium.cpp` validates the whole construction against a
+real, measured number, not merely an internal consistency check: a ray
+grazing about half a percent above an Earth-radius, Earth-atmosphere
+medium's surface bends by about 38 arcminutes, close to the real
+horizontal (grazing) atmospheric refraction of 34-35 arcminutes, the
+remaining gap being this model's isothermal simplification of the real,
+non-isothermal atmosphere, not a construction error. A practical numerical
+note the same test found: unlike Schwarzschild's `1/r` tail, this medium is
+exactly flat (`n = 1` to well beyond double precision) a few dozen scale
+heights up, so `startRadius` only needs to clear the atmosphere, not be
+"far away" in Schwarzschild's sense, which keeps the affine range
+`deflectionAngle` has to search across small enough to run in well under a
+second rather than minutes.
+
+### Rayleigh scattering
+
+The standard result for scattering by particles much smaller than the
+wavelength (Bohren & Huffman, *Absorption and Scattering of Light by Small
+Particles*), a gas's per-molecule cross-section:
+
+```
+sigma(lambda) = (24 pi^3 / (lambda^4 N^2)) * ((n^2 - 1) / (n^2 + 2))^2
+```
+
+`n` and `N` (number density) at whatever single reference condition they
+were measured at. The `1/lambda^4` dependence is the entire reason a
+grazing atmospheric path reddens whatever light survives it: blue
+scatters far more than red over the same path, exactly the mechanism
+behind both a blue sky and a red sunset (or a grazing path into a lunar
+eclipse's umbra). `optics_rayleighscattering.cpp` checks this ratio
+directly, `(650/450)^4`, exactly, and the cross-section's order of
+magnitude against real air (about 5e-31 m^2 at 532 nm).
+
+Optical depth along a path is this cross-section times the integral of
+number density along it; `RayleighScattering.hpp` supplies
+`exponentialNumberDensity`, the same barometric shape
+`RefractiveMedium.hpp`'s refractivity and `Thermodynamics`'s density share,
+and leaves the actual path integral to whoever is walking one already
+(`Illumination.hpp`, alongside the bending calculation, rather than a
+second pass over the same trajectory). `transmission(tau) = exp(-tau)`,
+Beer-Lambert.
 
 ### Frequency shift
 

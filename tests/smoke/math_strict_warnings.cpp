@@ -28,6 +28,7 @@
 #include <Math/Integrators/RK4.hpp>
 #include <Math/Integrators/Symplectic.hpp>
 #include <Math/Interpolation.hpp>
+#include <Math/Intersection.hpp>
 #include <Math/Matrix2.hpp>
 #include <Math/Matrix3.hpp>
 #include <Math/Matrix4.hpp>
@@ -552,6 +553,24 @@ T exerciseNumerics() {
 }
 
 template <class T>
+T exerciseIntersection() {
+    using V3 = ysq::Vector3<T>;
+
+    T acc{};
+
+    const ysq::Ray3<T> ray{V3{T{-5}, T{0}, T{0}}, V3{T{1}, T{0}, T{0}}};
+    const ysq::Sphere3<T> sphere{V3::zero(), T{2}};
+
+    acc += ysq::intersect(ray, sphere).value_or(T{0});
+    acc +=
+        ysq::segmentIntersectsSphere(V3{T{-5}, T{0}, T{0}}, V3{T{5}, T{0}, T{0}}, sphere)
+            ? T{1}
+            : T{0};
+
+    return acc;
+}
+
+template <class T>
 T exerciseGrid() {
     T acc{};
 
@@ -703,6 +722,8 @@ TEST(MathStrictWarnings, EveryTemplateInstantiatesForFloatAndDouble) {
     EXPECT_TRUE(std::isfinite(exerciseNumerics<double>()));
     EXPECT_TRUE(std::isfinite(exerciseGrid<float>()));
     EXPECT_TRUE(std::isfinite(exerciseGrid<double>()));
+    EXPECT_TRUE(std::isfinite(exerciseIntersection<float>()));
+    EXPECT_TRUE(std::isfinite(exerciseIntersection<double>()));
     EXPECT_TRUE(std::isfinite(exerciseIntegrators<float>()));
     EXPECT_TRUE(std::isfinite(exerciseIntegrators<double>()));
 }

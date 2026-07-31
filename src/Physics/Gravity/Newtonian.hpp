@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Math/Vector3.hpp>
 #include <Physics/Body.hpp>
 #include <Physics/Mechanics/Dynamics.hpp>
 #include <Units/Constants.hpp>
@@ -52,6 +53,13 @@ inline constexpr GravitationalConstant G{6.67430e-11};
 /// rather than singular as two bodies approach each other. A direct-summation
 /// N-body integration needs it; see src/Physics/README.md's "Softening"
 /// section.
+///
+/// **Oblateness.** Every function here also adds a source's J2 term when its
+/// `Body::j2` is nonzero: not a second law, the same integral of Newton's
+/// law over a non-point mass distribution, evaluated to its first
+/// non-trivial (quadrupole) order rather than assumed to be a point. Zero
+/// `j2` reproduces the plain point-mass term exactly, with no branch; see
+/// src/Physics/README.md for the derivation.
 
 [[nodiscard]] Force3 newtonianForce(const Body& on, const Body& from);
 
@@ -86,6 +94,10 @@ public:
 
 private:
     std::vector<double> m_gravitationalParameters;  // G * mass, per body, m^3/s^2
+    // (3/2) * j2 * G * mass * equatorialRadius^2, per body; zero wherever
+    // that body's j2 is zero, so the oblateness term drops out on its own.
+    std::vector<double> m_j2Coefficients;
+    std::vector<Vec3> m_spinAxes;  // per body, meaningless where j2Coefficient is zero
     double m_softeningSquared;
 };
 

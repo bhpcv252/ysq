@@ -22,6 +22,15 @@ TEST(PhysicsBody, DefaultConstructedIsAllZero) {
     EXPECT_EQ(body.momentum, ysq::Momentum3{});
 }
 
+TEST(PhysicsBody, DefaultConstructedIsAPlainPointMass) {
+    constexpr Body body{};
+    EXPECT_EQ(body.radius, ysq::Length{});
+    EXPECT_EQ(body.j2, 0.0);
+    EXPECT_EQ(body.principalMomentsOfInertia, ysq::MomentOfInertia3{});
+    EXPECT_EQ(body.orientation, ysq::Quat::identity());
+    EXPECT_EQ(body.angularMomentum, ysq::AngularMomentum3{});
+}
+
 TEST(PhysicsBody, VelocityIsMomentumOverMass) {
     Body body{};
     body.mass = ysq::Mass{2.0};
