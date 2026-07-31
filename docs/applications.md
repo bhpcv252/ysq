@@ -68,10 +68,22 @@ cmake --build build
 ./build/bin/your-scenario
 ```
 
-`SolarSystem/` is the one worked example that exists today; reading its
-`CMakeLists.txt` alongside this page is worth doing before writing your
-own, since it's the concrete answer to "what does 'only link what a
-`PUBLIC` dependency doesn't already give you' actually look like."
+`SolarSystem/` and `LunarEclipse/` are the two worked examples that exist
+today; reading either's `CMakeLists.txt` alongside this page is worth doing
+before writing your own, since it's the concrete answer to "what does 'only
+link what a `PUBLIC` dependency doesn't already give you' actually look
+like."
+
+**`LunarEclipse` is the sharper example of "nothing here is new physics."**
+An eclipse isn't a law, it's what a scene of real bodies with real physical
+properties looks like when the engine's general occlusion, refraction and
+scattering laws (`Optics/Illumination.hpp`) are pointed at it. Its
+`Scenario.cpp` sets up Sun, Earth, Moon and Jupiter with real masses, radii,
+orbital elements, and Earth's real J2, rotation and atmosphere; nothing
+about what an eclipse *is* appears until `main.cpp` calls `illuminate()`
+with that geometry and reads back a color. If you're building a scenario
+around a named real-world phenomenon rather than an open-ended system like
+a solar system, this is the shape to follow, not a special case.
 
 ## Go deeper
 

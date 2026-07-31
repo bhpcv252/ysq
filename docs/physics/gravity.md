@@ -35,6 +35,7 @@ amount of accuracy for `N log N` instead of `N^2`.
 | `Gravity/Newtonian.hpp` | The force law, softened, direct pairwise summation, potential energy |
 | `Gravity/BarnesHut.hpp` | The same physics, `O(N log N)`, via an octree |
 | `Gravity/PostNewtonian.hpp` | The 1PN correction: the first step toward general relativity |
+| `Body::j2`, `Body::radius` | Oblateness: a body's own shape, read by every function above |
 
 **Softening** adds one parameter, `epsilon`, to the force law:
 
@@ -60,6 +61,19 @@ acceleration of a test particle orbiting one dominant mass, on top of the
 Newtonian force rather than replacing it. It's what produces the extra
 perihelion precession that Mercury's orbit famously shows and Newtonian
 gravity alone can't explain.
+
+**Oblateness (J2)** is not a fourth rung, it's the same Newtonian force law
+carried one term further: a point mass is the zeroth term of integrating
+gravity over a mass distribution, and J2 is the first correction for a body
+shaped like an oblate spheroid rather than a sphere. Set `body.j2`,
+`body.radius` (and `body.orientation` for which way the bulge points), and
+every function above, `newtonianForce`, `newtonianAcceleration`,
+`NewtonianField`, picks it up automatically; a body with `j2 == 0.0` (the
+default) is unaffected. `Mechanics/RigidBody.hpp` is the rotational
+counterpart: the torque that same asymmetry feels from an external mass,
+and Euler's rotation equation to spin the body under it, useful for
+anything from a satellite's precessing orbit to why Earth's own axis slowly
+precesses. See [docs/physics/mechanics.md](mechanics.md).
 
 ## Using it
 

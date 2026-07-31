@@ -46,6 +46,17 @@ Keep the engine domain-neutral. Math and physics concepts belong in the engine;
 scenario setup and results belong in `Applications/`. Do not let a lower layer
 depend on a higher one.
 
+**Engine vs. phenomena.** The engine encodes only general laws: conservation
+laws, force laws, wave/ray propagation, scattering, metric geodesics, and so
+on. It must never encode a named real-world phenomenon (an eclipse, a
+rainbow, a tide) as its own type or function. Every such phenomenon is an
+emergent result of applying the engine's general laws to a specific
+scenario's bodies, geometry, and initial conditions, and that composition
+belongs entirely in `Applications/`. Before adding anything under `src/`
+outside `Applications/`, state whether it is general outside this one
+scenario, or only makes sense because of what this scenario is trying to
+show. If the latter, it belongs in `Applications/`.
+
 ## Workflow
 
 **Plan first, every task. No exceptions.**

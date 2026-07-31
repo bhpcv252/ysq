@@ -47,6 +47,9 @@ ysq_add_test(test_nbody_energy SOURCES nbody_energy.cpp
 ysq_add_test(test_lensing_deflection SOURCES lensing_deflection.cpp
     LIBS ysq::Physics ysq::Math)
 
+ysq_add_test(test_lunar_eclipse_illumination SOURCES lunar_eclipse_illumination.cpp
+    LIBS ysq::Physics ysq::Math ysq::LunarEclipseScenario)
+
 ysq_add_test(test_fluids_shocktube SOURCES fluids_shocktube.cpp
     LIBS ysq::Physics ysq::Math)
 

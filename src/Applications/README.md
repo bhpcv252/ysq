@@ -57,5 +57,19 @@ used directly and nothing else exposes either `PUBLIC`, so both are listed.
 | Application | Scenario |
 | --- | --- |
 | `SolarSystem` | Sun and five planets, Newtonian N-body gravity, energy/momentum tracked live |
+| `LunarEclipse` | Sun, Earth, Moon, Jupiter under real n-body gravity with Earth's J2 and rotation active; the Moon's eclipse illumination is computed from `Optics/Illumination.hpp`, not scripted |
 
 Binaries land in `build/bin/`; see the root `README.md`'s Running section.
+
+## Compose engine laws here, not phenomena in the engine
+
+`LunarEclipse` is the convention to follow for any future application whose
+scenario is a named real-world phenomenon (an eclipse, a tide, a rainbow):
+the engine provides only the general laws underneath it (occlusion,
+refraction, scattering, gravity, rotation), and the phenomenon itself,
+whatever composition of those laws produces the effect a scenario is built
+to show, is assembled entirely here. `LunarEclipse/Scenario.cpp` sets up
+real bodies with real physical properties; nothing about an "eclipse" is
+computed until `main.cpp` calls the engine's general `illuminate()` with
+this scenario's own Sun/Earth/Moon geometry and interprets the result. See
+the root `CLAUDE.md`'s "Engine vs. phenomena" note.

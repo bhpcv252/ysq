@@ -2,3 +2,4 @@
 # see README.md for the convention. Graphics-only, same as Renderer and UI.
 
 add_subdirectory(SolarSystem)
+add_subdirectory(LunarEclipse)

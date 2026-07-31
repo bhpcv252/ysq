@@ -35,6 +35,7 @@ view" a well-defined question independent of who's watching.
 | `Mechanics/Frame.hpp` | Inertial reference frames, Galilean transforms |
 | `Mechanics/Kinematics.hpp` | Lorentz factor, four-velocity, proper time, relativistic velocity addition |
 | `Mechanics/Dynamics.hpp` | `NBodyState`: the boundary between a span of `Body` and `Math`'s integrators |
+| `Mechanics/RigidBody.hpp` | Gravity-gradient torque and Euler's rotation equation, for any body that spins |
 
 That last one is worth understanding on its own. `Math`'s integrators only
 need a plain vector space, values that can be added, subtracted, and scaled
@@ -46,12 +47,22 @@ crosses into that array and back. Every force law in `Gravity` reads and
 writes `NBodyState`, never `Body`, in its inner loop; units cross the
 boundary exactly once, not once per force evaluation.
 
+A `Body` can also spin: `principalMomentsOfInertia`, `orientation` and
+`angularMomentum` (mirroring how `momentum`, not velocity, is the
+translational primitive) describe that, but only for a body that actually
+needs it, everything defaults to "no rotation modeled". `stepRigidBody`
+integrates it, driven by the gravity-gradient torque any external mass
+exerts on a body whose `j2` (see [docs/physics/gravity.md](gravity.md))
+makes it non-spherical: the same physical asymmetry, felt rotationally
+instead of translationally, not a second, unrelated formula.
+
 ## Using it
 
 ```cpp
 #include <Physics/Body.hpp>
 #include <Physics/Gravity/Newtonian.hpp>
 #include <Physics/Mechanics/Dynamics.hpp>
+#include <Physics/Mechanics/RigidBody.hpp>
 #include <Math/Integrators/Symplectic.hpp>
 
 std::vector<ysq::Body> bodies = /* masses, positions, momenta */;
@@ -64,6 +75,9 @@ ysq::PhaseState<ysq::NBodyState> next;
 stepper.step(field, 0.0, state, stepSize, next);
 
 ysq::applyState(bodies, next.position, next.velocity);
+
+// A body with a nonzero j2 and principalMomentsOfInertia also rotates:
+ysq::stepRigidBody(bodies[earthIndex], otherBodies, stepSize);
 ```
 
 `positionsOf`/`velocitiesOf` read a span of `Body` into the plain form the

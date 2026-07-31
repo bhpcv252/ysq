@@ -1,3 +1,4 @@
+#include <Math/Integrators/Symplectic.hpp>
 #include <Math/Vector3.hpp>
 #include <Physics/Body.hpp>
 #include <Physics/Gravity/Newtonian.hpp>
@@ -28,6 +29,15 @@ Body makeBody(double mass, Vec3 position, Vec3 velocity = Vec3{}) {
     body.mass = ysq::Mass{mass};
     body.position = ysq::Length3{position};
     body.momentum = ysq::Momentum3{velocity * mass};
+    return body;
+}
+
+/// An oblate source at the origin, spin axis +Z (identity orientation), for
+/// the J2 tests below.
+Body makeOblateBody(double mass, double radius, double j2) {
+    Body body = makeBody(mass, Vec3{0.0, 0.0, 0.0});
+    body.radius = ysq::Length{radius};
+    body.j2 = j2;
     return body;
 }
 
@@ -132,6 +142,163 @@ TEST(PhysicsGravity, NewtonianFieldAgreesWithTheDimensionedApi) {
 
     for (std::size_t i = 0; i < bodies.size(); ++i) {
         EXPECT_VEC_NEAR(raw[i], dimensioned[i].value(), 1e-9);
+    }
+}
+
+// --- Oblateness (J2) ---------------------------------------------------
+
+TEST(PhysicsGravity, ZeroJ2ReproducesThePlainPointMassTerm) {
+    const Body oblate = makeOblateBody(4.0e10, 1.0, 0.0);
+    Body point = oblate;
+    point.radius = ysq::Length{};
+
+    const std::array<Body, 1> oblateSources{oblate};
+    const std::array<Body, 1> pointSources{point};
+    const ysq::Length3 at{Vec3{7.0, 2.0, 1.0}};
+
+    EXPECT_QUANTITY_VEC_APPROX(ysq::newtonianAcceleration(at, oblateSources),
+                               ysq::newtonianAcceleration(at, pointSources));
+}
+
+TEST(PhysicsGravity, EquatorialJ2AccelerationMatchesTheClosedForm) {
+    // s = 0 (in the source's equatorial plane): the closed form reduces to a
+    // purely radial correction, -(3/2) J2 GM Req^2 / r^4, adding to the
+    // point-mass attraction (Vallado's standard J2 perturbation formula).
+    const double mass = 5.0e24;
+    const double radius = 6.371e6;
+    const double j2 = 1.08263e-3;
+    const Body source = makeOblateBody(mass, radius, j2);
+
+    const double r = 4.0e7;
+    const ysq::Length3 at{Vec3{r, 0.0, 0.0}};
+    const std::array<Body, 1> sources{source};
+    const ysq::Acceleration3 acceleration = ysq::newtonianAcceleration(at, sources);
+
+    const double gm = ysq::constants::G.value() * mass;
+    const double pointMass = -gm / (r * r);
+    const double j2Coefficient = 1.5 * j2 * gm * radius * radius;
+    const double expectedX = pointMass - j2Coefficient / (r * r * r * r);
+
+    EXPECT_NEAR(acceleration.value().x, expectedX, std::abs(expectedX) * 1e-9);
+    EXPECT_NEAR(acceleration.value().y, 0.0, 1e-20);
+    EXPECT_NEAR(acceleration.value().z, 0.0, 1e-20);
+}
+
+TEST(PhysicsGravity, PolarJ2AccelerationMatchesTheClosedForm) {
+    // s = 1 (on the source's spin axis): the closed form reduces to
+    // +2 * (3/2) J2 GM Req^2 / r^4 along that axis, a *weaker* pull than the
+    // point-mass term, the bulge's mass sitting away from the poles.
+    const double mass = 5.0e24;
+    const double radius = 6.371e6;
+    const double j2 = 1.08263e-3;
+    const Body source = makeOblateBody(mass, radius, j2);
+
+    const double r = 4.0e7;
+    const ysq::Length3 at{Vec3{0.0, 0.0, r}};
+    const std::array<Body, 1> sources{source};
+    const ysq::Acceleration3 acceleration = ysq::newtonianAcceleration(at, sources);
+
+    const double gm = ysq::constants::G.value() * mass;
+    const double pointMass = -gm / (r * r);
+    const double j2Coefficient = 1.5 * j2 * gm * radius * radius;
+    const double expectedZ = pointMass + 2.0 * j2Coefficient / (r * r * r * r);
+
+    EXPECT_NEAR(acceleration.value().z, expectedZ, std::abs(expectedZ) * 1e-9);
+    EXPECT_NEAR(acceleration.value().x, 0.0, 1e-20);
+    EXPECT_NEAR(acceleration.value().y, 0.0, 1e-20);
+}
+
+TEST(PhysicsGravity, ForceIsEqualAndOppositeWhenOnlyOneBodyIsOblate) {
+    // The pathological case for J2, which comes from one specific body's
+    // shape rather than being symmetric in the pair the way the monopole
+    // term is: Newton's third law only holds if the oblate body feels an
+    // explicit reaction, not merely "no J2 term because it isn't the
+    // source".
+    Body oblate = makeOblateBody(5.0e24, 6.371e6, 1.08263e-3);
+    oblate.position = ysq::Length3{Vec3{0.0, 0.0, 0.0}};
+    Body point = makeBody(7.342e22, Vec3{3.844e8, 1.0e8, 5.0e7});
+
+    const ysq::Force3 onPoint = ysq::newtonianForce(point, oblate);
+    const ysq::Force3 onOblate = ysq::newtonianForce(oblate, point);
+    EXPECT_QUANTITY_VEC_APPROX(onPoint, -onOblate);
+}
+
+TEST(PhysicsGravity, MutualAccelerationsConserveMomentumWhenOnlyOneBodyIsOblate) {
+    Body oblate = makeOblateBody(5.0e24, 6.371e6, 1.08263e-3);
+    oblate.position = ysq::Length3{Vec3{0.0, 0.0, 0.0}};
+    Body point = makeBody(7.342e22, Vec3{3.844e8, 1.0e8, 5.0e7});
+
+    const std::vector<Body> bodies{oblate, point};
+    const std::vector<ysq::Acceleration3> accelerations =
+        ysq::newtonianAccelerations(bodies);
+
+    const Vec3 momentumRateOfChange = accelerations[0].value() * oblate.mass.value() +
+                                      accelerations[1].value() * point.mass.value();
+    EXPECT_NEAR(length(momentumRateOfChange), 0.0,
+                std::max(length(accelerations[0].value()) * oblate.mass.value(),
+                         length(accelerations[1].value()) * point.mass.value()) *
+                    1e-12);
+}
+
+TEST(PhysicsGravity, EnergyIsConservedForAJ2PerturbedOrbit) {
+    // A satellite in a moderately close, inclined orbit around an oblate
+    // primary: if oblatenessPotentialEnergy did not match the acceleration
+    // oblatenessTerm actually applies, this would drift, not merely jitter,
+    // over many orbits, the same failure mode the plain two-body
+    // orbit_stability.cpp integration test watches for.
+    Body oblate = makeOblateBody(5.0e24, 6.371e6, 1.08263e-3);
+    const double gm = ysq::constants::G.value() * oblate.mass.value();
+
+    const double radius = 6.371e6 * 3.0;
+    const double speed = std::sqrt(gm / radius) * 1.05;  // mildly eccentric
+    Body satellite =
+        makeBody(1.0e3, Vec3{radius, 0.0, 0.0}, Vec3{0.0, speed * 0.7, speed * 0.7});
+    oblate.momentum = ysq::Momentum3{-satellite.momentum.value()};
+
+    std::vector<Body> bodies{oblate, satellite};
+    const auto totalEnergy = [&]() {
+        double kinetic = 0.0;
+        for (const Body& body : bodies) {
+            const double v = length(body.velocity().value());
+            kinetic += 0.5 * body.mass.value() * v * v;
+        }
+        return kinetic + ysq::newtonianPotentialEnergy(bodies).value();
+    };
+
+    const double initialEnergy = totalEnergy();
+    const double period =
+        2.0 * ysq::kPi<double> * std::sqrt(radius * radius * radius / gm);
+    const double step = period / 16000.0;
+
+    ysq::VelocityVerletStepper<ysq::NBodyState> stepper;
+    double maxDeviation = 0.0;
+    for (int i = 0; i < 16000 * 3; ++i) {
+        const ysq::NewtonianField field(bodies);
+        const ysq::PhaseState<ysq::NBodyState> state{ysq::positionsOf(bodies),
+                                                     ysq::velocitiesOf(bodies)};
+        ysq::PhaseState<ysq::NBodyState> next;
+        stepper.step(field, static_cast<double>(i) * step, state, step, next);
+        ysq::applyState(bodies, next.position, next.velocity);
+        maxDeviation = std::max(
+            maxDeviation, std::abs((totalEnergy() - initialEnergy) / initialEnergy));
+    }
+
+    EXPECT_LT(maxDeviation, 1e-5);
+}
+
+TEST(PhysicsGravity, NewtonianFieldAgreesWithTheDimensionedApiForAnOblateSource) {
+    const Body oblateSource = makeOblateBody(5.0e24, 6.371e6, 1.08263e-3);
+    const std::vector<Body> bodies{oblateSource,
+                                   makeBody(1.0e3, Vec3{4.0e7, 1.0e7, 2.0e6})};
+
+    const std::vector<ysq::Acceleration3> dimensioned =
+        ysq::newtonianAccelerations(bodies);
+
+    const ysq::NewtonianField field(bodies);
+    const ysq::NBodyState raw = field(0.0, ysq::positionsOf(bodies));
+
+    for (std::size_t i = 0; i < bodies.size(); ++i) {
+        EXPECT_VEC_NEAR(raw[i], dimensioned[i].value(), std::abs(length(raw[i])) * 1e-9);
     }
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Math/Scalar.hpp>
+#include <Units/Acceleration.hpp>
 #include <Units/Constants.hpp>
 #include <Units/Energy.hpp>
 #include <Units/Force.hpp>
@@ -86,6 +87,32 @@ inline constexpr WienConstant wienDisplacementConstant{2.897771955e-3};
 /// spectral radiance peaks, lambda_max = b / T.
 [[nodiscard]] constexpr Length wienPeakWavelength(Temperature temperature) noexcept {
     return constants::wienDisplacementConstant / temperature;
+}
+
+/// The isothermal barometric scale height, H = R_specific T / g: how far an
+/// atmosphere in hydrostatic equilibrium has to rise for its density to
+/// fall by a factor of e. Follows directly from combining hydrostatic
+/// equilibrium (dp/dh = -rho g) with idealGasPressure held at constant
+/// T: R_specific T (drho/dh) = -rho g, i.e. drho/rho = -dh/H. General for
+/// any gas and any surface gravity, not Earth's air specifically; Earth's
+/// numbers (R_specific about 287 J/(kg K) for dry air, g about 9.8 m/s^2)
+/// are scenario data, not part of this law.
+[[nodiscard]] constexpr Length
+isothermalScaleHeight(SpecificGasConstant specificGasConstant, Temperature temperature,
+                      Acceleration surfaceGravity) noexcept {
+    return specificGasConstant * temperature / surfaceGravity;
+}
+
+/// The isothermal barometric density profile, rho(h) = rho0 exp(-h /
+/// scaleHeight), the exact consequence of isothermalScaleHeight's own
+/// derivation: rho0 is the density at h = 0, and scaleHeight the same
+/// quantity isothermalScaleHeight returns, though a caller is free to
+/// supply either measured or derived directly, whichever a scenario
+/// actually has.
+[[nodiscard]] inline Density isothermalAtmosphereDensity(Density seaLevelDensity,
+                                                         Length altitude,
+                                                         Length scaleHeight) {
+    return seaLevelDensity * std::exp(-(altitude / scaleHeight));
 }
 
 }  // namespace ysq

@@ -29,8 +29,18 @@ solver use.
 
 | Header | Purpose |
 | --- | --- |
-| `Thermodynamics/Thermodynamics.hpp` | Ideal gas law, adiabatic relation, black-body luminosity, Wien's law |
+| `Thermodynamics/Thermodynamics.hpp` | Ideal gas law, adiabatic relation, black-body luminosity, Wien's law, isothermal barometric profile |
 | `Thermodynamics/HeatEquation.hpp` | `HeatEquation1D`: 1D diffusion, explicit finite-difference |
+
+An atmosphere in hydrostatic equilibrium (weight balanced by pressure) with
+the ideal gas law held at constant temperature gives one more closed form:
+density falls off **exponentially** with altitude, `rho(h) = rho0 exp(-h /
+H)`, `H` (the "scale height") set by how strong gravity is and how warm and
+light the gas is. General for any planet's atmosphere; `Optics`'s
+refraction and scattering laws both reuse this same shape, since a
+refractive index and a scattering rate both ultimately trace back to how
+dense the air actually is at a given height. See
+[docs/physics/optics.md](optics.md).
 
 ## Using it
 
@@ -40,6 +50,11 @@ solver use.
 const ysq::Pressure p =
     ysq::idealGasPressure(density, specificGasConstant, temperature);
 const ysq::Power luminosity = ysq::blackBodyLuminosity(starRadius, starTemperature);
+
+const ysq::Length scaleHeight =
+    ysq::isothermalScaleHeight(specificGasConstant, temperature, surfaceGravity);
+const ysq::Density atThatHeight =
+    ysq::isothermalAtmosphereDensity(seaLevelDensity, altitude, scaleHeight);
 ```
 
 ```cpp

@@ -8,6 +8,8 @@ add_library(ysq_physics STATIC
     Mechanics/Kinematics.hpp
     Mechanics/Dynamics.hpp
     Mechanics/Dynamics.cpp
+    Mechanics/RigidBody.hpp
+    Mechanics/RigidBody.cpp
 
     Gravity/Newtonian.hpp
     Gravity/Newtonian.cpp
@@ -26,6 +28,10 @@ add_library(ysq_physics STATIC
     Optics/Propagation.hpp
     Optics/Lensing.hpp
     Optics/FrequencyShift.hpp
+    Optics/RefractiveMedium.hpp
+    Optics/RayleighScattering.hpp
+    Optics/Illumination.hpp
+    Optics/Illumination.cpp
 
     Electromagnetism/Field.hpp
     Electromagnetism/Field.cpp

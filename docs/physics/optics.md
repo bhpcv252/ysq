@@ -34,6 +34,9 @@ actually the same computation:
 | `Optics/Propagation.hpp` | Build a light ray's starting direction (`nullTangent`) and run it (`propagate`) |
 | `Optics/Lensing.hpp` | `deflectionAngle`: how much a ray bends |
 | `Optics/FrequencyShift.hpp` | `frequencyShift`: one formula for Doppler, gravitational, and cosmological shift |
+| `Optics/RefractiveMedium.hpp` | A graded-index medium (air, glass, anything) as a metric: refraction is a null geodesic too |
+| `Optics/RayleighScattering.hpp` | A gas's scattering cross-section and the wavelength-dependent transmission along a path |
+| `Optics/Illumination.hpp` | How much of an extended light source is visible from a point, through occlusion and one refracting medium |
 
 **A subtlety worth knowing about, because it's a real bug that was caught
 this way.** Measuring the deflection angle by comparing a ray's total
@@ -45,6 +48,24 @@ to the wrong number, one that depends on where you started measuring from.
 `deflectionAngle` compares against the correct flat-space sweep instead,
 and this is exactly the kind of subtle error a good test suite exists to
 catch rather than a hypothetical concern.
+
+**Refraction is the same idea again, against a different metric.** A ray
+through an ordinary medium of refractive index `n(r)` extremizes optical
+path length (Fermat's principle), which turns out to be exactly the
+spatial path of a null geodesic of a particular "ultra-static" metric built
+from `n(r)`. `RefractiveMedium.hpp` is that metric; nothing about
+`nullTangent`, `propagate`, or `deflectionAngle` changes to use it, because
+none of them know or care which metric they're handed. This is how
+atmospheric refraction (the reason the sun is still visible for a few
+minutes after it's geometrically below the horizon, or the reason a total
+lunar eclipse isn't pitch black) gets computed in this engine: the same
+solver, a different metric, not a special case.
+
+`RayleighScattering.hpp` supplies the one law refraction alone doesn't:
+why the light that survives a long grazing path through an atmosphere
+comes out reddened, not just dimmer. `Illumination.hpp` composes both with
+straight-line occlusion into one answer, "how much of an extended source
+reaches this point", for any scene shaped that way, not only an eclipse.
 
 ## Using it
 
