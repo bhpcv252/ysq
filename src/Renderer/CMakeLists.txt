@@ -37,6 +37,8 @@ add_library(ysq_renderer STATIC
     Camera.cpp
     CameraController.hpp
     CameraController.cpp
+    SceneCameraController.hpp
+    SceneCameraController.cpp
     Light.hpp
     Material.hpp
     Shader.hpp

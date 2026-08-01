@@ -327,3 +327,57 @@ TEST(PlatformInput, ResetReturnsToTheInitialState) {
     EXPECT_EQ(input.cursor(), ysq::CursorPosition{});
     EXPECT_EQ(input.scrollDelta(), ysq::ScrollOffset{});
 }
+
+TEST(PlatformInput, SuppressedMouseReadsAsNothingHappening) {
+    InputState input;
+    input.onCursorPosition(100.0, 100.0);
+    input.onMouseButton(MouseButton::Left, ButtonAction::Press, {});
+    input.newFrame();
+    input.onCursorPosition(110.0, 95.0);
+    input.onScroll(0.0, 2.0);
+    ASSERT_TRUE(input.mouseButtonDown(MouseButton::Left));
+    ASSERT_EQ(input.cursorDelta(), (ysq::CursorPosition{10.0, -5.0}));
+    ASSERT_EQ(input.scrollDelta(), (ysq::ScrollOffset{0.0, 2.0}));
+
+    input.suppressMouseThisFrame();
+
+    EXPECT_FALSE(input.mouseButtonDown(MouseButton::Left));
+    EXPECT_FALSE(input.mouseButtonPressed(MouseButton::Left));
+    EXPECT_FALSE(input.mouseButtonReleased(MouseButton::Left));
+    EXPECT_EQ(input.cursorDelta(), ysq::CursorPosition{});
+    EXPECT_EQ(input.scrollDelta(), ysq::ScrollOffset{});
+}
+
+TEST(PlatformInput, SuppressingMouseLeavesKeysAlone) {
+    InputState input;
+    press(input, Key::W);
+
+    input.suppressMouseThisFrame();
+
+    EXPECT_TRUE(input.keyDown(Key::W))
+        << "mouse suppression must not touch keyboard state";
+}
+
+TEST(PlatformInput, MouseSuppressionDoesNotMutateTheUnderlyingState) {
+    InputState input;
+    input.onMouseButton(MouseButton::Left, ButtonAction::Press, {});
+    input.suppressMouseThisFrame();
+    ASSERT_FALSE(input.mouseButtonDown(MouseButton::Left)) << "suppressed for this frame";
+
+    input.newFrame();
+
+    EXPECT_TRUE(input.mouseButtonDown(MouseButton::Left))
+        << "the real button state must have survived suppression, unaffected";
+}
+
+TEST(PlatformInput, NewFrameLiftsSuppressionFromThePreviousFrame) {
+    InputState input;
+    input.onCursorPosition(0.0, 0.0);
+    input.suppressMouseThisFrame();
+
+    input.newFrame();
+    input.onCursorPosition(10.0, 0.0);
+
+    EXPECT_EQ(input.cursorDelta(), (ysq::CursorPosition{10.0, 0.0}))
+        << "suppression must not carry over into the next frame";
+}

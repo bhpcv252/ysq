@@ -9,7 +9,6 @@
 
 #include <Math/Integrators/Symplectic.hpp>
 #include <Math/Matrix4.hpp>
-#include <Math/Quaternion.hpp>
 #include <Math/Scalar.hpp>
 #include <Math/Vector3.hpp>
 
@@ -24,12 +23,13 @@
 #include <Platform/Window.hpp>
 
 #include <Renderer/Camera.hpp>
-#include <Renderer/CameraController.hpp>
 #include <Renderer/Light.hpp>
 #include <Renderer/Material.hpp>
 #include <Renderer/Mesh.hpp>
 #include <Renderer/Renderer.hpp>
+#include <Renderer/SceneCameraController.hpp>
 
+#include <UI/CameraOverlay.hpp>
 #include <UI/ImGuiLayer.hpp>
 #include <UI/Panel.hpp>
 #include <UI/StatsOverlay.hpp>
@@ -40,6 +40,7 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -224,40 +225,45 @@ int main() {
     // toRenderPosition does), so the dynamic range a body's own radius and
     // the whole system's extent span is enormous: a fixed near/far plane
     // cannot cover both being able to get close to the Moon and seeing the
-    // Sun-Earth distance. Both are recomputed every frame from the orbit
-    // controller's current distance instead; see the render loop below.
+    // Sun-Earth distance. Both are recomputed every frame from the current
+    // camera distance instead; see the render loop below.
     ysq::Camera camera;
-    ysq::OrbitCameraController orbitController;
-    orbitController.minDistance = 1.0e-6f;
+    ysq::SceneCameraController sceneCamera;
+    sceneCamera.orbit.minDistance = 1.0e-6f;
 
-    // Which body the orbit camera is centered on. Index matches kSun /
-    // kEarth / kMoon directly. target tracks the focused body's position
-    // every frame (so it stays centered as the body orbits); distance
-    // resets to a close-up on the body only when the selection actually
-    // changes, not every frame, so scrolling to zoom still works normally
-    // in between.
-    std::vector<std::string> focusOptions{"Sun", "Earth", "Moon"};
-    int focusIndex = 1;  // Earth: the most immediately interesting body to start on
-    int previousFocusIndex = -1;
+    // POV's option list never changes at runtime (Sun/Earth/Moon is fixed
+    // for this scenario), so it's built once here; positions/radii don't
+    // matter for naming it, so a throwaway seed list is enough. Focus's
+    // list does change at runtime -- it must exclude whichever body is
+    // currently POV -- so it's rebuilt from the real per-frame object list
+    // every frame below and bound live via Panel::comboLive.
+    const std::vector<ysq::NamedSphere> povNameSeeds{
+        ysq::NamedSphere{"Sun", ysq::Vec3f::zero(), 0.0f},
+        ysq::NamedSphere{"Earth", ysq::Vec3f::zero(), 0.0f},
+        ysq::NamedSphere{"Moon", ysq::Vec3f::zero(), 0.0f},
+    };
+    const std::vector<std::string> povOptions = sceneCamera.povOptions(povNameSeeds);
+    std::vector<std::string> focusOptionsLive{"Free"};
 
-    // Locked alignment views, alongside the default free-orbit camera: each
-    // fixes look-direction to the live Earth-Moon line, so which hemisphere
-    // of the Moon is visible (and whether it is the sunlit, reddening one
-    // during an eclipse, or the dark far side) depends on which of these is
-    // picked, not on manual navigation. See src/Applications/README.md's
-    // sibling docs for why this composition lives here, not in the engine:
-    // it is a camera convenience, not a physical law.
-    std::vector<std::string> cameraModeOptions{"Free orbit", "Behind Earth",
-                                               "Behind Moon", "Between Earth and Moon"};
-    int cameraModeIndex = 0;
+    std::vector<std::string> cameraModeOptions{"Orbit", "Free fly"};
+    int cameraModeSelection = 0;
+    int povSelection = 0;  // "Free"
+    // Focus's list starts as ["Free", "Sun", "Earth", "Moon"] (nothing
+    // excluded yet, since POV starts Free), so 2 is Earth: the most
+    // immediately interesting body to start on, matching this app's past
+    // default.
+    int focusSelection = 2;
+    int previousFocusSelection = -1;
 
     ysq::Panel controls("Simulation");
     float timeScaleThousandsPerSecond = static_cast<float>(timeScale / 1.0e3);
     bool paused = false;
     bool showShadowCones = true;
     bool showLabels = true;
-    controls.combo("Focus", focusOptions, focusIndex);
-    controls.combo("Camera mode", cameraModeOptions, cameraModeIndex);
+    controls.combo("Camera mode", cameraModeOptions, cameraModeSelection);
+    controls.combo("POV", povOptions, povSelection);
+    controls.comboLive("Focus", focusOptionsLive, focusSelection);
+    controls.checkbox("Hide POV body", sceneCamera.hidePov);
     controls.slider("Time scale (Ks/s)", timeScaleThousandsPerSecond, 0.0f, 5000.0f);
     controls.checkbox("Paused", paused);
     controls.checkbox("Show shadow cones", showShadowCones);
@@ -276,6 +282,7 @@ int main() {
     readout.button("Jump to next eclipse", [&]() { jumpRequested = true; });
 
     ysq::StatsOverlay statsOverlay;
+    ysq::CameraOverlay cameraOverlay;
 
     IlluminationState illumination;
     // illuminate() walks a null geodesic through Earth's atmosphere, which
@@ -314,6 +321,11 @@ int main() {
     while (!window->shouldClose()) {
         window->input().newFrame();
         ysq::Platform::pollEvents();
+        if (ui.wantsMouseCapture()) {
+            // A panel widget already claimed this click/drag; without this,
+            // dragging a slider would also drag the 3D camera underneath it.
+            window->input().suppressMouseThisFrame();
+        }
 
         const double frameSeconds = frameTimer.lap().count();
         clock.advance(frameSeconds);
@@ -359,59 +371,58 @@ int main() {
                                                toRenderRadius(bodies[kEarth].radius),
                                                toRenderRadius(bodies[kMoon].radius)};
 
-        // cameraDistance stands in for "how zoomed in is the camera right
-        // now" regardless of mode, feeding the near/far planes and label
-        // scaling below the same way in either case.
-        float cameraDistance = orbitController.distance;
+        const std::vector<ysq::NamedSphere> objects{
+            ysq::NamedSphere{"Sun", renderPositions[kSun], renderRadii[kSun]},
+            ysq::NamedSphere{"Earth", renderPositions[kEarth], renderRadii[kEarth]},
+            ysq::NamedSphere{"Moon", renderPositions[kMoon], renderRadii[kMoon]},
+        };
 
-        if (cameraModeIndex == 0) {
-            orbitController.target =
-                renderPositions[static_cast<std::size_t>(focusIndex)];
-            if (focusIndex != previousFocusIndex) {
-                orbitController.distance = std::max(
-                    renderRadii[static_cast<std::size_t>(focusIndex)] * 4.0f, 1.0e-5f);
-                previousFocusIndex = focusIndex;
-            }
-            orbitController.update(camera, window->input());
-            cameraDistance = orbitController.distance;
-        } else {
-            // The three locked alignment views: look-direction always
-            // follows the live Earth-Moon line, so which of the Moon's
-            // hemispheres is visible (the sunlit, reddening one, or the
-            // dark far side) is a property of which mode is picked, not of
-            // manual navigation. "Behind Moon" specifically shows the dark
-            // far side (Earth blocking the Sun, viewed from beyond the
-            // Moon), the other two show the lit near side.
-            ysq::Vec3f earthToMoonDirection =
-                renderPositions[2] - renderPositions[1];  // Moon minus Earth
-            const float earthMoonSeparation = length(earthToMoonDirection);
-            if (earthMoonSeparation > 0.0f) {
-                earthToMoonDirection = earthToMoonDirection / earthMoonSeparation;
-            }
+        sceneCamera.povIndex =
+            ysq::SceneCameraController::indexFromPovSelection(povSelection);
+        sceneCamera.focusIndex =
+            sceneCamera.indexFromFocusSelection(focusSelection, objects);
+        sceneCamera.mode = (cameraModeSelection == 0) ? ysq::CameraMode::Orbit
+                                                      : ysq::CameraMode::FreeFly;
 
-            if (cameraModeIndex == 1) {  // Behind Earth, looking at the Moon
-                cameraDistance = renderRadii[1] * 6.0f;
-                camera.position =
-                    renderPositions[1] - earthToMoonDirection * cameraDistance;
-                camera.target = renderPositions[2];
-            } else if (cameraModeIndex == 2) {  // Behind the Moon, looking back at Earth
-                cameraDistance = renderRadii[2] * 6.0f;
-                camera.position =
-                    renderPositions[2] + earthToMoonDirection * cameraDistance;
-                camera.target = renderPositions[1];
-            } else {  // Between Earth and Moon, looking back at Earth
-                cameraDistance = renderRadii[2] * 6.0f;
-                camera.position =
-                    renderPositions[2] - earthToMoonDirection * cameraDistance;
-                camera.target = renderPositions[1];
+        // A fresh Focus selection re-frames the orbit distance to the new
+        // target's own scale: SceneCameraController's auto-track only
+        // moves orbit.target, never orbit.distance, so without this
+        // whatever zoom level was set for the previous target (e.g.
+        // Moon-close) would carry over unchanged onto a wildly different
+        // body (e.g. the Sun).
+        if (focusSelection != previousFocusSelection) {
+            previousFocusSelection = focusSelection;
+            if (sceneCamera.focusIndex >= 0) {
+                sceneCamera.orbit.distance = std::max(
+                    objects[static_cast<std::size_t>(sceneCamera.focusIndex)].radius *
+                        4.0f,
+                    1.0e-5f);
             }
-            // A degenerate view matrix if the Earth-Moon line is ever
-            // exactly parallel to the usual up axis; falls back to a
-            // different hint in that one case rather than producing NaNs.
-            camera.up = (std::abs(dot(earthToMoonDirection, ysq::Vec3f::unitY())) < 0.99f)
-                            ? ysq::Vec3f::unitY()
-                            : ysq::Vec3f::unitX();
         }
+
+        sceneCamera.update(camera, objects, window->input(),
+                           static_cast<float>(frameSeconds));
+        focusOptionsLive = sceneCamera.focusOptions(objects);
+
+        // cameraDistance stands in for "how zoomed in is the camera right
+        // now" regardless of mode -- Orbit, FreeFly, or either POV submode
+        // -- feeding the near/far planes and label scaling below. Distance
+        // to the nearest *visible* body's center is what those actually
+        // need (how close is the camera to something actually drawn):
+        // skipping a hidden body matters now that POV can be hidden via
+        // the checkbox below, so a hidden body's own extreme closeness
+        // (you're standing right on it) doesn't force an unnecessarily
+        // tiny near plane for geometry that was never going to be clipped
+        // into in the first place.
+        float cameraDistance = std::numeric_limits<float>::max();
+        for (std::size_t i = 0; i < objects.size(); ++i) {
+            if (sceneCamera.isHidden(i)) {
+                continue;
+            }
+            cameraDistance =
+                std::min(cameraDistance, length(camera.position - objects[i].position));
+        }
+        cameraDistance = std::max(cameraDistance, 1.0e-7f);
 
         // True to scale means an enormous dynamic range: the near plane
         // has to stay well inside whatever body is currently focused (its
@@ -458,6 +469,9 @@ int main() {
         };
         constexpr float kLocatorThresholdPixels = 3.0f;
         for (std::size_t i = 0; i < renderPositions.size(); ++i) {
+            if (sceneCamera.isHidden(i)) {
+                continue;
+            }
             if (apparentPixelDiameter(renderPositions[i], renderRadii[i]) <
                 kLocatorThresholdPixels) {
                 renderer.debugDraw().point(renderPositions[i],
@@ -476,22 +490,28 @@ int main() {
         const std::array<ysq::PointLight, 1> fullSunlight{sunLight};
         renderer.setLights(fullSunlight, {});
 
-        ysq::Material sunMaterial;
-        sunMaterial.albedo = scenario.sunColor;
-        sunMaterial.emissive = scenario.sunColor;
-        renderer.draw(sphereMesh, sunMaterial,
-                      ysq::Matrix4<float>::translation(sunRenderPosition) *
-                          ysq::Matrix4<float>::scale(ysq::Vec3f::splat(sunRenderRadius)));
+        if (!sceneCamera.isHidden(kSun)) {
+            ysq::Material sunMaterial;
+            sunMaterial.albedo = scenario.sunColor;
+            sunMaterial.emissive = scenario.sunColor;
+            renderer.draw(
+                sphereMesh, sunMaterial,
+                ysq::Matrix4<float>::translation(sunRenderPosition) *
+                    ysq::Matrix4<float>::scale(ysq::Vec3f::splat(sunRenderRadius)));
+        }
 
-        ysq::Material earthMaterial;
-        earthMaterial.albedo = scenario.earthColor;
-        earthMaterial.ambient = 0.03f;  // low, so the night side actually reads as dark
-        earthMaterial.diffuse = 0.9f;
-        earthMaterial.specular = 0.15f;
-        renderer.draw(
-            sphereMesh, earthMaterial,
-            ysq::Matrix4<float>::translation(earthRenderPosition) *
-                ysq::Matrix4<float>::scale(ysq::Vec3f::splat(earthRenderRadius)));
+        if (!sceneCamera.isHidden(kEarth)) {
+            ysq::Material earthMaterial;
+            earthMaterial.albedo = scenario.earthColor;
+            earthMaterial.ambient =
+                0.03f;  // low, so the night side actually reads as dark
+            earthMaterial.diffuse = 0.9f;
+            earthMaterial.specular = 0.15f;
+            renderer.draw(
+                sphereMesh, earthMaterial,
+                ysq::Matrix4<float>::translation(earthRenderPosition) *
+                    ysq::Matrix4<float>::scale(ysq::Vec3f::splat(earthRenderRadius)));
+        }
 
         // The Moon: lit by whatever illuminate() actually found reaches it,
         // full sunlight outside any shadow, dim and reddened light bent
@@ -512,15 +532,17 @@ int main() {
         const std::array<ysq::PointLight, 1> moonIllumination{moonLight};
         renderer.setLights(moonIllumination, {});
 
-        ysq::Material moonMaterial;
-        moonMaterial.albedo = scenario.moonColor;
-        moonMaterial.ambient = 0.08f;
-        moonMaterial.diffuse = 0.85f;
-        moonMaterial.specular = 0.05f;
-        renderer.draw(
-            sphereMesh, moonMaterial,
-            ysq::Matrix4<float>::translation(moonRenderPosition) *
-                ysq::Matrix4<float>::scale(ysq::Vec3f::splat(moonRenderRadius)));
+        if (!sceneCamera.isHidden(kMoon)) {
+            ysq::Material moonMaterial;
+            moonMaterial.albedo = scenario.moonColor;
+            moonMaterial.ambient = 0.08f;
+            moonMaterial.diffuse = 0.85f;
+            moonMaterial.specular = 0.05f;
+            renderer.draw(
+                sphereMesh, moonMaterial,
+                ysq::Matrix4<float>::translation(moonRenderPosition) *
+                    ysq::Matrix4<float>::scale(ysq::Vec3f::splat(moonRenderRadius)));
+        }
 
         if (showLabels) {
             // True-scale bodies range from sub-pixel to filling the view
@@ -531,17 +553,24 @@ int main() {
             // the Sun or dwarf the Moon depending on which body is in view.
             const float labelHeight = cameraDistance * 0.06f;
             const float labelOffset = cameraDistance * 0.1f;
-            renderer.debugDraw().text(
-                sunRenderPosition + ysq::Vec3f{0.0f, sunRenderRadius + labelOffset, 0.0f},
-                "Sun", labelHeight);
-            renderer.debugDraw().text(
-                earthRenderPosition +
-                    ysq::Vec3f{0.0f, earthRenderRadius + labelOffset, 0.0f},
-                "Earth", labelHeight);
-            renderer.debugDraw().text(
-                moonRenderPosition +
-                    ysq::Vec3f{0.0f, moonRenderRadius + labelOffset, 0.0f},
-                "Moon", labelHeight);
+            if (!sceneCamera.isHidden(kSun)) {
+                renderer.debugDraw().text(
+                    sunRenderPosition +
+                        ysq::Vec3f{0.0f, sunRenderRadius + labelOffset, 0.0f},
+                    "Sun", labelHeight);
+            }
+            if (!sceneCamera.isHidden(kEarth)) {
+                renderer.debugDraw().text(
+                    earthRenderPosition +
+                        ysq::Vec3f{0.0f, earthRenderRadius + labelOffset, 0.0f},
+                    "Earth", labelHeight);
+            }
+            if (!sceneCamera.isHidden(kMoon)) {
+                renderer.debugDraw().text(
+                    moonRenderPosition +
+                        ysq::Vec3f{0.0f, moonRenderRadius + labelOffset, 0.0f},
+                    "Moon", labelHeight);
+            }
         }
 
         if (showShadowCones) {
@@ -590,6 +619,7 @@ int main() {
         renderer.endFrame();
 
         statsOverlay.update(static_cast<float>(frameSeconds), renderer.drawCallCount());
+        cameraOverlay.update(sceneCamera.statusText(camera, objects));
 
         ui.beginFrame();
         controls.draw();
@@ -631,6 +661,7 @@ int main() {
         readout.draw();
 
         statsOverlay.draw();
+        cameraOverlay.draw();
         ui.endFrame();
 
         window->swapBuffers();

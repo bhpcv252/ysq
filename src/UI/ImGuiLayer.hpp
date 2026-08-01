@@ -51,6 +51,16 @@ public:
     /// framebuffer.
     void endFrame();
 
+    /// Whether ImGui itself wants the mouse right now -- true while
+    /// hovering or interacting with a panel widget. Reflects the *previous*
+    /// beginFrame()'s state if called before this frame's own beginFrame()
+    /// runs (this value is computed inside ImGui::NewFrame()), the same
+    /// one-frame lag every bound Panel control already has. Check this
+    /// before driving anything that reads mouse input (e.g. a camera
+    /// controller) so a click on a panel doesn't also act on the 3D view
+    /// underneath it -- see Platform::InputState::suppressMouseThisFrame().
+    [[nodiscard]] bool wantsMouseCapture() const noexcept;
+
 private:
     ImGuiLayer() noexcept = default;
     void destroy() noexcept;

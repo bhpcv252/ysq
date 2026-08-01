@@ -88,6 +88,30 @@ void Panel::combo(std::string label, std::vector<std::string> options, int& sele
         }});
 }
 
+void Panel::comboLive(std::string label, std::vector<std::string>& options,
+                      int& selected) {
+    m_widgets.push_back({[label = std::move(label), &options, &selected] {
+        const bool hasCurrent =
+            selected >= 0 && static_cast<std::size_t>(selected) < options.size();
+        const char* preview =
+            hasCurrent ? options[static_cast<std::size_t>(selected)].c_str() : "";
+        wrappedLabel(label);
+        if (ImGui::BeginCombo(("##" + label).c_str(), preview)) {
+            for (std::size_t i = 0; i < options.size(); ++i) {
+                const bool isSelected =
+                    hasCurrent && static_cast<std::size_t>(selected) == i;
+                if (ImGui::Selectable(options[i].c_str(), isSelected)) {
+                    selected = static_cast<int>(i);
+                }
+                if (isSelected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+    }});
+}
+
 void Panel::draw() {
     // Anchored to the top-right corner by its right edge (a pivot of
     // (1, 0)) rather than a fixed x: Panel auto-sizes to whatever controls

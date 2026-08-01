@@ -12,8 +12,10 @@ out vec3 vDirection;
 void main() {
     vDirection = aPosition;
     vec4 clipPosition = uProjection * uView * vec4(aPosition, 1.0);
-    // Forces depth to the far plane (w == clipPosition.w means z/w == 1
-    // after the perspective divide) so the skybox never occludes real
+    // Forces depth to the far plane so the skybox never occludes real
     // geometry and is never occluded by the depth buffer's clear value.
-    gl_Position = clipPosition.xyww;
+    // Reversed-Z (see Renderer.cpp / Camera::projectionMatrix()) maps far to
+    // z/w == -1, not +1, so this pins z to -w rather than the more familiar
+    // xyww ("z == w") trick a standard depth convention would use.
+    gl_Position = vec4(clipPosition.xy, -clipPosition.w, clipPosition.w);
 }

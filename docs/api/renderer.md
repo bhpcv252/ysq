@@ -60,6 +60,7 @@ struct OrbitCameraController {
     float azimuthRadians = 0.0f;       // around the up axis; zero looks down -Z
     float elevationRadians = 0.3f;     // clamped away from the poles in update()
     float rotateSpeed = 0.005f;        // radians per pixel of cursor delta
+    float panSpeed = 0.0015f;          // target movement per distance-unit, per pixel of left-drag
     float zoomSpeed = 0.1f;            // fraction of current distance per scroll notch
     float minDistance = 0.01f;
 
@@ -71,19 +72,94 @@ struct FreeFlyCameraController {
     Vec3f position = Vec3f::zero();
     float yawRadians = -1.5707963f;    // zero looks down -Z, matching Camera's default
     float pitchRadians = 0.0f;
+    float rollRadians = 0.0f;          // accumulated from Z/C; rotates the up hint only
     float lookSpeed = 0.0025f;         // radians per pixel of cursor delta
-    float moveSpeed = 5.0f;             // units per second
-    float fastMultiplier = 4.0f;        // applied while Shift is held
+    float rollSpeed = 1.5f;            // radians per second while Z or C is held
+    float moveSpeed = 5.0f;            // units per second; scroll adjusts this
+    float minMoveSpeed = 1.0e-4f;
+    float scrollSpeedFactor = 0.1f;    // fraction of moveSpeed per scroll notch
+    float panSpeed = 0.002f;           // world units per pixel of left-drag, per unit of moveSpeed
+    float fastMultiplier = 4.0f;       // applied while Shift is held
+    float accelerationPerSecond = 8.0f; // velocity's approach rate toward the input target
+    bool lookLocked = false;           // T toggles; look responds to the mouse without RMB held
+    bool invertY = false;
+    Vec3f velocity = Vec3f::zero();
 
     void update(Camera& camera, const InputState& input, float deltaSeconds) noexcept;
 };
 ```
 
-`OrbitCameraController`: hold right mouse to look, scroll to zoom, the fit
+`OrbitCameraController`: hold right mouse to look, hold left to pan (drag
+the target sideways, content follows the cursor), scroll to zoom, the fit
 for a scene with an obvious center (a star, a black hole). `FreeFlyCameraController`:
-WASD relative to look direction, Q/E straight down/up, right mouse to look,
-Shift to move faster, the fit for a scene with no single center (a galaxy
-collision).
+WASD relative to look direction, Q/E straight down/up, right mouse (or T,
+toggled) to look, left mouse to pan (slide sideways without rotating),
+Shift to move faster, scroll to change move speed, Z/C to roll, the fit for
+a scene with no single center (a galaxy collision) or for crossing an
+enormous scale range in one flight. Both buttons are always active
+simultaneously, each with a fixed meaning — there is no mode to switch
+between.
+
+## `Renderer/SceneCameraController.hpp`
+
+A drop-in scene camera composing `OrbitCameraController` and
+`FreeFlyCameraController` plus an opt-in POV/Focus mode: stand the camera on
+one body's surface and look at another. Operates on a plain, caller-rebuilt
+list of named spheres, never on `Physics::Body` or an application type — see
+[src/Renderer/README.md](../../src/Renderer/README.md#scene-camera-orbit-freefly-and-povfocus)
+for the full POV/Focus behavior matrix and
+[docs/renderer.md](../renderer.md#controls) for every key binding.
+
+```cpp
+struct NamedSphere {
+    std::string name;
+    Vec3f position;
+    float radius = 1.0f;
+};
+
+enum class CameraMode { Orbit, FreeFly };
+
+class SceneCameraController {
+public:
+    OrbitCameraController orbit;
+    FreeFlyCameraController freeFly;
+    CameraMode mode = CameraMode::Orbit;
+
+    int povIndex = -1;    // -1 = Free
+    int focusIndex = -1;  // -1 = Free
+    bool hidePov = false; // whether the POV body itself is drawn; shown by default
+
+    float azimuthRadians = 0.0f;   // POV set, focus free: mouse-picked anchor
+    float elevationRadians = 0.3f;
+    float heightRadii = 0.0f;      // 0 = at the surface
+
+    float zoomFovScale = 1.0f;     // POV and focus both set: scroll-driven FOV zoom
+
+    float rotateSpeed = 0.005f;
+    float zoomSpeed = 0.1f;
+
+    void update(Camera& camera, std::span<const NamedSphere> objects,
+               const InputState& input, float deltaSeconds) noexcept;
+
+    bool isHidden(std::size_t objectIndex) const noexcept;
+    void reset() noexcept;  // also bound to the R key inside update()
+
+    std::vector<std::string> povOptions(std::span<const NamedSphere> objects) const;
+    std::vector<std::string> focusOptions(std::span<const NamedSphere> objects) const;
+
+    static constexpr int indexFromPovSelection(int selection) noexcept;
+    int indexFromFocusSelection(int selection, std::span<const NamedSphere> objects) const noexcept;
+
+    std::string statusText(const Camera& camera, std::span<const NamedSphere> objects) const;
+};
+```
+
+Left at its defaults (`povIndex == -1`), it behaves exactly like driving
+`orbit`/`freeFly` directly. `statusText()` returns a short, human-readable
+multi-line summary of the camera's current state (position, plus
+mode/speed/POV detail) for a HUD like `UI::CameraOverlay`
+([docs/api/ui.md](ui.md)) to display — plain text rather than a shared
+struct type, since `Renderer` and `UI` are peers.
 
 ## `Renderer/Light.hpp`
 

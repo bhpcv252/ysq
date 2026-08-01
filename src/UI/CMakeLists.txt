@@ -9,6 +9,8 @@ add_library(ysq_ui STATIC
     Panel.cpp
     StatsOverlay.hpp
     StatsOverlay.cpp
+    CameraOverlay.hpp
+    CameraOverlay.cpp
     PlotPanel.hpp
     PlotPanel.cpp)
 add_library(ysq::UI ALIAS ysq_ui)

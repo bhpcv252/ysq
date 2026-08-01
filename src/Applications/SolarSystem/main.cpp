@@ -23,12 +23,13 @@
 #include <Platform/Window.hpp>
 
 #include <Renderer/Camera.hpp>
-#include <Renderer/CameraController.hpp>
 #include <Renderer/Light.hpp>
 #include <Renderer/Material.hpp>
 #include <Renderer/Mesh.hpp>
 #include <Renderer/Renderer.hpp>
+#include <Renderer/SceneCameraController.hpp>
 
+#include <UI/CameraOverlay.hpp>
 #include <UI/ImGuiLayer.hpp>
 #include <UI/Panel.hpp>
 #include <UI/PlotPanel.hpp>
@@ -180,9 +181,31 @@ int main() {
     std::vector<std::deque<TrailPoint>> trails(scenario.planets.size());
 
     ysq::Camera camera;
-    ysq::OrbitCameraController orbitController;
-    orbitController.distance = 40.0f;
-    orbitController.elevationRadians = 0.5f;
+    ysq::SceneCameraController sceneCamera;
+    sceneCamera.orbit.distance = 40.0f;
+    sceneCamera.orbit.elevationRadians = 0.5f;
+
+    // POV's option list never changes at runtime (the body list is fixed
+    // for this scenario), so it's built once here rather than every frame;
+    // positions/radii are irrelevant for naming it, so a throwaway seed
+    // list is enough. Focus's list does change at runtime -- it must
+    // exclude whichever body is currently POV -- so it's rebuilt from the
+    // real `objects` list every frame below and bound live via
+    // Panel::comboLive.
+    std::vector<ysq::NamedSphere> povNameSeeds;
+    povNameSeeds.reserve(1 + scenario.planets.size());
+    povNameSeeds.push_back(ysq::NamedSphere{"Sun", ysq::Vec3f::zero(), 0.0f});
+    for (const Planet& planet : scenario.planets) {
+        povNameSeeds.push_back(ysq::NamedSphere{planet.name, ysq::Vec3f::zero(), 0.0f});
+    }
+    const std::vector<std::string> povOptions = sceneCamera.povOptions(povNameSeeds);
+    std::vector<std::string> focusOptionsLive{"Free"};
+
+    std::vector<std::string> cameraModeOptions{"Orbit", "Free fly"};
+    int cameraModeSelection = 0;
+    int povSelection = 0;    // "Free"
+    int focusSelection = 0;  // "Free"
+    int previousFocusSelection = -1;
 
     ysq::Panel controls("Simulation");
     float timeScaleMillionsPerSecond = static_cast<float>(timeScale / 1.0e6);
@@ -198,6 +221,10 @@ int main() {
     // physically honest stub; the slider covers up to a bit past Jupiter's
     // own ~12-year period for anyone who wants to see a slow orbit close.
     float trailDurationDays = 30.0f;
+    controls.combo("Camera mode", cameraModeOptions, cameraModeSelection);
+    controls.combo("POV", povOptions, povSelection);
+    controls.comboLive("Focus", focusOptionsLive, focusSelection);
+    controls.checkbox("Hide POV body", sceneCamera.hidePov);
     controls.slider("Time scale (Ms/s)", timeScaleMillionsPerSecond, 0.0f, 100.0f);
     controls.checkbox("Paused", paused);
     controls.checkbox("Show trails", showTrails);
@@ -205,10 +232,16 @@ int main() {
     controls.checkbox("Show labels", showLabels);
 
     ysq::StatsOverlay statsOverlay;
+    ysq::CameraOverlay cameraOverlay;
 
     while (!window->shouldClose()) {
         window->input().newFrame();
         ysq::Platform::pollEvents();
+        if (ui.wantsMouseCapture()) {
+            // A panel widget already claimed this click/drag; without this,
+            // dragging a slider would also drag the 3D camera underneath it.
+            window->input().suppressMouseThisFrame();
+        }
 
         const double frameSeconds = frameTimer.lap().count();
         clock.advance(frameSeconds);
@@ -270,7 +303,46 @@ int main() {
             continue;
         }
 
-        orbitController.update(camera, window->input());
+        const ysq::Vec3f sunRenderPosition = toRenderPosition(bodies[0].position);
+        std::vector<ysq::Vec3f> planetRenderPositions(scenario.planets.size());
+        for (std::size_t i = 0; i < scenario.planets.size(); ++i) {
+            planetRenderPositions[i] = toRenderPosition(bodies[i + 1].position);
+        }
+
+        std::vector<ysq::NamedSphere> objects;
+        objects.reserve(1 + scenario.planets.size());
+        objects.push_back(
+            ysq::NamedSphere{"Sun", sunRenderPosition, scenario.sunRenderRadius});
+        for (std::size_t i = 0; i < scenario.planets.size(); ++i) {
+            objects.push_back(ysq::NamedSphere{scenario.planets[i].name,
+                                               planetRenderPositions[i],
+                                               scenario.planets[i].renderRadius});
+        }
+
+        sceneCamera.povIndex =
+            ysq::SceneCameraController::indexFromPovSelection(povSelection);
+        sceneCamera.focusIndex =
+            sceneCamera.indexFromFocusSelection(focusSelection, objects);
+        sceneCamera.mode = (cameraModeSelection == 0) ? ysq::CameraMode::Orbit
+                                                      : ysq::CameraMode::FreeFly;
+
+        // A fresh Focus selection re-frames the orbit distance to the new
+        // target's own scale: SceneCameraController's auto-track only
+        // moves orbit.target, never orbit.distance, so without this
+        // whatever zoom level was set for the previous target would carry
+        // over unchanged (e.g. Mercury-close, suddenly applied to the Sun).
+        if (focusSelection != previousFocusSelection) {
+            previousFocusSelection = focusSelection;
+            if (sceneCamera.focusIndex >= 0) {
+                sceneCamera.orbit.distance =
+                    objects[static_cast<std::size_t>(sceneCamera.focusIndex)].radius *
+                    4.0f;
+            }
+        }
+
+        sceneCamera.update(camera, objects, window->input(),
+                           static_cast<float>(frameSeconds));
+        focusOptionsLive = sceneCamera.focusOptions(objects);
 
         const float aspect = static_cast<float>(framebufferSize.width) /
                              static_cast<float>(framebufferSize.height);
@@ -278,7 +350,6 @@ int main() {
         renderer.beginFrame(camera, aspect, framebufferSize.width,
                             framebufferSize.height);
 
-        const ysq::Vec3f sunRenderPosition = toRenderPosition(bodies[0].position);
         ysq::PointLight sunLight;
         sunLight.position = sunRenderPosition;
         sunLight.color = scenario.sunColor;
@@ -287,46 +358,54 @@ int main() {
         const std::array<ysq::PointLight, 1> pointLights{sunLight};
         renderer.setLights(pointLights, {});
 
-        ysq::Material sunMaterial;
-        sunMaterial.albedo = scenario.sunColor;
-        sunMaterial.emissive = scenario.sunColor;
-        renderer.draw(
-            sphereMesh, sunMaterial,
-            ysq::Matrix4<float>::translation(sunRenderPosition) *
-                ysq::Matrix4<float>::scale(ysq::Vec3f::splat(scenario.sunRenderRadius)));
-        if (showLabels) {
-            renderer.debugDraw().text(
-                sunRenderPosition +
-                    ysq::Vec3f{0.0f, scenario.sunRenderRadius + 0.6f, 0.0f},
-                "Sun");
+        if (!sceneCamera.isHidden(0)) {
+            ysq::Material sunMaterial;
+            sunMaterial.albedo = scenario.sunColor;
+            sunMaterial.emissive = scenario.sunColor;
+            renderer.draw(sphereMesh, sunMaterial,
+                          ysq::Matrix4<float>::translation(sunRenderPosition) *
+                              ysq::Matrix4<float>::scale(
+                                  ysq::Vec3f::splat(scenario.sunRenderRadius)));
+            if (showLabels) {
+                renderer.debugDraw().text(
+                    sunRenderPosition +
+                        ysq::Vec3f{0.0f, scenario.sunRenderRadius + 0.6f, 0.0f},
+                    "Sun");
+            }
         }
 
         for (std::size_t i = 0; i < scenario.planets.size(); ++i) {
             const Planet& planet = scenario.planets[i];
-            const ysq::Vec3f renderPosition = toRenderPosition(bodies[i + 1].position);
+            const ysq::Vec3f& renderPosition = planetRenderPositions[i];
+            // objects[0] is the Sun, objects[i + 1] this planet -- the same
+            // offset the objects list above was built with.
+            const bool hidden = sceneCamera.isHidden(i + 1);
 
-            ysq::Material material;
-            material.albedo = planet.color;
-            material.ambient = 0.15f;
-            material.diffuse = 0.85f;
-            material.specular = 0.2f;
-            material.shininess = 16.0f;
+            if (!hidden) {
+                ysq::Material material;
+                material.albedo = planet.color;
+                material.ambient = 0.15f;
+                material.diffuse = 0.85f;
+                material.specular = 0.2f;
+                material.shininess = 16.0f;
 
-            renderer.draw(
-                sphereMesh, material,
-                ysq::Matrix4<float>::translation(renderPosition) *
-                    ysq::Matrix4<float>::scale(ysq::Vec3f::splat(planet.renderRadius)));
-            if (showLabels) {
-                renderer.debugDraw().text(
-                    renderPosition + ysq::Vec3f{0.0f, planet.renderRadius + 0.4f, 0.0f},
-                    planet.name, 0.4f);
-            }
+                renderer.draw(sphereMesh, material,
+                              ysq::Matrix4<float>::translation(renderPosition) *
+                                  ysq::Matrix4<float>::scale(
+                                      ysq::Vec3f::splat(planet.renderRadius)));
+                if (showLabels) {
+                    renderer.debugDraw().text(
+                        renderPosition +
+                            ysq::Vec3f{0.0f, planet.renderRadius + 0.4f, 0.0f},
+                        planet.name, 0.4f);
+                }
 
-            if (showTrails) {
-                const std::deque<TrailPoint>& trail = trails[i];
-                for (std::size_t k = 1; k < trail.size(); ++k) {
-                    renderer.debugDraw().line(trail[k - 1].position, trail[k].position,
-                                              planet.color);
+                if (showTrails) {
+                    const std::deque<TrailPoint>& trail = trails[i];
+                    for (std::size_t k = 1; k < trail.size(); ++k) {
+                        renderer.debugDraw().line(trail[k - 1].position,
+                                                  trail[k].position, planet.color);
+                    }
                 }
             }
         }
@@ -335,6 +414,7 @@ int main() {
         renderer.endFrame();
 
         statsOverlay.update(static_cast<float>(frameSeconds), renderer.drawCallCount());
+        cameraOverlay.update(sceneCamera.statusText(camera, objects));
 
         ui.beginFrame();
         controls.draw();
@@ -345,6 +425,7 @@ int main() {
             clock.resume();
         }
         statsOverlay.draw();
+        cameraOverlay.draw();
         energyPlot.draw();
         momentumPlot.draw();
         ui.endFrame();

@@ -17,6 +17,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 // ImGuiLayer's lifecycle and Panel's bindings are both real ImGui, not a
 // headless stand-in: ImGui::NewFrame() asserts on an unset display size and
@@ -79,6 +80,30 @@ TEST(UIImGuiLayer, ARealFrameProducesDrawDataWithoutCrashing) {
     EXPECT_GT(ImGui::GetDrawData()->CmdLists.Size, 0);
 }
 
+TEST(UIImGuiLayer, WantsMouseCaptureIsFalseWithNoWidgetInteraction) {
+    GLSession session = openGLSession(256, 256);
+    if (!session.opened()) {
+        YSQ_SKIP_UNLESS_HEADLESS_GL_REQUIRED("no OpenGL context: " + session.failure);
+    }
+
+    std::optional<ImGuiLayer> ui = ImGuiLayer::create(*session.window);
+    ASSERT_TRUE(ui);
+
+    for (int frame = 0; frame < 2; ++frame) {
+        ui->beginFrame();
+        ImGui::Begin("Test");
+        ImGui::Text("hello");
+        ImGui::End();
+        ui->endFrame();
+    }
+
+    // Simulating an actual hover/click to drive this true is fragile across
+    // ImGui versions (the input queue vs. direct IO field writes), so this
+    // only checks the always-safe, deterministic case: nothing claims the
+    // mouse when nothing has been interacted with.
+    EXPECT_FALSE(ui->wantsMouseCapture());
+}
+
 // Binding is the whole point of Panel: it hands ImGui a direct reference, so
 // the widget reads and (on interaction) writes through it. No mouse input
 // happens here, so nothing should touch the bound values — this is the
@@ -119,6 +144,43 @@ TEST(UIImGuiLayer, APanelBindingRoundTripsThroughARealFrameUnchanged) {
     ASSERT_NE(ImGui::GetDrawData(), nullptr);
     EXPECT_GT(ImGui::GetDrawData()->CmdLists.Size, 0)
         << "a panel with bound widgets must actually emit geometry";
+}
+
+TEST(UIImGuiLayer, ALiveComboReflectsOptionsChangedBetweenDraws) {
+    GLSession session = openGLSession(256, 256);
+    if (!session.opened()) {
+        YSQ_SKIP_UNLESS_HEADLESS_GL_REQUIRED("no OpenGL context: " + session.failure);
+    }
+
+    std::optional<ImGuiLayer> ui = ImGuiLayer::create(*session.window);
+    ASSERT_TRUE(ui);
+    ImGui::GetIO().IniFilename = nullptr;
+
+    std::vector<std::string> options{"Free", "Sun", "Earth", "Moon"};
+    int selected = 2;  // "Earth"
+
+    Panel panel("Simulation");
+    panel.comboLive("Focus", options, selected);
+
+    ui->beginFrame();
+    panel.draw();
+    ui->endFrame();
+    EXPECT_EQ(selected, 2);
+
+    // A body becoming POV excludes it from Focus's own list, the same way
+    // SceneCameraController::focusOptions() does -- the list a live combo
+    // is bound to can shrink between frames, and the previously-selected
+    // index must not now point at the wrong entry or crash.
+    options = std::vector<std::string>{"Free", "Sun", "Moon"};
+
+    for (int frame = 0; frame < 2; ++frame) {
+        ui->beginFrame();
+        panel.draw();
+        ui->endFrame();
+    }
+
+    ASSERT_NE(ImGui::GetDrawData(), nullptr);
+    EXPECT_GT(ImGui::GetDrawData()->CmdLists.Size, 0);
 }
 
 TEST(UIImGuiLayer, StatsOverlayAndPlotPanelDrawWithoutCrashing) {

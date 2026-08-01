@@ -42,6 +42,13 @@ public:
     /// `options` and `selected` share an index. `selected` out of range is
     /// drawn as no current selection; this does not clamp it.
     void combo(std::string label, std::vector<std::string> options, int& selected);
+    /// Like combo(), but `options` is read fresh every draw() instead of
+    /// copied at bind time -- for a list that changes at runtime, such as
+    /// one dropdown's options excluding whatever another dropdown
+    /// currently selects. A distinct name, not an overload: a by-value and
+    /// a by-reference overload of the same signature is ambiguous at any
+    /// plain-lvalue call site.
+    void comboLive(std::string label, std::vector<std::string>& options, int& selected);
 
     /// Draws every bound control inside one ImGui window titled title().
     /// Call inside an ImGuiLayer frame (between beginFrame() and endFrame()).
