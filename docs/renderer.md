@@ -25,6 +25,7 @@ structure.
 | --- | --- |
 | `Renderer/Camera.hpp` | Perspective or orthographic projection, eye/target/up |
 | `Renderer/CameraController.hpp` | Orbit and free-fly controls, driven from `Platform` input |
+| `Renderer/SceneCameraController.hpp` | A drop-in camera combining Orbit, FreeFly, and an opt-in POV/Focus mode — see [Controls](#controls) |
 | `Renderer/Light.hpp` | Point and directional lights |
 | `Renderer/Material.hpp` | Blinn-Phong surface parameters |
 | `Renderer/Mesh.hpp` | Sphere/quad/disk/cube generators, plus instanced drawing |
@@ -69,6 +70,65 @@ compute shader so it stays portable to OpenGL 4.1, which is as far as macOS
 goes. The physics of light itself, if you need more than a rasterizer's
 lighting model, lives in [docs/physics/optics.md](physics/optics.md), not
 here; `RayTracer` only decides where the trace runs.
+
+## Controls
+
+Every binding below is driven from `Platform::InputState` by
+`Renderer/CameraController.hpp` and `Renderer/SceneCameraController.hpp`.
+`SceneCameraController` composes the first two navigation modes plus
+POV/Focus into one drop-in camera; see
+[src/Renderer/README.md](../src/Renderer/README.md#scene-camera-orbit-freefly-and-povfocus)
+for the full POV/Focus behavior matrix.
+
+Left and right mouse buttons are both always active, each with a fixed
+meaning (pan and look/orbit respectively) — there is no mode to switch
+between. An `Application` that also draws `UI` panels in the same window
+should call `InputState::suppressMouseThisFrame()` when
+`ImGuiLayer::wantsMouseCapture()` is true, or a click on a panel widget
+also drags the 3D camera underneath it — see [docs/api/ui.md](api/ui.md).
+
+### Orbit (`OrbitCameraController`)
+
+Rotates and zooms around a fixed target. The default mode, and the natural
+fit for a scene with an obvious center.
+
+| Input | Effect |
+| --- | --- |
+| Right mouse, drag | Orbit (azimuth/elevation) around `target` |
+| Left mouse, drag | Pan: drag `target` sideways, content follows the cursor (à la Figma) |
+| Scroll | Zoom (`distance`), clamped to `minDistance` |
+
+### FreeFly (`FreeFlyCameraController`)
+
+First-person navigation for a scene with no single center, or for crossing
+the enormous scale range between an AU-wide orbit and a planet's own
+surface.
+
+| Input | Effect |
+| --- | --- |
+| W / A / S / D | Move forward/left/back/right, relative to look direction |
+| Q / E | Move straight down/up |
+| Right mouse, drag (or T to toggle look on) | Look around (yaw/pitch) |
+| Left mouse, drag | Pan: slide sideways without rotating, content follows the cursor |
+| T | Toggle look-locked: look responds to the mouse without holding the right button |
+| Shift | Move faster (`fastMultiplier`) |
+| Scroll | Change move speed (`moveSpeed`), so exploring stays a sane speed at any scale |
+| Z / C | Roll left/right (rotates the render-facing up hint only; WASD movement stays relative to true world-up) |
+
+Movement eases toward the input-driven target velocity
+(`accelerationPerSecond`) rather than snapping instantly, so starting and
+stopping aren't a hard cut. `invertY` flips the pitch direction for mouse
+look.
+
+### POV/Focus (`SceneCameraController`)
+
+Off by default (`povIndex == -1`, "Free"). Once a POV body is picked:
+
+| Input | Effect |
+| --- | --- |
+| Right mouse, drag | (POV set, Focus Free only) picks which point on the POV body's surface you occupy |
+| Scroll | (POV set, Focus Free) walks a height axis from the surface to a "space view" altitude; (POV and Focus both set) FOV zoom instead |
+| R | Reset the current POV submode's live-adjusted state (zoom back to 1x, or angle/height back to their defaults) |
 
 ## Go deeper
 

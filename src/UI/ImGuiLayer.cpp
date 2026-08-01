@@ -99,4 +99,8 @@ void ImGuiLayer::endFrame() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
+bool ImGuiLayer::wantsMouseCapture() const noexcept {
+    return ImGui::GetIO().WantCaptureMouse;
+}
+
 }  // namespace ysq

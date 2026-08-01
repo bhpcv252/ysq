@@ -39,7 +39,13 @@ std::optional<RenderTarget> RenderTarget::create(int width, int height, int samp
                                GL_TEXTURE_2D_MULTISAMPLE, colorTexture, 0);
 
         glBindRenderbuffer(GL_RENDERBUFFER, depthRenderbuffer);
-        glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH24_STENCIL8,
+        // Float, not fixed-point: reversed-Z (see Camera::projectionMatrix())
+        // only gets its precision benefit paired with a floating-point depth
+        // buffer, whose representable values are naturally denser near 0.0 --
+        // where far geometry now lands -- instead of compounding a fixed-point
+        // format's already-uniform spacing with the projection's own bias
+        // toward the near plane.
+        glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH32F_STENCIL8,
                                          width, height);
     } else {
         glBindTexture(GL_TEXTURE_2D, colorTexture);
@@ -51,7 +57,7 @@ std::optional<RenderTarget> RenderTarget::create(int width, int height, int samp
                                colorTexture, 0);
 
         glBindRenderbuffer(GL_RENDERBUFFER, depthRenderbuffer);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH32F_STENCIL8, width, height);
     }
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                               GL_RENDERBUFFER, depthRenderbuffer);
@@ -178,6 +184,12 @@ void Renderer::beginFrame(const Camera& camera, float aspect, int viewportWidth,
                           int viewportHeight, const Vec3f& clearColor) {
     glViewport(0, 0, viewportWidth, viewportHeight);
     glEnable(GL_DEPTH_TEST);
+    // Reversed-Z: far is 0.0 now, not 1.0, so "nothing drawn yet" (the clear
+    // value) must be the new far value, and closer geometry has a *larger*
+    // depth value, hence GL_GREATER instead of GL_LESS. See
+    // Camera::projectionMatrix() and src/Renderer/README.md.
+    glClearDepth(0.0);
+    glDepthFunc(GL_GREATER);
     glClearColor(clearColor.x, clearColor.y, clearColor.z, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -267,7 +279,11 @@ void Renderer::drawInstanced(const Mesh& mesh, const Material& material) {
 }
 
 void Renderer::drawSkybox(const Cubemap& sky) {
-    glDepthFunc(GL_LEQUAL);
+    // The skybox shader pins its own depth to the far value (see
+    // shaders/skybox.vert); under reversed-Z that's the clear value itself
+    // (0.0), so it needs GL_GEQUAL (not GL_GREATER) to still pass against a
+    // tie, mirroring the old GL_LEQUAL-against-a-1.0-clear trick.
+    glDepthFunc(GL_GEQUAL);
     m_skyboxShader.use();
 
     // Rotation only: zeroing the translation column keeps the skybox from
@@ -281,7 +297,7 @@ void Renderer::drawSkybox(const Cubemap& sky) {
     m_skyboxShader.setUniform("uSkybox", 0);
 
     m_skyboxCube.draw();
-    glDepthFunc(GL_LESS);
+    glDepthFunc(GL_GREATER);
     ++m_drawCallCount;
 }
 

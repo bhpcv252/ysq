@@ -212,6 +212,8 @@ public:
     void newFrame() noexcept;        // call once per frame, before polling
     void reset() noexcept;
 
+    void suppressMouseThisFrame() noexcept;  // mouse queries below answer as if nothing were happening
+
     bool keyDown(Key) const noexcept;       // held right now
     bool keyPressed(Key) const noexcept;    // went down this frame
     bool keyReleased(Key) const noexcept;   // came up this frame
@@ -237,6 +239,14 @@ released within one frame reports both edges while `keyDown` is false for
 that frame, so a fast tap is never missed. Auto-repeat sets neither edge
 (the key was already down); treating repeat as a fresh press would fire a
 once-per-press action at the keyboard's repeat rate instead.
+
+`suppressMouseThisFrame()` is a query-time override, not a mutation of the
+real tracked button/cursor/scroll state — it reads correctly again as soon
+as `newFrame()` resets it next frame. Keyboard queries are unaffected. A
+caller that also draws `UI` panels in the same window
+([docs/api/ui.md](ui.md)'s `ImGuiLayer::wantsMouseCapture()`) calls this so
+a click on a panel widget doesn't also act on whatever else reads mouse
+input, such as a `Renderer` camera controller.
 
 ---
 Notice something missing or wrong on this page?

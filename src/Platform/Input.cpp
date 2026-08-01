@@ -374,6 +374,7 @@ void InputState::newFrame() noexcept {
     m_buttonsReleased.reset();
     m_previousCursor = m_cursor;
     m_scroll = ScrollOffset{};
+    m_mouseSuppressed = false;
 }
 
 void InputState::reset() noexcept {
@@ -396,22 +397,31 @@ bool InputState::keyReleased(Key key) const noexcept {
 }
 
 bool InputState::mouseButtonDown(MouseButton button) const noexcept {
+    if (m_mouseSuppressed) {
+        return false;
+    }
     const std::size_t index = indexOf(button);
     return index < kButtonCount && m_buttonsDown.test(index);
 }
 
 bool InputState::mouseButtonPressed(MouseButton button) const noexcept {
+    if (m_mouseSuppressed) {
+        return false;
+    }
     const std::size_t index = indexOf(button);
     return index < kButtonCount && m_buttonsPressed.test(index);
 }
 
 bool InputState::mouseButtonReleased(MouseButton button) const noexcept {
+    if (m_mouseSuppressed) {
+        return false;
+    }
     const std::size_t index = indexOf(button);
     return index < kButtonCount && m_buttonsReleased.test(index);
 }
 
 CursorPosition InputState::cursorDelta() const noexcept {
-    if (!m_hasCursor) {
+    if (!m_hasCursor || m_mouseSuppressed) {
         return CursorPosition{};
     }
     return CursorPosition{m_cursor.x - m_previousCursor.x,

@@ -1,7 +1,8 @@
 # UI API reference
 
 Every public type in `UI`: the ImGui/ImPlot context, bound controls,
-live plots, and the stats overlay. Start with [docs/ui.md](../ui.md) for how
+live plots, the stats overlay, and the camera status overlay. Start with
+[docs/ui.md](../ui.md) for how
 `UI` composes with `Renderer` into the same window and frame;
 [src/UI/README.md](../../src/UI/README.md) has the full widget list.
 
@@ -26,6 +27,8 @@ public:
 
     void beginFrame();   // call once per frame, before any ImGui/Panel/plot calls
     void endFrame();       // renders everything since beginFrame() into the bound framebuffer
+
+    bool wantsMouseCapture() const noexcept;   // true while hovering/interacting with a panel widget
 };
 ```
 
@@ -35,6 +38,23 @@ anything (like `PlotPanel`'s default cascade) whose default position is
 itself part of what's being verified. `beginFrame`/`endFrame` don't clear
 the framebuffer; they overlay on whatever `Renderer` already drew that
 frame.
+
+`wantsMouseCapture()` reflects the *previous* frame's ImGui state if
+called before this frame's own `beginFrame()` (the value is computed
+inside `ImGui::NewFrame()`) — the same one-frame lag every bound `Panel`
+control already has. Call it right after `Platform::pollEvents()`, and if
+it's true, call `InputState::suppressMouseThisFrame()`
+([docs/api/platform.md](platform.md)) before driving anything that reads
+mouse input, such as a camera controller — otherwise a click on a panel
+widget also acts on the 3D view underneath it:
+
+```cpp
+window->input().newFrame();
+ysq::Platform::pollEvents();
+if (ui.wantsMouseCapture()) {
+    window->input().suppressMouseThisFrame();
+}
+```
 
 ## `UI/Panel.hpp`
 
@@ -131,6 +151,29 @@ application from day one.
 ```cpp
 statsOverlay.update(frame.lap().count(), renderer.drawCallCount());
 statsOverlay.draw();
+```
+
+## `UI/CameraOverlay.hpp`
+
+```cpp
+class CameraOverlay {
+public:
+    void update(std::string statusText);
+    void draw();
+};
+```
+
+A small always-on-top overlay for a camera's current status, mirroring
+`StatsOverlay`'s shape. Takes plain text rather than a `Renderer` type --
+`Renderer` and `UI` are peers, so `UI` cannot depend on `Renderer` to know a
+richer status type -- built by a Renderer-side source such as
+`SceneCameraController::statusText()`
+([docs/api/renderer.md](renderer.md)), which already knows which of
+position/mode/speed/POV detail is relevant to show.
+
+```cpp
+cameraOverlay.update(sceneCamera.statusText(camera, objects));
+cameraOverlay.draw();
 ```
 
 ---

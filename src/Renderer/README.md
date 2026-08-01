@@ -24,6 +24,29 @@ Column-major matrices, column-vector convention, OpenGL clip space (`z` in
 `lookAt`/`perspective`/`orthographic` factories rather than reimplementing
 them.
 
+**Depth is reversed-Z**: `Camera::projectionMatrix()` calls
+`Matrix4::perspective`/`orthographic` with `nearPlane`/`farPlane` swapped —
+algebraically identical to a dedicated reversed matrix, so `Matrix4` itself
+stays the standard-convention primitive `Math/Matrix4.hpp` documents; only
+`Renderer`'s own use of it is reversed. Near maps to NDC/window depth 1.0,
+far to 0.0 (the opposite of the textbook mapping), paired with
+`glClearDepth(0.0)`, `glDepthFunc(GL_GREATER)` (both set fresh every
+`Renderer::beginFrame()`), and a floating-point depth attachment
+(`GL_DEPTH32F_STENCIL8` in `RenderTarget::create()`). A standard depth
+buffer spends nearly all its precision right next to the near plane; at the
+dynamic range this engine's true-to-scale scenarios produce (a camera
+standing on a small body's surface while the far plane reaches system-wide
+extent — ratios past 1e8 are real, not hypothetical), that leaves almost
+none for anything farther out, which reads as z-fighting. Reversed-Z with a
+float depth buffer distributes precision evenly across the range instead,
+since float's own representable values are naturally denser near 0.0 —
+where far geometry now lands — rather than compounding the projection's own
+bias toward the near plane. `Renderer::drawSkybox()`'s temporary depth-func
+override and `shaders/skybox.vert`'s explicit far-plane pin
+(`gl_Position.z = -gl_Position.w`, not the more familiar `.xyww`) both
+follow the same convention. `RayTracer` is unaffected — its full-screen
+pass disables `GL_DEPTH_TEST` and never reads near/far in its shader.
+
 `float`, not `double`, throughout `Renderer` and `UI`: OpenGL and ImGui are
 `float`/`int` APIs, and this is the presentation layer, where that narrowing
 is constant and deliberate rather than a physics bug. See the root
@@ -36,6 +59,7 @@ engine core.
 | --- | --- |
 | `Renderer/Camera.hpp` | Eye/target/up plus perspective or orthographic projection |
 | `Renderer/CameraController.hpp` | `OrbitCameraController`, `FreeFlyCameraController`: drive a `Camera` from input |
+| `Renderer/SceneCameraController.hpp` | `SceneCameraController`: a drop-in Orbit/FreeFly camera plus an opt-in POV/Focus mode |
 | `Renderer/Light.hpp` | `PointLight`, `DirectionalLight` |
 | `Renderer/Material.hpp` | Blinn-Phong surface parameters, shared by the rasterizer and the ray tracer |
 | `Renderer/Shader.hpp` | Vertex+fragment GLSL program, RAII |
@@ -67,6 +91,74 @@ renderer.draw(sphere, material, ysq::Matrix4<float>::translation(position));
 renderer.debugDraw().axes();
 renderer.endFrame();
 ```
+
+## Scene camera: Orbit, FreeFly, and POV/Focus
+
+`OrbitCameraController` and `FreeFlyCameraController` both use a fixed,
+simultaneous button mapping, not a mode to switch between: the right mouse
+button looks/orbits (unchanged from before pan existed), the left mouse
+button pans — drags the target/position sideways, content following the
+cursor the way dragging a canvas does in Figma, without rotating the view.
+Scroll still zooms (`Orbit`) or adjusts move speed (`FreeFly`). Neither
+controller (nor `SceneCameraController`, which composes them) checks
+`UI::ImGuiLayer::wantsMouseCapture()` itself — an `Application` that also
+draws `UI` panels in the same window must call
+`InputState::suppressMouseThisFrame()` when it does, or a click on a panel
+widget also drags the 3D camera underneath it; see
+`Applications/SolarSystem/main.cpp` and `LunarEclipse/main.cpp` for the
+one-line pattern both use.
+
+`SceneCameraController` (`Renderer/SceneCameraController.hpp`) composes
+`OrbitCameraController` and `FreeFlyCameraController` into one drop-in
+camera, plus an opt-in POV/Focus mode that stands the camera on one body's
+surface and looks at another. It follows the same "no scene graph" rule as
+the rest of `Renderer`: it operates on a plain `std::span<const
+NamedSphere>` (name, position, radius) a caller rebuilds fresh every frame,
+never on `Physics::Body` or any application-specific type, so it is a
+generic camera primitive rather than something that knows what "Earth" or
+"Moon" is.
+
+Left at its defaults (`povIndex == -1`, "Free"), it behaves exactly like
+driving `orbit`/`freeFly` directly — nothing about POV/Focus is active
+until a caller sets `povIndex`. The full behavior matrix, keyed by
+POV/Focus:
+
+| POV | Focus | Behavior |
+| --- | --- | --- |
+| Free | Free | Plain `Orbit`/`FreeFly` navigation, unchanged. |
+| Free | body | Auto-track: in `Orbit` mode, `orbit.target` snaps to the focus body's position every frame while mouse/scroll still work normally (left-drag pan has no lasting effect here — the same snap overwrites it again next frame — for the same reason manually setting `orbit.target` yourself would not stick either). A no-op in `FreeFly` mode — forcing the look direction would fight WASD/mouse steering. |
+| body | other body | Locked: camera anchors to the point on the POV body's surface closest to the focus body and looks at it. Only scroll (an FOV zoom) and `R` (reset the zoom) do anything. |
+| body | Free | The camera stands on the POV body's surface. Right-mouse-drag picks which point (the same azimuth/elevation math `OrbitCameraController` uses), scroll walks a height axis from the surface up to a "space view" altitude, and the look target blends from looking straight outward near the surface to the body's center further out, so it reads as an ordinary view of the body once you've pulled back. `R` resets the angle and height. |
+
+The POV body (`X` above) is shown by default in both cases — `hidePov` is a
+manual toggle a consumer binds to e.g. a checkbox, not automatic. There is
+no terrain on these plain, untextured low-poly spheres, so a consumer that
+does hide it isn't losing any detail by doing so.
+
+`povOptions()`/`focusOptions()` return plain `std::vector<std::string>`
+option lists ("Free" first, `focusOptions()` excluding whichever body is
+currently POV) for building a dropdown in whatever UI toolkit a consumer
+uses — `Renderer` and `UI` are peers, so this is data, not a widget.
+`indexFromPovSelection()`/`indexFromFocusSelection()` translate a selection
+made against those lists back into the index `povIndex`/`focusIndex`
+expects.
+
+`statusText()` returns a short, human-readable multi-line summary of the
+camera's current state — position plus whichever of mode/speed/POV detail
+is relevant right now — for a HUD like `UI::CameraOverlay`. Same reasoning
+as the option lists: plain text, not a shared struct type, since neither
+`Renderer` nor `UI` may depend on the other.
+
+The up hint both POV submodes write to `camera.up` is derived continuously
+from the previous frame's own hint (`continuousUpHint()` in
+`SceneCameraController.cpp`), not by switching between two fixed world
+axes near a pole — that switch is what a real regression looked like: a
+tracked body sweeping close to directly overhead visibly flipped the
+camera as the switch's threshold crossed.
+
+See the [Controls](../../docs/renderer.md#controls) section of the
+consumer docs for every key binding across `Orbit`, `FreeFly`, and
+POV/Focus.
 
 ## 2D is not a separate path
 

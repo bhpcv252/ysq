@@ -191,6 +191,16 @@ synthetic releases are reported as edges, so a handler watching for one still
 sees it, and the cursor baseline is dropped so that coming back to the window
 does not read as one enormous mouse movement.
 
+**`suppressMouseThisFrame()`** makes every mouse button/cursor-delta/scroll
+query answer as if nothing were happening, for the rest of the current
+frame — a query-time override, not a mutation of the real tracked state, so
+it reads correctly again the instant `newFrame()` resets it. `InputState`
+still knows nothing about `UI`/ImGui (this module sits below both); a
+caller that also draws ImGui panels in the same window (an `Application`)
+is the one that knows whether ImGui wants the mouse this frame, and calls
+this to keep that click from also acting on whatever else reads mouse
+input, such as a `Renderer` camera controller.
+
 ## Testing
 
 `tests/unit/platform_input.cpp` and `tests/unit/platform_window.cpp` need no

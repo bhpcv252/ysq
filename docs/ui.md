@@ -25,6 +25,7 @@ without `UI` needing any per-application knowledge.
 | `UI/ImGuiLayer.hpp` | Owns the ImGui/ImPlot contexts, ties them to the window |
 | `UI/Panel.hpp` | Bound widgets: slider, checkbox, color edit, readout, button, combo |
 | `UI/StatsOverlay.hpp` | Frame time, FPS, draw-call count |
+| `UI/CameraOverlay.hpp` | A camera's current status (position, speed, POV/Focus, ...) as plain text |
 | `UI/PlotPanel.hpp` | `TimeSeriesPlot`, `ScatterPlot`: live charts backed by ImPlot |
 
 A chart here (an energy-drift curve, a Minkowski diagram, orbital elements
@@ -62,7 +63,8 @@ the simulation's own state.
 ## Go deeper
 
 [docs/api/ui.md](api/ui.md) has every signature: `ImGuiLayer`, every
-`Panel` binding, `TimeSeriesPlot`/`ScatterPlot`, and `StatsOverlay`.
+`Panel` binding, `TimeSeriesPlot`/`ScatterPlot`, `StatsOverlay`, and
+`CameraOverlay`.
 
 [src/UI/README.md](../src/UI/README.md) has the full widget list and the
 `ScatterPlot` type for phase-space-style plots rather than time series.

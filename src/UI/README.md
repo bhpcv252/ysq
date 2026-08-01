@@ -19,6 +19,7 @@ Built only under `YSQ_BUILD_GRAPHICS`, same as `Renderer`.
 | `UI/ImGuiLayer.hpp` | Owns the ImGui/ImPlot contexts and their GLFW+OpenGL3 backends |
 | `UI/Panel.hpp` | Generic bound-widget vocabulary: slider, checkbox, color edit, readout, button, combo |
 | `UI/StatsOverlay.hpp` | Frame time, FPS, draw-call count |
+| `UI/CameraOverlay.hpp` | A camera's current status (position, mode-specific detail) as plain text a Renderer-side source builds |
 | `UI/PlotPanel.hpp` | `TimeSeriesPlot`, `ScatterPlot`: live charts backed by ImPlot |
 
 ## Bind, don't hardcode
@@ -44,6 +45,16 @@ energyPlot.addSample(simulationTime, totalEnergy);
 energyPlot.draw();
 ui.endFrame();
 ```
+
+## Keeping panel clicks out of the 3D view
+
+`ImGuiLayer::wantsMouseCapture()` reports whether a panel widget currently
+wants the mouse. An `Application` driving a `Renderer` camera controller in
+the same window should check it each frame and call
+`Platform::InputState::suppressMouseThisFrame()` when true — otherwise
+dragging a slider also drags the 3D camera underneath it, since neither
+`OrbitCameraController` nor `FreeFlyCameraController` know anything about
+`UI` (`Renderer` and `UI` are peers) and so cannot check this themselves.
 
 ## Charts are diagnostics, not the 3D view
 

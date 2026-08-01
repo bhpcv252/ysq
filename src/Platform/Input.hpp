@@ -333,6 +333,16 @@ public:
     /// cursorDelta() measures from.
     void newFrame() noexcept;
 
+    /// Makes every mouse button/cursor-delta/scroll query answer as if
+    /// nothing were happening, for the rest of the current frame -- call
+    /// once per frame, before driving anything that reads mouse input, when
+    /// something else (a UI layer) has already claimed the mouse. A
+    /// query-time override, not a mutation of the real tracked state: the
+    /// underlying button-down/cursor/scroll state is untouched and reads
+    /// correctly again as soon as newFrame() resets this on the next frame.
+    /// Keyboard queries are unaffected.
+    void suppressMouseThisFrame() noexcept { m_mouseSuppressed = true; }
+
     /// Back to the state of a freshly constructed InputState.
     void reset() noexcept;
 
@@ -340,6 +350,8 @@ public:
     [[nodiscard]] bool keyPressed(Key key) const noexcept;
     [[nodiscard]] bool keyReleased(Key key) const noexcept;
 
+    /// False while suppressMouseThisFrame() is in effect, regardless of the
+    /// real underlying state.
     [[nodiscard]] bool mouseButtonDown(MouseButton button) const noexcept;
     [[nodiscard]] bool mouseButtonPressed(MouseButton button) const noexcept;
     [[nodiscard]] bool mouseButtonReleased(MouseButton button) const noexcept;
@@ -351,7 +363,8 @@ public:
     [[nodiscard]] CursorPosition cursor() const noexcept { return m_cursor; }
 
     /// Movement since the last newFrame(), in the same coordinates as cursor().
-    /// Zero until the cursor has been seen at least once.
+    /// Zero until the cursor has been seen at least once, or while
+    /// suppressMouseThisFrame() is in effect.
     [[nodiscard]] CursorPosition cursorDelta() const noexcept;
 
     /// True once a cursor position has been received, so a first frame can tell
@@ -359,8 +372,11 @@ public:
     [[nodiscard]] bool hasCursor() const noexcept { return m_hasCursor; }
 
     /// Scroll accumulated during this frame. A wheel emits several events per
-    /// notch on some drivers, so these are summed rather than replaced.
-    [[nodiscard]] ScrollOffset scrollDelta() const noexcept { return m_scroll; }
+    /// notch on some drivers, so these are summed rather than replaced. Zero
+    /// while suppressMouseThisFrame() is in effect.
+    [[nodiscard]] ScrollOffset scrollDelta() const noexcept {
+        return m_mouseSuppressed ? ScrollOffset{} : m_scroll;
+    }
 
 private:
     static constexpr std::size_t kKeyCount = static_cast<std::size_t>(Key::Count);
@@ -380,6 +396,7 @@ private:
     CursorPosition m_previousCursor{};
     ScrollOffset m_scroll{};
     bool m_hasCursor = false;
+    bool m_mouseSuppressed = false;
 };
 
 }  // namespace ysq
