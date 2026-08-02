@@ -39,6 +39,9 @@ far.
 | `Physics/Spacetime/Kerr.hpp` | Rotating mass |
 | `Physics/Spacetime/FLRW.hpp` | Expanding universe, single-component analytic solutions |
 | `Physics/Spacetime/Geodesic.hpp` | Timelike and null geodesics |
+| `Physics/Spacetime/ADM.hpp` | The primitive 3+1 variables as `Grid3D` fields: a spacetime that evolves, not a prescribed one |
+| `Physics/Spacetime/Bssn.hpp` | The BSSN reformulation, its evolution equations, and the moving-puncture gauge |
+| `Physics/Spacetime/PunctureInitialData.hpp` | Brandt-Brügmann puncture data with Bowen-York extrinsic curvature |
 | `Physics/Optics/Propagation.hpp` | Light as a null geodesic |
 | `Physics/Optics/Lensing.hpp` | Gravitational deflection angle |
 | `Physics/Optics/FrequencyShift.hpp` | Doppler, gravitational and cosmological shift, one formula |
@@ -178,6 +181,12 @@ to `0`, checked with `isTimelike` / `isNull`.
 
 Full derivations, each metric's line element, and the geodesic tests'
 reasoning are in [Derivations](#derivations) below.
+
+**Every metric above is prescribed, not solved for.** `ADM.hpp`, `Bssn.hpp`
+and `PunctureInitialData.hpp` are this module's other case: a spacetime the
+engine itself evolves, one timestep at a time, from Einstein's field
+equations rather than from a closed form someone solved by hand. See
+[3+1 and BSSN](#3+1-and-bssn) below.
 
 ## Optics: light propagation, lensing and frequency shift are one geodesic
 
@@ -625,6 +634,187 @@ an acceleration that is identically zero. In Schwarzschild, a null geodesic
 launched tangentially at the photon sphere, `r = 1.5 r_s`, holds that radius:
 the unstable circular photon orbit, and the test that actually exercises
 `christoffelSymbols` and the stepper together on curved spacetime.
+
+### 3+1 and BSSN
+
+Every metric above is a closed-form solution someone already solved
+Einstein's equations to get. `ADM.hpp`, `Bssn.hpp` and
+`PunctureInitialData.hpp` are what lets this engine solve them itself:
+given a spatial slice's own geometry and matter content, evolve what the
+next slice looks like, rather than only tracing a test particle through a
+geometry handed to it. This is genuine engine infrastructure, general for
+any consumer who needs a spacetime that responds to what's in it -- not
+built for, or limited to, any one scenario.
+
+**The 3+1 (ADM) split.** Foliate spacetime into a stack of spatial slices,
+each with its own metric `gamma_ij`, and describe how one slice is embedded
+in spacetime by its extrinsic curvature `K_ij` -- how the normal vector to
+the slice changes as you move within it. The lapse `alpha` and shift
+`beta^i` say how to step from one slice to the next: `alpha` is how much
+proper time passes for an observer moving normal to the slice, `beta^i` is
+how the spatial coordinates themselves shift. Einstein's equations become
+an initial-value problem in these variables: two evolution equations
+(for `gamma_ij` and `K_ij`) and two constraint equations (Hamiltonian and
+momentum) that must hold on every slice, evolution preserving them if they
+held on the last one. See Gourgoulhon, "3+1 formalism and bases of
+numerical relativity" (arXiv:gr-qc/0703035) for the full derivation from
+the 4D field equations.
+
+**Why BSSN, not raw ADM.** The plain ADM evolution equations are only
+weakly hyperbolic: small, high-frequency errors are not damped, and a
+numerical evolution built on them is unstable beyond the shortest runs.
+Baumgarte & Shapiro (Phys. Rev. D 59, 024007, 1998) and, independently,
+Shibata & Nakamura (Phys. Rev. D 52, 5428, 1995) found a reformulation that
+fixes this:
+
+- **Conformal decomposition.** `gamma_ij = e^{4 phi} gammaTilde_ij`, with
+  `phi` chosen so `det(gammaTilde_ij) = 1`.
+- **Trace/trace-free split.** `K_ij = Atilde_ij / e^{-4 phi} + (1/3) gamma_ij K`
+  (equivalently, `Atilde_ij = e^{-4 phi} (K_ij - (1/3) gamma_ij K)`), `K`
+  evolved as its own variable.
+- **Promoting the contracted Christoffel symbols to an independent
+  variable**, `GammaTilde^i = gammaTilde^jk GammaTilde^i_jk`, evolved by its
+  own equation rather than recomputed from second derivatives of
+  `gammaTilde_ij` every step. This is the specific change that makes the
+  system strongly hyperbolic -- substituting the momentum constraint into
+  this variable's own evolution equation is what removes the weakly
+  hyperbolic terms raw ADM has.
+
+`Bssn.hpp`'s evolved state is exactly `(phi, gammaTilde_ij, K, Atilde_ij,
+GammaTilde^i, alpha, beta^i, B^i)`, the last an auxiliary variable the
+shift condition below needs. The evolution equations themselves (cited
+individually in `Bssn.cpp`'s own comments, term by term, since this is the
+single most index-heavy derivation in the codebase and worth being able to
+check against the source directly):
+
+```
+dt phi        = beta^i d_i phi - (1/6) alpha K
+dt gammaTilde_ij = -2 alpha Atilde_ij + Lie_beta(gammaTilde_ij)
+dt K          = -gamma^ij D_i D_j alpha + alpha (Atilde_ij Atilde^ij + K^2/3) + beta^i d_i K
+dt Atilde_ij  = e^{-4 phi} [-D_i D_j alpha + alpha R_ij]^TF
+              + alpha (K Atilde_ij - 2 Atilde_ik Atilde^k_j) + Lie_beta(Atilde_ij)
+dt GammaTilde^i = gammaTilde^jk d_j d_k beta^i + (1/3) gammaTilde^ij d_j d_k beta^k
+                + beta^j d_j GammaTilde^i - GammaTilde^j d_j beta^i
+                + (2/3) GammaTilde^i d_j beta^j - 2 Atilde^ij d_j alpha
+                + 2 alpha (GammaTilde^i_jk Atilde^jk - (2/3) gammaTilde^ij d_j K
+                           - 6 Atilde^ij d_j phi)
+```
+
+`R_ij` is the physical Ricci tensor, split as `R_ij = RtildeIJ + R^phi_ij`:
+`RtildeIJ` (the conformal metric's own Ricci tensor, built from
+`GammaTilde^i` rather than directly from second derivatives of
+`gammaTilde_ij`, per the strong-hyperbolicity point above) and `R^phi_ij`
+(the standard conformal-transformation correction from `phi`'s own
+gradient and Hessian). `conformalRicciAt` in `Bssn.cpp` implements
+`RtildeIJ` as literally as possible -- direct nested summation over every
+term, no hand-simplified closed form -- specifically so it can be checked
+term by term against Baumgarte & Shapiro's own equations rather than
+trusted on the strength of this description alone.
+
+**Moving-puncture gauge.** 1+log slicing for the lapse (Bona-Masso family,
+`dt alpha = beta^i d_i alpha - 2 alpha K`) and a Gamma-driver for the shift
+(`dt beta^i = (3/4) B^i`, `dt B^i = dt GammaTilde^i - eta B^i`): the
+combination that made dynamical black-hole evolution numerically tractable
+(Campanelli, Lousto, Marronetti & Zlochower 2006; Baker, Centrella, Choi,
+Koppitz & van Meter 2006; van Meter et al. 2006). This omits the advective
+(`beta^j d_j B^i` / `beta^j d_j GammaTilde^i`) terms some implementations
+add to the Gamma-driver: those mainly help track a puncture moving quickly
+across the grid (an orbiting or merging binary), not the stability of
+evolution itself, so this module does not need them yet -- a future
+consumer whose scenario does can add them.
+
+**Time integration reuses `Rk4Stepper`.** BSSN's evolution is a
+Method-of-Lines system, `dt(state) = RHS(state, spatial derivatives)` --
+exactly `Math/ODE.hpp`'s general `OdeSystem` shape. `BssnState` implements
+`OdeState` by delegating its vector-space operations field by field to
+`Grid3D`'s own (added there for exactly this reason), so it hands straight
+to `Rk4Stepper<BssnState>` with no new integrator needed, unlike
+`Physics/Gravity/PostNewtonian.hpp`'s velocity-dependent correction, which
+genuinely cannot use any of the symplectic steppers.
+
+**Puncture initial data.** A slice's `gamma_ij` and `K_ij` cannot be chosen
+freely -- they must satisfy the Hamiltonian and momentum constraints before
+evolution even starts. Brandt & Brügmann's puncture construction
+(arXiv:gr-qc/9711015), with Bowen-York extrinsic curvature (Bowen & York,
+Phys. Rev. D 21, 2047, 1980):
+
+```
+AbarIJ = (3 / 2 r^2) [P^i n^j + P^j n^i - (delta^ij - n^i n^j) P.n]
+       + (3 / r^3) [(S x n)^i n^j + (S x n)^j n^i]
+```
+
+satisfies the momentum constraint identically, for any puncture
+mass/momentum/spin, in a conformally flat background -- an exact, closed-form
+property of this particular ansatz, not a numerical coincidence. That
+leaves only the Hamiltonian constraint, one elliptic equation for the
+conformal factor's correction `u` (`psi = 1 + sum m_i/(2 r_i) + u`, the
+singular Brill-Lindquist part factored out so `u` itself is smooth
+everywhere, including at every puncture):
+
+```
+flatLaplacian(u) = -(1/8) AbarIJ AbarIJ (1 + sum m_i/(2 r_i) + u)^{-7}
+```
+
+solved by `Math/Multigrid.hpp`'s general FAS (Full Approximation Scheme)
+nonlinear multigrid solver, not a plain relaxation loop. For a single,
+momentarily-static puncture, `AbarIJ` is identically zero and `u = 0` is
+the exact solution regardless of which solver finds it; a binary's is not
+(see "Binary initial data" below), which is the actual reason this moved
+off plain Gauss-Seidel -- plain relaxation converges far too slowly once
+there is a genuinely nonzero, spatially varying source term to resolve.
+
+**Binary initial data.** Two punctures, momentarily on a quasi-circular
+orbit, need nonzero momentum: `PunctureSpec::momentum` opposite and equal
+in magnitude on each, estimated by the Newtonian circular-orbit relation
+`P = mu sqrt(M / D)` (`mu` the reduced mass, `M` the total mass, `D` the
+coordinate separation) --
+`newtonianCircularMomentum` in `PunctureInitialData.hpp`. This is the
+standard, simple starting point real numerical-relativity papers themselves
+use before iterative refinement (Cook's effective-potential method,
+post-Newtonian momenta, eccentricity reduction); genuinely accurate
+quasi-circular data construction is its own research topic and not
+approximated further here. With nonzero momentum, `AbarIJ` is genuinely
+nonzero and spatially varying, and its square enters the Hamiltonian
+constraint's source term steeply near each puncture -- exactly the case
+multigrid exists for, and exactly what a single static puncture's `u = 0`
+answer never exercised.
+
+**Validation.** `tests/unit/bssn.cpp` builds a static Schwarzschild puncture
+directly (not via the solver) and checks that `hamiltonianConstraint` is
+small in the bulk (away from the handful of cells immediately around the
+puncture, where any discretization of `1 + m/2r` has large local truncation
+error regardless of correctness) and shrinks under grid refinement -- the
+actual signature of a correct implementation, not merely a small number at
+one resolution. `tests/integration/single_puncture_stability.cpp` is Stage
+1's full validated milestone: evolve, confirm the run stays finite and the
+constraint stays bounded (not growing without limit) through the initial
+"wormhole to trumpet" transient the moving-puncture gauge produces (Hannam,
+Husa, Pollney, Brügmann & O'Murchadha, arXiv:0804.0628), and confirm the
+ADM mass recovered from `psi = e^{phi}`'s own asymptotic falloff is
+consistent with the puncture's input mass.
+
+`tests/integration/binary_puncture_stability.cpp` is Stage 2's own
+milestone: two equal-mass, non-spinning punctures at a wide (`D = 6M`)
+separation, with the quasi-circular momentum above. Multigrid converges in
+18 V-cycles on this genuinely nontrivial source term (down from the
+default cap of 50, and the test itself asserts under 30), with a bulk
+Hamiltonian-constraint violation around 4e-3 on the raw initial data.
+Both the Hamiltonian and momentum constraints, excluding both the
+near-puncture cells (the same well-understood, expected large local error
+as the static case) and a domain-edge margin (this test's simplified
+outflow boundary condition does not itself satisfy either constraint, by
+construction, near the edge -- see that test's own doc comment), stay
+small and bounded through a short evolution.
+
+**Scope, honestly.** At the resolution and step count this suite runs on
+every push (16 cells across, 16 RK4 steps), the run covers a negligible
+fraction of one Newtonian orbital period and is not itself evidence the
+orbit tracks the Newtonian estimate `newtonianCircularMomentum` provides --
+only that initial data construction and short-term evolution are stable.
+A longer, higher-resolution run to actually verify orbital dynamics is a
+real gap, not something already checked elsewhere in this repository; it
+needs its own follow-up before this stage's initial data can be trusted
+for anything beyond the stability this suite verifies.
 
 ### Schwarzschild
 

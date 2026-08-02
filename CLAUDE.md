@@ -57,6 +57,15 @@ outside `Applications/`, state whether it is general outside this one
 scenario, or only makes sense because of what this scenario is trying to
 show. If the latter, it belongs in `Applications/`.
 
+**Engine completeness.** The goal is a complete simulation engine other
+people build arbitrary simulations on top of, not the minimum one
+application in front of you needs. Judge whether something belongs in the
+engine by whether it's a general law, method, or piece of infrastructure any
+consumer could need — never by whether the current task's application
+happens to use it. If the engine is missing a general capability, that's a
+reason to build it there, not a reason to scope it down to what the
+immediate app requires.
+
 ## Workflow
 
 **Plan first, every task. No exceptions.**
@@ -79,6 +88,13 @@ appropriate), and updating any affected docs (`README.md`, module `README.md`,
 `docs/`). After implementing, run the build and the full test suite yourself,
 confirm both pass, and fix anything that fails before reporting back. Run the build
 and tests yourself — don't hand the commands back to the human.
+
+**Never defer or mark anything "out of scope" unilaterally.** If part of a
+task seems better left for later (too large, too risky, needs infrastructure
+that doesn't exist yet, whatever the reason), do not just decide that and
+move on. Say so explicitly, explain why, and ask the human whether it's
+actually okay to defer. The human decides what's in and out of scope, not
+the plan.
 
 ## Committing
 

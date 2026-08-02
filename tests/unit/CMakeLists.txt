@@ -37,6 +37,12 @@ ysq_add_test(test_math_ode SOURCES math_ode.cpp
     LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_integrators SOURCES math_integrators.cpp
     LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_grid3d SOURCES grid3d.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_finite_difference SOURCES finite_difference.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_multigrid SOURCES multigrid.cpp
+    LIBS ysq::Math ysq::TestSupport)
 
 # Units links ysq::Units for the module itself and ysq::TestSupport only for
 # the tests/ include root, which is what makes <support/UnitsApprox.hpp>
@@ -97,6 +103,8 @@ ysq_add_test(test_spacetime_kerr SOURCES spacetime_kerr.cpp
 ysq_add_test(test_spacetime_flrw SOURCES spacetime_flrw.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_spacetime_geodesic SOURCES spacetime_geodesic.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_bssn SOURCES bssn.cpp
     LIBS ysq::Physics ysq::TestSupport)
 
 ysq_add_test(test_optics_propagation SOURCES optics_propagation.cpp

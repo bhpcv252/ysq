@@ -24,6 +24,11 @@ add_library(ysq_physics STATIC
     Spacetime/Kerr.hpp
     Spacetime/FLRW.hpp
     Spacetime/Geodesic.hpp
+    Spacetime/ADM.hpp
+    Spacetime/Bssn.hpp
+    Spacetime/Bssn.cpp
+    Spacetime/PunctureInitialData.hpp
+    Spacetime/PunctureInitialData.cpp
 
     Optics/Propagation.hpp
     Optics/Lensing.hpp

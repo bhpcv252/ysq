@@ -21,8 +21,10 @@
 #include <Math/Complex.hpp>
 #include <Math/CoordinateSystems.hpp>
 #include <Math/Dual.hpp>
+#include <Math/FiniteDifference.hpp>
 #include <Math/Format.hpp>
 #include <Math/Grid.hpp>
+#include <Math/Grid3D.hpp>
 #include <Math/Integrators/Adaptive.hpp>
 #include <Math/Integrators/Euler.hpp>
 #include <Math/Integrators/RK4.hpp>
@@ -32,6 +34,7 @@
 #include <Math/Matrix2.hpp>
 #include <Math/Matrix3.hpp>
 #include <Math/Matrix4.hpp>
+#include <Math/Multigrid.hpp>
 #include <Math/ODE.hpp>
 #include <Math/Quaternion.hpp>
 #include <Math/Scalar.hpp>
@@ -74,6 +77,8 @@ template struct ysq::Tensor<double, 2, 4>;
 template struct ysq::Tensor<double, 4, 4>;
 template class ysq::Grid1D<float>;
 template class ysq::Grid1D<double>;
+template class ysq::Grid3D<float>;
+template class ysq::Grid3D<double>;
 
 // The composition this whole design exists for: a vector over a dual scalar.
 // If Dual ever stops satisfying Numeric, this is where it stops compiling.
@@ -590,6 +595,78 @@ T exerciseGrid() {
 }
 
 template <class T>
+T exerciseGrid3D() {
+    T acc{};
+
+    ysq::Grid3D<T> grid(3, 3, 3, 0.5, 3);
+    for (std::ptrdiff_t i = 0; i < 3; ++i) {
+        for (std::ptrdiff_t j = 0; j < 3; ++j) {
+            for (std::ptrdiff_t k = 0; k < 3; ++k) {
+                grid(i, j, k) = static_cast<T>(i + j + k);
+            }
+        }
+    }
+    grid.applyPeriodicBoundary();
+
+    const ysq::Grid3D<T>& constGrid = grid;
+    acc += constGrid(-1, 0, 0) + constGrid(0, -1, 0) + constGrid(0, 0, -1);
+    acc += constGrid(3, 0, 0) + constGrid(0, 3, 0) + constGrid(0, 0, 3);
+    acc += static_cast<T>(constGrid.cellCountX() + constGrid.cellCountY() +
+                          constGrid.cellCountZ() + constGrid.ghostCells());
+    acc += static_cast<T>(constGrid.spacing());
+
+    return acc;
+}
+
+template <class T>
+T exerciseFiniteDifference() {
+    T acc{};
+
+    ysq::Grid3D<T> grid(3, 3, 3, 0.5, 3);
+    for (std::ptrdiff_t i = -3; i < 6; ++i) {
+        for (std::ptrdiff_t j = -3; j < 6; ++j) {
+            for (std::ptrdiff_t k = -3; k < 6; ++k) {
+                grid(i, j, k) = static_cast<T>(i) + static_cast<T>(j) + static_cast<T>(k);
+            }
+        }
+    }
+
+    acc += ysq::firstDerivative(grid, 0, 0, 0, ysq::Axis::X, 0.5);
+    acc += ysq::secondDerivative(grid, 0, 0, 0, ysq::Axis::Y, 0.5);
+    acc += ysq::mixedSecondDerivative(grid, 0, 0, 0, ysq::Axis::X, ysq::Axis::Z, 0.5, 0.5);
+    acc += ysq::kreissOligerDissipation(grid, 0, 0, 0, ysq::Axis::Z, 0.5, 0.1);
+    acc += ysq::kreissOligerDissipation3D(grid, 0, 0, 0, 0.5, 0.1);
+
+    return acc;
+}
+
+double exerciseMultigrid() {
+    ysq::Grid3D<double> u(8, 8, 8, 0.25, 1);
+
+    const auto applyOperator = [](const ysq::Grid3D<double>& field, std::ptrdiff_t i,
+                                  std::ptrdiff_t j, std::ptrdiff_t k, double h) {
+        return (field(i + 1, j, k) + field(i - 1, j, k) + field(i, j + 1, k) +
+               field(i, j - 1, k) + field(i, j, k + 1) + field(i, j, k - 1) -
+               6.0 * field(i, j, k)) /
+              (h * h);
+    };
+    const auto relaxPoint = [](ysq::Grid3D<double>& field, std::ptrdiff_t i, std::ptrdiff_t j,
+                               std::ptrdiff_t k, double h, double target) {
+        const double neighborSum = field(i + 1, j, k) + field(i - 1, j, k) +
+                                   field(i, j + 1, k) + field(i, j - 1, k) +
+                                   field(i, j, k + 1) + field(i, j, k - 1);
+        field(i, j, k) = (neighborSum - target * h * h) / 6.0;
+    };
+    const auto applyBoundary = [](ysq::Grid3D<double>&) {};
+
+    const ysq::MultigridSettings settings{2, 2, 3, 1.0e-12, 4};
+    const ysq::MultigridResult result =
+        ysq::solveFAS(u, u.spacing(), applyOperator, relaxPoint, applyBoundary, settings);
+    return static_cast<double>(result.vCyclesUsed) + result.finalResidual +
+          (result.converged ? 1.0 : 0.0);
+}
+
+template <class T>
 T exerciseIntegrators() {
     using V3 = ysq::Vector3<T>;
     using Phase = ysq::PhaseState<V3>;
@@ -722,6 +799,11 @@ TEST(MathStrictWarnings, EveryTemplateInstantiatesForFloatAndDouble) {
     EXPECT_TRUE(std::isfinite(exerciseNumerics<double>()));
     EXPECT_TRUE(std::isfinite(exerciseGrid<float>()));
     EXPECT_TRUE(std::isfinite(exerciseGrid<double>()));
+    EXPECT_TRUE(std::isfinite(exerciseGrid3D<float>()));
+    EXPECT_TRUE(std::isfinite(exerciseGrid3D<double>()));
+    EXPECT_TRUE(std::isfinite(exerciseFiniteDifference<float>()));
+    EXPECT_TRUE(std::isfinite(exerciseFiniteDifference<double>()));
+    EXPECT_TRUE(std::isfinite(exerciseMultigrid()));
     EXPECT_TRUE(std::isfinite(exerciseIntersection<float>()));
     EXPECT_TRUE(std::isfinite(exerciseIntersection<double>()));
     EXPECT_TRUE(std::isfinite(exerciseIntegrators<float>()));
