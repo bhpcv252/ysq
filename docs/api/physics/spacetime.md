@@ -192,6 +192,77 @@ The affine parameter `lambda` is proper time for a timelike geodesic and has
 no invariant meaning for a null one, the ordinary situation in relativity,
 not a limitation of this solver.
 
+## `Physics/Spacetime/ADM.hpp`, `Bssn.hpp`, `PunctureInitialData.hpp`
+
+Every metric above is a fixed, prescribed solution: something moves through
+it, but nothing makes it respond to matter. These three headers are the
+other case: a spacetime the engine actually *solves for*, one timestep at a
+time, via the 3+1 (ADM) split and its strongly-hyperbolic BSSN
+reformulation. `src/Physics/README.md`'s "3+1 and BSSN" section has the full
+derivation and citations; this is the API summary.
+
+```cpp
+// ADM.hpp: the primitive 3+1 variables, one Grid3D<double> per component
+struct SymmetricSpatialTensorFields { Grid3D<double> xx, xy, xz, yy, yz, zz; /* + tensor algebra */ };
+struct SpatialVectorFields { Grid3D<double> x, y, z; };
+struct AdmData {
+    SymmetricSpatialTensorFields spatialMetric;       // gamma_ij
+    SymmetricSpatialTensorFields extrinsicCurvature;  // K_ij
+    Grid3D<double> lapse;                             // alpha
+    SpatialVectorFields shift;                        // beta^i
+};
+```
+
+```cpp
+// Bssn.hpp: the evolved (conformal) variables and the right-hand side
+struct BssnState { /* phi, gammaTilde_ij, K, AtildeIJ, GammaTilde^i, alpha, beta^i, B^i */ };
+
+BssnState admToBssn(const AdmData&);
+AdmData bssnToAdm(const BssnState&);
+BssnState bssnRhs(const BssnState&, BssnParameters);  // an OdeSystem<BssnState>, for Rk4Stepper
+
+double hamiltonianConstraint(const BssnState&, ptrdiff_t i, j, k);
+double momentumConstraint(const BssnState&, ptrdiff_t i, j, k, int component);
+```
+
+`BssnState` implements `OdeState` (vector-space operations over every
+evolved field, delegating to `Grid3D`'s own), so it hands straight to
+`Rk4Stepper<BssnState>` the same way `NBodyState` already does for gravity
+-- BSSN's evolution is a Method-of-Lines system, `Math/ODE.hpp`'s ordinary
+`OdeSystem` shape, not something needing its own integrator.
+
+```cpp
+// PunctureInitialData.hpp: valid (constraint-satisfying) initial data
+struct PunctureSpec { double mass; Vec3 position, momentum, spin; };
+PunctureInitialDataResult solvePunctureInitialData(
+    const std::vector<PunctureSpec>&, cellCountX, cellCountY, cellCountZ,
+    double spacing, std::size_t ghostCells, MultigridSettings = {});
+
+// Newtonian circular-orbit estimate, P = mu*sqrt(M/D): the standard,
+// simple starting point for a two-puncture binary's momentum, before any
+// iterative refinement real quasi-circular data construction would add.
+double newtonianCircularMomentum(double mass1, double mass2, double separation);
+```
+
+Bowen-York extrinsic curvature satisfies the momentum constraint
+analytically for any mass/momentum/spin; only the Hamiltonian constraint is
+solved numerically, by `Math/Multigrid.hpp`'s general FAS nonlinear
+multigrid solver (a single static puncture's source term is exactly zero
+and converges either way; a momentum-carrying binary's is not, which is
+why this moved off a plain relaxation loop).
+
+```cpp
+const auto result = ysq::solvePunctureInitialData(
+    {ysq::PunctureSpec{1.0, ysq::Vec3::zero(), ysq::Vec3::zero(), ysq::Vec3::zero()}},
+    20, 20, 20, 0.16, 3);
+ysq::BssnState state = ysq::admToBssn(result.adm);
+
+ysq::Rk4Stepper<ysq::BssnState> stepper;
+// a caller applies its own outer boundary condition to state's ghost
+// cells before each RHS evaluation; see tests/integration/single_puncture_stability.cpp
+// and binary_puncture_stability.cpp
+```
+
 ---
 Notice something missing or wrong on this page?
 [Open an issue](https://github.com/bhpcv252/ysq/issues/new?title=docs:+api/physics/spacetime)

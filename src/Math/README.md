@@ -29,6 +29,9 @@ computes with, and nothing that knows what it is computing about.
 | `Math/Integrators/Symplectic.hpp` | Velocity Verlet, Forest-Ruth, PEFRL                        |
 | `Math/Format.hpp`               | `std::formatter` for the value types above                   |
 | `Math/Grid.hpp`                 | A uniform 1D grid with ghost cells, for the PDE rungs in `Physics` |
+| `Math/Grid3D.hpp`               | The 3D sibling: same role, one more dimension, an `OdeState` in its own right |
+| `Math/FiniteDifference.hpp`     | Fourth-order stencils and Kreiss-Oliger dissipation, on a `Grid3D` |
+| `Math/Multigrid.hpp`            | A general nonlinear (FAS) geometric multigrid V-cycle solver, on a `Grid3D` |
 
 Derivations, coefficient tables and their sources are in
 [Derivations](#derivations) below.

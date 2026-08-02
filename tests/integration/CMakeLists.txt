@@ -53,6 +53,19 @@ ysq_add_test(test_lunar_eclipse_illumination SOURCES lunar_eclipse_illumination.
 ysq_add_test(test_fluids_shocktube SOURCES fluids_shocktube.cpp
     LIBS ysq::Physics ysq::Math)
 
+# The numerical-relativity foundation's own validated milestone: a single
+# puncture black hole, evolved with BSSN + moving-puncture gauge, checked
+# for stability and for recovering the known Schwarzschild answer. See
+# src/Physics/Spacetime/Bssn.hpp and PunctureInitialData.hpp.
+ysq_add_test(test_single_puncture_stability SOURCES single_puncture_stability.cpp
+    LIBS ysq::Physics ysq::Math)
+
+# Stage 2's own validated milestone: two orbiting punctures, initial data
+# solved by Math::Multigrid.hpp (Stage 1's single static puncture never
+# stressed the elliptic solve; a binary's nonzero Bowen-York curvature does).
+ysq_add_test(test_binary_puncture_stability SOURCES binary_puncture_stability.cpp
+    LIBS ysq::Physics ysq::Math)
+
 # A real OpenGL context, same as test_platform_context: geometry drawn to an
 # offscreen framebuffer, and a fragment-shader ray trace with shadows and
 # reflections, both read back and checked pixel by pixel. See
