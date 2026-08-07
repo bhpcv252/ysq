@@ -127,7 +127,7 @@ PunctureInitialDataResult solvePunctureInitialData(const std::vector<PunctureSpe
     // `punctureTerm` below is that second term alone, evaluated with
     // whatever `u` value is passed in (the caller decides whether that's
     // the current, not-yet-updated value -- a lagged/Picard nonlinearity,
-    // the same treatment the original relaxation solver used).
+    // the standard way to evaluate a nonlinear term semi-implicitly).
     const auto punctureTerm = [&punctures](const Vec3& point, double uValue) {
         const Tensor<double, 2, 3> aBar = bowenYorkAt(punctures, point);
         double aBarSquared = 0.0;

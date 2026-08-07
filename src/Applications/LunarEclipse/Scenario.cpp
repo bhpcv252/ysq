@@ -3,6 +3,7 @@
 #include <Math/Quaternion.hpp>
 #include <Math/Scalar.hpp>
 #include <Math/Vector3.hpp>
+#include <Physics/Gravity/Kepler.hpp>
 #include <Physics/Gravity/Newtonian.hpp>
 #include <Physics/Thermodynamics/Thermodynamics.hpp>
 #include <Units/Acceleration.hpp>
@@ -12,70 +13,13 @@
 #include <Units/Time.hpp>
 #include <Units/Unit.hpp>
 
-#include <cmath>
-
 namespace ysq::lunar_eclipse {
 
 namespace {
 
-/// Classical orbital elements: the standard six-number description of an
-/// unperturbed (two-body) ellipse. Used only to build a physically sensible
-/// *initial* state vector for the real n-body integrator to take over from,
-/// the same "osculating elements" convention real astrodynamics uses:
-/// nothing here is re-consulted once the simulation starts.
-struct OrbitalElements {
-    double semiMajorAxis;
-    double eccentricity;
-    double inclination;               // radians, from the reference (ecliptic) plane
-    double longitudeOfAscendingNode;  // radians
-    double argumentOfPeriapsis;       // radians
-    double trueAnomaly;               // radians, the starting point on the ellipse
-};
-
-struct StateVector {
-    Vec3 position;
-    Vec3 velocity;
-};
-
-/// The standard perifocal-to-reference-frame rotation (Rz(Omega) Rx(i)
-/// Rz(omega)) applied to both position and velocity in one pass, and the
-/// standard perifocal-plane position/velocity formulas ahead of it: this is
-/// the one, well-known way classical orbital elements become a Cartesian
-/// state vector. `gm` is the *central* body's own gravitational parameter,
-/// G times its mass, not the combined system's; the caller adds the
-/// central body's own position/velocity afterward.
-[[nodiscard]] StateVector stateVectorFromElements(const OrbitalElements& elements,
-                                                  double gm) {
-    const double a = elements.semiMajorAxis;
-    const double e = elements.eccentricity;
-    const double nu = elements.trueAnomaly;
-
-    const double r = a * (1.0 - e * e) / (1.0 + e * std::cos(nu));
-    const double h = std::sqrt(gm * a * (1.0 - e * e));
-
-    const double xPf = r * std::cos(nu);
-    const double yPf = r * std::sin(nu);
-    const double vxPf = -(gm / h) * std::sin(nu);
-    const double vyPf = (gm / h) * (e + std::cos(nu));
-
-    const double cosO = std::cos(elements.longitudeOfAscendingNode);
-    const double sinO = std::sin(elements.longitudeOfAscendingNode);
-    const double cosI = std::cos(elements.inclination);
-    const double sinI = std::sin(elements.inclination);
-    const double cosW = std::cos(elements.argumentOfPeriapsis);
-    const double sinW = std::sin(elements.argumentOfPeriapsis);
-
-    const double r11 = cosO * cosW - sinO * sinW * cosI;
-    const double r12 = -cosO * sinW - sinO * cosW * cosI;
-    const double r21 = sinO * cosW + cosO * sinW * cosI;
-    const double r22 = -sinO * sinW + cosO * cosW * cosI;
-    const double r31 = sinW * sinI;
-    const double r32 = cosW * sinI;
-
-    return StateVector{
-        Vec3{r11 * xPf + r12 * yPf, r21 * xPf + r22 * yPf, r31 * xPf + r32 * yPf},
-        Vec3{r11 * vxPf + r12 * vyPf, r21 * vxPf + r22 * vyPf, r31 * vxPf + r32 * vyPf}};
-}
+using ysq::KeplerStateVector;
+using ysq::OrbitalElements;
+using ysq::stateVectorFromElements;
 
 }  // namespace
 
@@ -158,16 +102,16 @@ Scenario makeScenario() {
     // and tilt of the ellipse are real.
     const OrbitalElements moonOrbit{3.84399e8, 0.0549006, radians(5.145), 0.0, 0.0, 0.0};
 
-    const StateVector earthState = stateVectorFromElements(earthOrbit, gmSun);
+    const KeplerStateVector earthState = stateVectorFromElements(earthOrbit, gmSun);
     scenario.earth.position = Length3{earthState.position};
     scenario.earth.momentum = Momentum3{earthState.velocity * earthMassKg};
 
-    const StateVector jupiterState = stateVectorFromElements(jupiterOrbit, gmSun);
+    const KeplerStateVector jupiterState = stateVectorFromElements(jupiterOrbit, gmSun);
     scenario.jupiter.position = Length3{jupiterState.position};
     scenario.jupiter.momentum =
         Momentum3{jupiterState.velocity * scenario.jupiter.mass.value()};
 
-    const StateVector moonRelative = stateVectorFromElements(moonOrbit, gmEarth);
+    const KeplerStateVector moonRelative = stateVectorFromElements(moonOrbit, gmEarth);
     scenario.moon.position = Length3{earthState.position + moonRelative.position};
     scenario.moon.momentum = Momentum3{(earthState.velocity + moonRelative.velocity) *
                                        scenario.moon.mass.value()};

@@ -38,6 +38,14 @@ void Panel::slider(std::string label, int& value, int min, int max) {
     }});
 }
 
+void Panel::inputFloat(std::string label, float& value, float step, float stepFast,
+                       const char* format) {
+    m_widgets.push_back({[label = std::move(label), &value, step, stepFast, format] {
+        wrappedLabel(label);
+        ImGui::InputFloat(("##" + label).c_str(), &value, step, stepFast, format);
+    }});
+}
+
 void Panel::checkbox(std::string label, bool& value) {
     m_widgets.push_back(
         {[label = std::move(label), &value] { ImGui::Checkbox(label.c_str(), &value); }});

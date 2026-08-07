@@ -155,8 +155,7 @@ template <Numeric T>
 /// length overflows: at double precision that is a component beyond about
 /// 1.3e154, or an underflow below about 1.5e-162. The vector is normalisable
 /// in principle there, but not without rescaling first, and reporting that is
-/// better than the zero vector the division used to produce inside a
-/// successful result.
+/// preferable to returning a zero vector as if it were a valid result.
 ///
 /// Complex::abs has no such limit because it goes through hypot. Doing the
 /// same here would cost a hypot on every normalisation on the integration

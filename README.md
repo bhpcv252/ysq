@@ -120,8 +120,8 @@ git submodule update --init --recursive
 
 | Option                   | Default | Effect                                          |
 | ------------------------ | ------- | ----------------------------------------------- |
-| `YSQ_BUILD_TESTS`        | `ON`    | Build the test suite                             |
-| `YSQ_BUILD_COMPILE_FAIL_TESTS` | `ON` | Build the tests that assert something does *not* compile. Each costs a nested compiler invocation. |
+| `YSQ_BUILD_TESTS`        | `OFF`   | Build the test suite                             |
+| `YSQ_BUILD_COMPILE_FAIL_TESTS` | `ON` | Build the tests that assert something does *not* compile. Only reached when `YSQ_BUILD_TESTS` is on; each costs a nested compiler invocation. |
 | `YSQ_BUILD_GRAPHICS`     | `ON`    | Build against GLFW, GLAD and Dear ImGui. `OFF` drops them entirely, for headless and CI builds. |
 | `YSQ_WARNINGS_AS_ERRORS` | `OFF`   | Treat warnings as errors. CI builds with this on. |
 | `YSQ_REQUIRE_HEADLESS_GL` | `OFF`  | Fail rather than skip when no headless OpenGL context can be created. For machines known to have OSMesa; CI sets it on the one job that does. |
@@ -132,6 +132,22 @@ git submodule update --init --recursive
 cmake -B build -DYSQ_BUILD_GRAPHICS=OFF   # headless: no graphics dependencies
 ```
 
+**Release is the default build type.** CMake's own default, with no
+`CMAKE_BUILD_TYPE` set, is unoptimized (no `-O2`/`-O3`), which is a real cost
+for actually running an application: a large N-body scene evaluates its
+gravity in a tight, hot loop that an unoptimized build does not speed up at
+all. This project sets `Release` whenever `CMAKE_BUILD_TYPE` is not given, so
+the default `cmake -B build` already builds optimized.
+
+`Debug` is opt-in, for working on the engine itself: every `assert()` stays
+active there, which is what catches a real bug fastest, and is the build the
+test suite is normally run against.
+
+```sh
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DYSQ_BUILD_TESTS=ON
+cmake --build build
+```
+
 ## Running
 
 Each program under `Applications/` builds to its own executable in `build/bin/`:
@@ -140,14 +156,16 @@ Each program under `Applications/` builds to its own executable in `build/bin/`:
 ./build/bin/solar-system
 ```
 
-Available: `solar-system`.
+Available: `solar-system`, `lunar-eclipse`, `kepler-solar-system`.
 
 ## Testing
 
-Tests live under `tests/` and run through CTest (built by default; disable with
-`-DYSQ_BUILD_TESTS=OFF`):
+Tests live under `tests/` and run through CTest. Not built by default; enable
+with `-DYSQ_BUILD_TESTS=ON`:
 
 ```sh
+cmake -B build -DYSQ_BUILD_TESTS=ON
+cmake --build build
 ctest --test-dir build
 ```
 
@@ -298,7 +316,10 @@ ysq/
 │   ├── UI/                          Dear ImGui panels, Dear ImPlot charts
 │   │
 │   └── Applications/                Runnable simulation programs
-│       └── SolarSystem/
+│       ├── Helper/                   Scenario-setup code shared between applications
+│       ├── SolarSystem/               Real N-body gravity, energy/momentum tracked live
+│       ├── LunarEclipse/
+│       └── KeplerSolarSystem/         Closed-form Kepler propagation, no integration cost
 │
 └── tests/
     ├── support/                    Test-only helpers, outside the engine
@@ -313,7 +334,7 @@ ysq/
 
 | Module         | Contents                                                                                                                                                                                                                                             |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Core`         | Logging (spdlog behind a facade), timing (simulation and wall-clock), UUIDs, events, configuration                                                                                                                                                                                   |
+| `Core`         | Logging (spdlog behind a facade), timing (simulation and wall-clock), UUIDs, events, configuration, CSV data loading                                                                                                                                                                                   |
 | `Math`         | Vectors, matrices, quaternions, complex/dual numbers, tensors, statistics, interpolation, calculus, ODE interface and integrators (Euler, RK4, adaptive, symplectic)                                                                                 |
 | `Units`        | Dimensioned quantities (scalar or vector) built from the SI's seven base dimensions: length, mass, time, velocity, acceleration, force, energy, temperature, electromagnetism, luminosity, and the constants that define the SI. Built on `Math` |
 | `Platform`     | Window, GL context, and input, wrapping GLFW                                                                                                                                                                                                         |

@@ -27,6 +27,22 @@ namespace {
     return rotate(body.orientation, Vec3::unitZ());
 }
 
+/// The time-derivative of `softenedTerm`, at the same `delta` = source
+/// position - query position and its own time-derivative `deltaVelocity` =
+/// source velocity - query velocity: `d/dt(gm * delta * R^-3)`, R^2 =
+/// |delta|^2 + softeningSquared not depending on time. Same convention as
+/// `softenedTerm`: points however the acceleration contribution it is the
+/// derivative of already does.
+[[nodiscard]] Vec3 softenedJerkTerm(const Vec3& delta, const Vec3& deltaVelocity, double gm,
+                                    double softeningSquared) {
+    const double r2 = lengthSquared(delta) + softeningSquared;
+    const double r = std::sqrt(r2);
+    const double r3 = r2 * r;
+    const double r5 = r3 * r2;
+    const double radialTerm = dot(delta, deltaVelocity);
+    return deltaVelocity * (gm / r3) - delta * (3.0 * gm * radialTerm / r5);
+}
+
 /// The extra acceleration a source's J2 oblateness adds on a point whose
 /// separation from the source (query position minus source position) is
 /// `fromSource`, standard result (e.g. Vallado, "Fundamentals of
@@ -108,9 +124,9 @@ std::vector<Acceleration3> newtonianAccelerations(std::span<const Body> bodies,
     std::vector<Vec3> totals(bodies.size());
 
     // Pairwise (i < j), each pair visited once, is what makes it possible
-    // to apply J2's Newton's-third-law reaction explicitly below: the
-    // per-source loop this replaced computed each body's acceleration
-    // independently and had no place to put a reaction force back onto an
+    // to apply J2's Newton's-third-law reaction explicitly below: iterating
+    // source by source would compute each body's acceleration
+    // independently, with no place to put a reaction force back onto an
     // oblate source.
     for (std::size_t i = 0; i < bodies.size(); ++i) {
         for (std::size_t j = i + 1; j < bodies.size(); ++j) {
@@ -245,6 +261,35 @@ NBodyState NewtonianField::operator()(double, const NBodyState& positions) const
         }
     }
     return result;
+}
+
+NewtonianJerkField::NewtonianJerkField(std::span<const Body> bodies, Length softening)
+    : m_softeningSquared(softening.value() * softening.value()) {
+    m_gravitationalParameters.reserve(bodies.size());
+    for (const Body& body : bodies) {
+        m_gravitationalParameters.push_back(constants::G.value() * body.mass.value());
+    }
+}
+
+std::pair<Vec3, Vec3> NewtonianJerkField::operator()(std::size_t bodyIndex,
+                                                     const NBodyState& positions,
+                                                     const NBodyState& velocities) const {
+    assert(positions.size() == m_gravitationalParameters.size());
+    assert(velocities.size() == positions.size());
+
+    Vec3 acceleration{};
+    Vec3 jerk{};
+    for (std::size_t j = 0; j < positions.size(); ++j) {
+        if (j == bodyIndex) {
+            continue;
+        }
+        const Vec3 delta = positions[j] - positions[bodyIndex];
+        const Vec3 deltaVelocity = velocities[j] - velocities[bodyIndex];
+        const double gm = m_gravitationalParameters[j];
+        acceleration += softenedTerm(delta, gm, m_softeningSquared);
+        jerk += softenedJerkTerm(delta, deltaVelocity, gm, m_softeningSquared);
+    }
+    return {acceleration, jerk};
 }
 
 }  // namespace ysq

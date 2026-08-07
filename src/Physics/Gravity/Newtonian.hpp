@@ -11,7 +11,9 @@
 #include <Units/Time.hpp>
 #include <Units/Unit.hpp>
 
+#include <cstddef>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace ysq {
@@ -98,6 +100,38 @@ private:
     // that body's j2 is zero, so the oblateness term drops out on its own.
     std::vector<double> m_j2Coefficients;
     std::vector<Vec3> m_spinAxes;  // per body, meaningless where j2Coefficient is zero
+    double m_softeningSquared;
+};
+
+/// Direct-summation Newtonian jerk (the time-derivative of the acceleration
+/// `NewtonianField` computes) for one body, given every body's position and
+/// velocity -- what `Physics/Mechanics/Hermite.hpp`'s
+/// `IndividualTimestepScheduler` needs alongside acceleration to predict
+/// and correct a body's own state, and what its own next step size is
+/// chosen from. Matches `IndividualJerkField`.
+///
+/// **J2 is not differentiated here.** Every body's `j2` term (see
+/// `NewtonianField` above) is dropped from this jerk, not merely zero when
+/// `j2` happens to be zero: differentiating the quadrupole term through a
+/// rotating spin axis is a separate derivation, future work rather than a
+/// limitation of this being wrong for a body whose `j2` actually is zero
+/// (which is every body the Solar System catalog names). A future
+/// consumer with an oblate body under this scheduler needs that term added
+/// first.
+class NewtonianJerkField {
+public:
+    explicit NewtonianJerkField(std::span<const Body> bodies,
+                                Length softening = Length::zero());
+
+    /// `bodyIndex`'s own (acceleration, jerk), summed over every other body
+    /// in `positions`/`velocities` -- both already at the same instant,
+    /// same convention `IndividualJerkField` documents.
+    [[nodiscard]] std::pair<Vec3, Vec3> operator()(std::size_t bodyIndex,
+                                                   const NBodyState& positions,
+                                                   const NBodyState& velocities) const;
+
+private:
+    std::vector<double> m_gravitationalParameters;
     double m_softeningSquared;
 };
 

@@ -54,8 +54,27 @@ public:
     /// Matrix4<float> occupies four consecutive vertex attribute slots (one
     /// vec4 per column), the layout shaders/instanced.vert expects. Replaces
     /// whatever was set before; an empty span makes drawInstanced() draw
-    /// nothing rather than reading stale data.
+    /// nothing rather than reading stale data. Also (re)fills the per-instance
+    /// light multiplier buffer (see setInstanceLightMultipliers below) to all
+    /// 1.0 -- fully lit, uncompensated -- at the new instance count, so a
+    /// caller that never calls setInstanceLightMultipliers at all sees
+    /// exactly today's behavior.
     void setInstanceTransforms(std::span<const Matrix4<float>> transforms);
+
+    /// A per-instance scale on the light-dependent (diffuse and specular,
+    /// not ambient or emissive) part of drawInstanced()'s own shading. Not
+    /// bounded to [0, 1] -- two different real reasons a caller might scale
+    /// an instance's own light this way: under 1.0 for real, geometric
+    /// eclipse/shadow support (a caller computes each instance's own real
+    /// occlusion, see Physics/Optics/Illumination.hpp's own
+    /// discOcclusionFraction, and uploads it here) without a shadow-mapping pass,
+    /// or above 1.0 for a real, distance-based exposure compensation (see
+    /// Material::lightMultiplier's own doc comment for why that is real,
+    /// not fake brightness). `factors.size()` must equal the instance count
+    /// setInstanceTransforms was last called with, same order. Call after
+    /// setInstanceTransforms, which otherwise leaves every instance at the
+    /// fully-lit, uncompensated default.
+    void setInstanceLightMultipliers(std::span<const float> factors);
 
     void draw() const;
     void drawInstanced() const;
@@ -72,6 +91,7 @@ private:
     unsigned m_vbo = 0;
     unsigned m_ebo = 0;
     unsigned m_instanceVbo = 0;
+    unsigned m_instanceLightMultiplierVbo = 0;
     std::size_t m_indexCount = 0;
     std::size_t m_instanceCount = 0;
 };

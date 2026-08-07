@@ -8,3 +8,6 @@ ysq_add_test(test_solar_system SOURCES solar_system.cpp
 
 ysq_add_test(test_lunar_eclipse SOURCES lunar_eclipse.cpp
     LIBS ysq::LunarEclipseScenario ysq::Physics ysq::Math)
+
+ysq_add_test(test_kepler_solar_system SOURCES kepler_solar_system.cpp
+    LIBS ysq::KeplerSolarSystemScenario ysq::Physics ysq::Core ysq::Math)

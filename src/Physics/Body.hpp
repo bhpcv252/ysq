@@ -36,9 +36,9 @@ struct Body {
 
     /// Gravitational oblateness (quadrupole) coefficient. Zero is a sphere:
     /// Gravity/Newtonian.hpp's field reduces to the plain point-mass term
-    /// wherever this is zero, on the source side, exactly as before this
-    /// field existed. Dimensionless by convention (J2 is normalized by
-    /// mass * radius^2), so no Quantity wrapper.
+    /// wherever this is zero, on the source side. Dimensionless by
+    /// convention (J2 is normalized by mass * radius^2), so no Quantity
+    /// wrapper.
     double j2 = 0.0;
 
     /// Ixx, Iyy, Izz about this body's own principal axes, in the frame

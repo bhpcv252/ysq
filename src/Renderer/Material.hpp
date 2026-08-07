@@ -25,6 +25,22 @@ struct Material {
     /// surface's own, [0, 1]. The rasterizer has no reflection pass and
     /// ignores this.
     float reflectivity = 0.0f;
+
+    /// `Renderer::draw()` only (RayTracer computes real shadows directly,
+    /// via its own occlusion rays, and ignores this; `drawInstanced()`
+    /// reads `Mesh::setInstanceLightMultipliers`'s own per-instance value
+    /// instead, not this): scales every light's own contribution to this
+    /// draw() call. Not bounded to [0, 1] -- it carries two different real
+    /// reasons a caller might scale a light's contribution, not just one:
+    /// under 1.0 for real eclipse/shadow support
+    /// (Physics/Optics/Illumination.hpp's own discOcclusionFraction), for the
+    /// forward path without a shadow-mapping pass; above 1.0 for a real,
+    /// distance-based exposure compensation (a photograph of Saturn needs
+    /// a far longer exposure than one of Earth to look properly lit --
+    /// this is that same real compensation, not fake brightness). Both are
+    /// the caller's own choice; this field has no opinion about which.
+    /// 1.0 (fully lit, uncompensated) by default, a no-op.
+    float lightMultiplier = 1.0f;
 };
 
 }  // namespace ysq

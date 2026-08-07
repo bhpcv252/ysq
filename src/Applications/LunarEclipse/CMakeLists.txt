@@ -17,7 +17,7 @@ add_library(ysq::LunarEclipseScenario ALIAS ysq_lunar_eclipse_scenario)
 target_include_directories(ysq_lunar_eclipse_scenario PUBLIC ${YSQ_SOURCE_INCLUDE_DIR})
 target_link_libraries(ysq_lunar_eclipse_scenario
     PUBLIC ysq::Physics
-    PRIVATE ysq::warnings)
+    PRIVATE ysq::ApplicationsHelper ysq::warnings)
 
 if(YSQ_BUILD_GRAPHICS)
     add_executable(lunar-eclipse main.cpp)

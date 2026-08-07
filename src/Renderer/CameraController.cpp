@@ -29,7 +29,8 @@ void OrbitCameraController::update(Camera& camera, const InputState& input) noex
         // `direction` points target -> camera (outward); right/trueUp need
         // the camera's actual forward (camera -> target, the opposite),
         // matching Camera::right()/trueUp()'s own convention -- using
-        // `direction` directly here mirrored the horizontal pan component.
+        // `direction` directly here would mirror the horizontal pan
+        // component.
         const Vec3f forward = -direction;
         const Vec3f right = normalized(cross(forward, Vec3f::unitY()));
         const Vec3f trueUp = cross(right, forward);

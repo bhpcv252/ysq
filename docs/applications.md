@@ -68,11 +68,44 @@ cmake --build build
 ./build/bin/your-scenario
 ```
 
-`SolarSystem/` and `LunarEclipse/` are the two worked examples that exist
-today; reading either's `CMakeLists.txt` alongside this page is worth doing
-before writing your own, since it's the concrete answer to "what does 'only
-link what a `PUBLIC` dependency doesn't already give you' actually look
-like."
+`SolarSystem/`, `LunarEclipse/` and `KeplerSolarSystem/` are the three
+worked examples that exist today; reading any of their `CMakeLists.txt`
+alongside this page is worth doing before writing your own, since it's the
+concrete answer to "what does 'only link what a `PUBLIC` dependency
+doesn't already give you' actually look like."
+
+**Building a real orbit from published orbital elements?** Real data (JPL's,
+or any astronomy source) comes as classical orbital elements -- semi-major
+axis, eccentricity, inclination, and so on -- not as the position and
+velocity an n-body simulation actually starts from.
+`Physics/Gravity/Kepler.hpp`'s `stateVectorFromElements` does that
+conversion; it's a general two-body law, so it lives in the engine rather
+than in `Applications/`, and any scenario needing it just calls it directly.
+`LunarEclipse/Scenario.cpp` is the worked example for one body at a time:
+real elements in, a real Cartesian state out, one call per orbiting body.
+
+For a whole hierarchy at once -- a star, its planets, their moons, all from
+one downloaded table -- `Applications/Helper/BodyCatalog.hpp`'s
+`loadBodyCatalog` does the parent resolution and per-row real-vs-published
+reference-frame handling (`Pole.hpp`'s job) for you; see its own doc
+comment for the CSV column schema and
+`SolarSystem/data/solar_system_bodies.csv` for the real, working example.
+
+**Not running a real integrator at all?** `loadBodyCatalog` resolves each
+body to one fixed initial `Body`, for a real n-body integrator to take
+over from -- the right shape if your scenario has bodies that actually
+pull on each other. If it doesn't (your bodies orbit independently, no
+real gravitational interaction between them), `BodyCatalog.hpp`'s sibling
+`loadKeplerBodyCatalog` keeps every body's own orbital elements live
+instead, so you evaluate its position directly at whatever simulated time
+you want (`Physics/Gravity/Kepler.hpp`'s `stateVectorAtTime`) rather than
+stepping there.
+`KeplerSolarSystem/Scenario.cpp` and `main.cpp` are the worked example,
+including `Applications/Helper/KeplerPopulation.hpp` for a procedural,
+non-interacting population (an asteroid belt, a ring) within a real
+astronomical range. See `src/Applications/README.md`'s "Closed-form
+propagation vs. real N-body" section for what you trade away by not
+running a real integrator.
 
 **`LunarEclipse` is the sharper example of "nothing here is new physics."**
 An eclipse isn't a law, it's what a scene of real bodies with real physical

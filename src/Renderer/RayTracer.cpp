@@ -145,18 +145,15 @@ void RayTracer::render(const RaytracedScene& scene, const Camera& camera, float 
     std::vector<Vec3f> pointLightPosition;
     std::vector<Vec3f> pointLightColor;
     std::vector<float> pointLightIntensity;
-    std::vector<float> pointLightRadius;
     for (std::size_t i = 0; i < pointLightCount; ++i) {
         pointLightPosition.push_back(scene.pointLights[i].position);
         pointLightColor.push_back(scene.pointLights[i].color);
         pointLightIntensity.push_back(scene.pointLights[i].intensity);
-        pointLightRadius.push_back(scene.pointLights[i].radius);
     }
     m_shader.setUniform("uPointLightCount", static_cast<int>(pointLightCount));
     m_shader.setUniformArray("uPointLightPosition", pointLightPosition);
     m_shader.setUniformArray("uPointLightColor", pointLightColor);
     m_shader.setUniformArray("uPointLightIntensity", pointLightIntensity);
-    m_shader.setUniformArray("uPointLightRadius", pointLightRadius);
 
     const std::size_t directionalLightCount =
         std::min(scene.directionalLights.size(), maxDirectionalLights());

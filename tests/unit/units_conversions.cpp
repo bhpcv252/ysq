@@ -68,6 +68,7 @@ TEST(UnitsConversions, TimeUnitsAreExactMultiplesOfTheSecond) {
     static_assert((1.0 * units::minute).value() == 60.0);
     static_assert((1.0 * units::hour).value() == 3600.0);
     static_assert((1.0 * units::day).value() == 86400.0);
+    static_assert((1.0 * units::week).value() == 7.0 * 86400.0);
 
     // The Julian year, exactly 365.25 days. Not the tropical year and not a
     // calendar year, neither of which is a fixed number of seconds.
@@ -75,6 +76,9 @@ TEST(UnitsConversions, TimeUnitsAreExactMultiplesOfTheSecond) {
     static_assert((1.0 * units::year).value() == 31557600.0);
     static_assert(units::megayear == units::year * 1.0e6);
     static_assert(units::gigayear == units::year * 1.0e9);
+
+    // A twelfth of the Julian year, not a calendar month.
+    static_assert((1.0 * units::month).value() == 31557600.0 / 12.0);
     SUCCEED();
 }
 

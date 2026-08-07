@@ -27,6 +27,14 @@ public:
 
     void slider(std::string label, float& value, float min, float max);
     void slider(std::string label, int& value, int min, int max);
+    /// A typed numeric field rather than a drag bar: for a value whose
+    /// useful range spans orders of magnitude (a simulation speed multiplier,
+    /// say), where a slider's fixed min/max cannot cover "1" and "100000"
+    /// usefully at the same drag sensitivity. `step`/`stepFast` are the
+    /// +/- buttons' increment (held with Ctrl for `stepFast`); either left at
+    /// 0 hides that button. `format` is a printf float spec.
+    void inputFloat(std::string label, float& value, float step = 0.0f,
+                    float stepFast = 0.0f, const char* format = "%.3f");
     void checkbox(std::string label, bool& value);
     void colorEdit(std::string label, Vec3f& value);
     /// A live readout: `value` is read fresh every draw(), so this reflects

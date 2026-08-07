@@ -3,12 +3,14 @@ configure_file(Version.hpp.in ${YSQ_GENERATED_INCLUDE_DIR}/Core/Version.hpp @ONL
 add_library(ysq_core STATIC
     Clock.cpp
     Config.cpp
+    Csv.cpp
     Event.cpp
     Logger.cpp
     UUID.cpp
     Version.cpp
     Clock.hpp
     Config.hpp
+    Csv.hpp
     Event.hpp
     Logger.hpp
     Timer.hpp

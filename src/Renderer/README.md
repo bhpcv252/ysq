@@ -60,7 +60,7 @@ engine core.
 | `Renderer/Camera.hpp` | Eye/target/up plus perspective or orthographic projection |
 | `Renderer/CameraController.hpp` | `OrbitCameraController`, `FreeFlyCameraController`: drive a `Camera` from input |
 | `Renderer/SceneCameraController.hpp` | `SceneCameraController`: a drop-in Orbit/FreeFly camera plus an opt-in POV/Focus mode |
-| `Renderer/Light.hpp` | `PointLight`, `DirectionalLight` |
+| `Renderer/Light.hpp` | `PointLight` (real inverse-square falloff), `DirectionalLight` |
 | `Renderer/Material.hpp` | Blinn-Phong surface parameters, shared by the rasterizer and the ray tracer |
 | `Renderer/Shader.hpp` | Vertex+fragment GLSL program, RAII |
 | `Renderer/Mesh.hpp` | Vertex/index buffer, RAII; sphere/quad/disk/cube generators; instanced draw |
@@ -91,6 +91,69 @@ renderer.draw(sphere, material, ysq::Matrix4<float>::translation(position));
 renderer.debugDraw().axes();
 renderer.endFrame();
 ```
+
+## Lighting: real inverse-square, and staying visible at any distance
+
+`PointLight` attenuates as `intensity / distance^2` -- real inverse-square
+falloff in whatever units a scene's own positions are expressed in, no
+separate tunable, because the real law does not have one. (An earlier
+version of this struct had a `radius` "half-intensity distance" knob with
+an artificial soft-knee formula; it is gone, not deprecated, since a real
+point light has nothing to tune besides `intensity` itself.) Both
+consumers -- `basic.frag` (the forward rasterizer) and `raytrace.frag`
+(`RayTracer`) -- apply the identical formula, `PointLight`'s own doc
+comment's stated invariant.
+
+A consequence worth knowing before tuning `intensity`: real falloff means
+a light calibrated to look right up close reads as correctly, dramatically
+dimmer far away -- Neptune really is a few hundred times dimmer than Earth
+under its own Sun, and this renders that faithfully rather than flattening
+it the way the old soft-knee formula did. `Applications/KeplerSolarSystem`'s
+own `main.cpp` calibrates `intensity` once against Earth's real distance,
+the same convention `LunarEclipse/main.cpp` uses for its own Sun light.
+
+**`Renderer::drawGlow(position, worldRadius, color, intensity)`** is the
+answer to a real problem that formula alone does not solve: a
+self-luminous body's own emissive mesh stops rasterizing as anything once
+its true angular size drops under a pixel, real inverse-square falloff or
+not -- a rendering problem, not a lighting one. `drawGlow` draws a soft,
+additive, camera-facing disc (`shaders/glow.vert`/`glow.frag`) instead,
+depth-tested against the rest of the scene but writing no depth of its
+own, so a body in front of it still occludes it correctly. It carries no
+opinion of its own about falloff or minimum brightness -- `intensity` and
+`worldRadius` are entirely the caller's; a caller wanting the glow to stay
+locatable at any distance picks a `worldRadius` pinned to a fixed
+on-screen pixel size (the same technique `DebugDraw`'s billboard text
+already uses) and an `intensity` floored above zero, both scenario-level
+choices rather than something this primitive bakes in. See
+`Applications/KeplerSolarSystem/main.cpp`'s own Sun-glow call for the
+worked example, and `src/Applications/README.md`'s "Closed-form
+propagation vs. real N-body" section for why only that application draws
+one today.
+
+**Real eclipse/shadow and exposure, no shadow-mapping or HDR pass.**
+`Material::lightMultiplier` scales every light's own contribution to one
+`Renderer::draw()` call (1.0, a no-op, by default); `Mesh
+::setInstanceLightMultipliers(std::span<const float>)` does the same per
+instance for a `drawInstanced()` batch -- one asteroid in a belt can read
+fully lit while its neighbor, behind a planet, reads dark, in the same
+draw call. Both are real physics, not a single knob for one purpose: a
+value under 1.0 is `Physics/Optics/Illumination.hpp`'s own
+`discOcclusionFraction` (see `src/Physics/README.md`'s own section on it), a
+real, closed-form occlusion fraction, without a shadow-mapping pass;
+a value above 1.0 is a real, distance-based exposure compensation, the
+same reason a real photograph of Saturn needs a far longer exposure than
+one of Earth to look properly lit, without an HDR/tonemapping pass. Both
+scale only the light-dependent (diffuse and specular) terms in
+`basic.frag` -- an eclipsed or under-exposed body still shows its own
+ambient light and its own emission, the same way a real one does.
+`setInstanceTransforms` itself defaults every instance to 1.0 (fully lit,
+uncompensated) whenever it runs, so a caller that never calls
+`setInstanceLightMultipliers` at all sees exactly the behavior this had
+before the method existed. `KeplerSolarSystem/main.cpp` is the worked
+example for both paths and both reasons: a moon's own real shadow from
+its planet and a real exposure compensation for its own real distance
+(`draw()`), and the same for a ring or belt particle (`drawInstanced()`).
 
 ## Scene camera: Orbit, FreeFly, and POV/Focus
 

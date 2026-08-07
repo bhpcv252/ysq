@@ -30,9 +30,11 @@ far.
 | `Physics/Mechanics/Kinematics.hpp` | Lorentz factor, four-velocity, proper time, relativistic velocity addition |
 | `Physics/Mechanics/Dynamics.hpp` | `NBodyState`, the boundary between a span of `Body` and Math's integrators |
 | `Physics/Mechanics/RigidBody.hpp` | Gravity-gradient torque and Euler's rotation equation, general for any oblate body |
-| `Physics/Gravity/Newtonian.hpp` | Pairwise gravity, direct-sum N-body, potential energy, J2 oblateness |
-| `Physics/Gravity/PostNewtonian.hpp` | The 1PN two-body correction (perihelion precession) |
+| `Physics/Mechanics/Hermite.hpp` | 4th-order predictor-corrector integration and `IndividualTimestepScheduler`: each body its own step size, force-law-agnostic |
+| `Physics/Gravity/Newtonian.hpp` | Pairwise gravity, direct-sum N-body, potential energy, J2 oblateness, and `NewtonianJerkField` for `IndividualTimestepScheduler` |
+| `Physics/Gravity/PostNewtonian.hpp` | The 1PN two-body correction (perihelion precession), `RelativisticNBodySystem`'s per-body-primary N-body extension of it, and their jerk counterparts |
 | `Physics/Gravity/BarnesHut.hpp` | O(N log N) approximate N-body gravity |
+| `Physics/Gravity/Kepler.hpp` | Closed-form two-body orbits: classical elements to state vectors, Kepler's equation, mean motion and period |
 | `Physics/Spacetime/Metric.hpp` | The `SpacetimeMetric` concept, Christoffel symbols, causal character |
 | `Physics/Spacetime/Minkowski.hpp` | Flat spacetime |
 | `Physics/Spacetime/Schwarzschild.hpp` | Non-rotating mass |
@@ -140,6 +142,18 @@ it approximates. Full derivations, the softening rationale, and Barnes-Hut's
 error-versus-theta tradeoff are in [Softening](#softening) and
 [Barnes-Hut](#barnes-hut) below.
 
+**`Gravity/Kepler.hpp`** is the closed-form counterpart to all of the
+above: the exact, unperturbed two-body solution, rather than a force law
+to integrate. `stateVectorFromElements` converts classical orbital
+elements straight to a Cartesian position/velocity state; `stateVectorAtTime`
+does the same at any later time, propagating through Kepler's equation
+(`trueAnomalyFromMeanAnomaly`, solved by Newton-Raphson) at a cost that
+does not grow with how far forward the query is, unlike stepping a real
+integrator that far. `keplerMeanMotion`/`keplerOrbitalPeriod` give the same
+two-body mean motion `n = sqrt(gm / a^3)` every other rung above already
+needs, in one place rather than re-derived at each call site. See
+[Kepler orbit](#kepler-orbit) below for the full derivation.
+
 ## Spacetime: a metric is a concept, not a base class
 
 `SpacetimeMetric` requires one thing: `components(Vector4<T>) const` for any
@@ -238,6 +252,21 @@ extended light source is visible from a point, through a scene of opaque
 and refracting-and-scattering bodies. It carries no scenario knowledge of
 its own; what a caller does with the color and geometric visibility it
 returns is entirely up to `Applications/`.
+
+`discOcclusionFraction`, in the same header, is the cheap sibling `illuminate()`
+does not replace: the closed-form circle-circle overlap of a light
+source's own apparent disc and a single opaque occluder's, as seen from a
+point (each disc's own apparent angular radius and the angular separation
+between their centers -- real eclipse/transit geometry), not a sampled or
+ray-marched approximation. No atmosphere, no color, no per-wavelength
+transmission -- exactly what a real shadow needs and nothing an
+`illuminate()`-style caller (`LunarEclipse`) needs on top, which is what
+makes it cheap enough to call once per particle for a large population
+every rendered frame. `KeplerSolarSystem/main.cpp` is the worked example:
+a moon's own real shadow from its planet, a ring particle's own real
+shadow from its planet, both feeding `Renderer::Material::lightMultiplier`
+(a single draw) or `Mesh::setInstanceLightMultipliers` (an instanced one) --
+see `src/Renderer/README.md`'s own section on both.
 
 ## Electromagnetism is a ladder too
 
@@ -536,16 +565,199 @@ delta_phi = 6 pi GM / (c^2 a (1 - e^2))
 ```
 
 where `a` is the semi-major axis and `e` the eccentricity of the
-(now slowly precessing) ellipse. This is the formula the Mercury-like case in
-`physics_gravity.cpp` validates the correction against, and the same formula
-`lensing_deflection.cpp` validates a full Schwarzschild geodesic against once
-`Physics/Spacetime` exists, confirming the two rungs of the gravity ladder
-agree in the regime they overlap.
+(now slowly precessing) ellipse. This is the formula
+`physics_gravity.cpp`'s `RelativisticNBodySystemPerihelionPrecessionMatchesTheAnalyticRate`
+validates the correction against (a Mercury-like case: negligible-mass
+planet, dominant star), and the same formula `lensing_deflection.cpp`
+validates a full Schwarzschild geodesic against once `Physics/Spacetime`
+exists, confirming the two rungs of the gravity ladder agree in the regime
+they overlap.
 
-**Scope.** This is the two-body, test-particle form: exact where the source's
-mass dominates, which is the regime the precession formula itself assumes.
-The N-body generalization is the Einstein-Infeld-Hoffmann equations, which
-add cross terms between every pair of bodies and are not implemented here.
+`perihelionPrecessionPerOrbit(gm, semiMajorAxis, eccentricity)` is this
+same closed form as a real, reusable function rather than inline test
+math: for a caller that wants the real precession rate without running a
+real integrator over `postNewtonianCorrection` at all, dividing the
+result by `keplerOrbitalPeriod` (see [Kepler orbit](#kepler-orbit) above)
+to get radians per second. `KeplerSolarSystem`'s own closed-form Kepler
+propagator (`Physics/Gravity/Kepler.hpp`'s
+`stateVectorAtTime`) is the worked example: it rotates a body's own
+argument of periapsis at that rate directly, which is how a caller with no
+n-body integration at all still shows Mercury's real perihelion advance.
+
+**Scope.** The correction itself, `postNewtonianCorrection`, is the
+two-body, test-particle form: exact where the source's mass dominates,
+which is the regime the precession formula itself assumes. The full N-body
+generalization is the Einstein-Infeld-Hoffmann equations, which add cross
+terms between every pair of bodies and are not implemented here.
+
+**`RelativisticNBodySystem`** is the practical middle ground a real
+hierarchical system (planets around a star, moons around their own
+planet) actually needs: direct-summation Newtonian gravity for every
+pair, exactly as `NewtonianField` already computes it (J2 included), plus
+this correction for whichever bodies the caller names a primary for --
+each body against its *own* dominant nearby source, not full EIH cross
+terms between every pair. A moon's primary is its own planet, not the
+Sun; `Applications/SolarSystem/main.cpp` is the worked example, one
+`primaryIndex` entry per real body in the catalog.
+
+This is also the one place in the gravity ladder that is
+**velocity-dependent**: the 1PN term needs velocity, not only position, so
+`RelativisticNBodySystem` is a full `OdeSystem` over
+`PhaseState<NBodyState>` for an explicit stepper
+(`Rk4Stepper<PhaseState<NBodyState>>`), not an `AccelerationField` a
+symplectic stepper (`VelocityVerletStepper` and the rest of
+`Math/Integrators/Symplectic.hpp`) could take. Turning this on is a real,
+documented trade: the symplectic bounded-energy-error guarantee for the
+actual relativistic physics (visible perihelion precession), not a
+limitation to work around.
+
+### Kepler orbit
+
+The unperturbed two-body problem has an exact, closed-form solution, which
+is what makes it worth having alongside a numerical integrator rather than
+only ever stepping toward it: given the central body's own gravitational
+parameter `gm` and the six classical orbital elements (semi-major axis
+`a`, eccentricity `e`, inclination, longitude of ascending node, argument
+of periapsis, and either true or mean anomaly), the state is known at any
+instant with no accumulated integration error at all.
+
+`stateVectorFromElements` builds the position and velocity in the
+perifocal frame (the ellipse's own plane, periapsis along +x) from the
+standard formulas
+
+```
+r = a (1 - e^2) / (1 + e cos(nu))
+h = sqrt(gm a (1 - e^2))
+x_pf = r cos(nu),  y_pf = r sin(nu)
+vx_pf = -(gm/h) sin(nu),  vy_pf = (gm/h) (e + cos(nu))
+```
+
+then rotates both into the reference frame by the standard
+`Rz(Omega) Rx(i) Rz(omega)` composition (longitude of ascending node,
+inclination, argument of periapsis).
+
+Real published data (JPL's included) gives the mean anomaly `M`, the angle
+a body *would* have moving at the constant mean motion `n = sqrt(gm/a^3)`
+(`keplerMeanMotion`), not the true anomaly the state-vector formula above
+needs. The two are related by Kepler's equation, `M = E - e sin(E)`, for
+the eccentric anomaly `E`; `trueAnomalyFromMeanAnomaly` solves it by
+Newton-Raphson (a handful of iterations reach double precision for any
+bound orbit) starting from `E0 = M + e sin(M)`, then converts `E` to true
+anomaly by the numerically robust atan2 form of
+`tan(nu/2) = sqrt((1+e)/(1-e)) tan(E/2)`.
+
+`stateVectorAtTime` composes both: it advances the mean anomaly (and,
+if `precessionRatePerSecond` is nonzero, the argument of periapsis) to the
+requested time, solves Kepler's equation, and converts to a state vector --
+at a cost that does not grow with how far forward the query is, unlike
+stepping a real integrator that far. `precessionRatePerSecond` is how a
+caller with no real integrator at all still shows a real effect like
+relativistic perihelion advance: convert
+[`postNewtonianCorrection`](#the-1pn-correction)'s
+`perihelionPrecessionPerOrbit` (radians per orbit) to radians per second by
+dividing by `keplerOrbitalPeriod`.
+
+### Individual timesteps (the Hermite scheme)
+
+A shared global step forces every body through whichever one moves
+fastest: correct for that body, wasteful for every slower one, and there
+is no single step size that is both cheap and accurate for bodies whose
+dynamical timescales differ by orders of magnitude (an inner ring moon
+under a day, an outer irregular moon decades). `Physics/Mechanics/Hermite.hpp`
+gives each body its own step instead.
+
+**The predictor** extrapolates a body's position and velocity forward by
+`dt` using its own last known acceleration `a` and jerk (`ȧ`, the rate
+`a` itself is changing) via a third-order Taylor expansion:
+
+    x_pred = x + v dt + (1/2) a dt^2 + (1/6) ȧ dt^3
+    v_pred = v + a dt + (1/2) ȧ dt^2
+
+This is what lets one body's force evaluation use a physically reasonable
+estimate of another body's position, even when that other body has not
+been updated in a while.
+
+**The corrector** fits the acceleration's own 2nd and 3rd derivatives
+("snap" and "crackle") from the (acceleration, jerk) pair known at both
+the start and the predicted end of the step (Makino & Aarseth 1992):
+
+    ä = [-6 (a - a_new) - dt (4 ȧ + 2 ȧ_new)] / dt^2
+    ⃛a = [12 (a - a_new) + 6 dt (ȧ + ȧ_new)] / dt^3
+    x = x_pred + (1/24) ä dt^4 + (1/120) ⃛a dt^5
+    v = v_pred + (1/6) ä dt^3 + (1/24) ⃛a dt^4
+
+Verified by measuring the observed convergence order on a circular
+Kepler orbit (`tests/unit/physics_mechanics_hermite.cpp`), the same
+methodology `tests/unit/math_integrators.cpp` uses for RK4 and Verlet:
+4th order, as the derivation claims.
+
+**Each body's own step** comes from the Aarseth (1985) criterion --
+`dt = sqrt(eta * |a| / |ȧ|)`, shrinking automatically where a body's
+acceleration is large and rapidly changing (a close encounter, any sharp
+perturbation) and growing where it is calm and slowly varying, with
+nothing naming an orbit or a parent anywhere in the formula -- rounded
+down to the nearest power-of-two fraction of a caller-chosen base
+interval, so bodies with similar timescales land on shared update times
+rather than each drifting to a time nothing else ever lines up with.
+
+**`IndividualTimestepScheduler`** owns every body's own (last-update
+time, step, position, velocity, acceleration, jerk) and, each cycle,
+advances whichever body's own next update is soonest: every other body
+is predicted to that instant, the caller's jerk field (see below) is
+asked for the mover's own new (acceleration, jerk), the corrector
+refines its position and velocity, and its next step is re-chosen. This
+lives in Mechanics, not Gravity: nothing here knows what jerk *is*
+physically, the same way `Dynamics.hpp`'s `NBodyState` does not know
+what force law produced an acceleration. `Physics/Gravity/Newtonian.hpp`'s
+`NewtonianJerkField` and `Physics/Gravity/PostNewtonian.hpp`'s
+`RelativisticNBodyJerkSystem` supply the concrete gravity (and 1PN) jerk.
+
+**Jerk formulas.** The pairwise Newtonian jerk (`NewtonianJerkField`) is
+the direct time-derivative of the same softened term
+`NewtonianField` already computes:
+
+    r = position_j - position_i,  v = velocity_j - velocity_i
+    R = sqrt(|r|^2 + softening^2)
+    jerk_i (from j) = G m_j [ v / R^3 - 3 (r . v) r / R^5 ]
+
+The 1PN correction's own jerk (`relativisticJerkTerm`) is the
+time-derivative of `relativisticAccelerationTerm`, differentiated
+term-by-term through `r`, `v`, the unit vector `n = r / |r|`, and the
+radial speed `s = v . n` -- a real, multi-term closed-form expression,
+not a formula that can be looked up the way the base 1PN term itself
+was. Verified against a finite-difference of the already-tested
+acceleration term rather than trusted on the derivation alone
+(`tests/unit/physics_gravity.cpp`), exactly the kind of closed-form
+derivative that is easy to get subtly wrong. Its own relative
+acceleration term uses the two-body Newtonian relative acceleration,
+`-gm r / |r|^3` -- the same test-particle-around-a-dominant-source scope
+`relativisticAccelerationTerm` itself already assumes, so this pulls in
+no more of the full N-body picture than that formula already does.
+
+**J2 jerk is not implemented.** Differentiating the quadrupole term
+through a rotating spin axis is a separate derivation, future work
+rather than a limitation of this being wrong for a body whose `j2`
+actually is zero -- every body the Solar System catalog names. A future
+consumer with an oblate body under this scheduler needs that term added
+first.
+
+**Not symplectic.** This is 4th-order accurate, the same category RK4
+is in, not `VelocityVerletStepper`'s: there is no guarantee against slow
+energy drift over an arbitrarily long run, only a small per-step error
+and each body resolved at its own appropriate scale rather than everyone
+paying for the fastest one.
+
+**What this actually buys, measured against the real catalog.** For
+`Applications/SolarSystem`'s real ~175-body dataset, advancing 1
+simulated month takes about 30 seconds of real compute with individual
+timesteps, against roughly 40 seconds the old single-global-step
+approach would need to do the same amount of work (both uncapped, i.e.
+the total cost of the work itself, not throttled by a per-frame cap). A
+real improvement, but a modest one (roughly 1.3x): about a fifth of this
+catalog's ~175 bodies have their own period under a day, not just the
+one fastest moon, so most of the benefit an individual-timestep scheme
+gets from letting *slow* bodies skip needless updates is diluted by how
+many bodies in a real solar system are not slow.
 
 ### Spacetime conventions
 

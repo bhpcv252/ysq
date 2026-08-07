@@ -120,12 +120,14 @@ TEST(UIImGuiLayer, APanelBindingRoundTripsThroughARealFrameUnchanged) {
     ImGui::GetIO().IniFilename = nullptr;
 
     float timeScale = 2.5f;
+    float simSpeed = 42.0f;
     bool paused = true;
     Vec3f tint{0.1f, 0.2f, 0.3f};
     std::string status = "idle";
 
     Panel panel("Simulation");
     panel.slider("Time scale", timeScale, 0.0f, 10.0f);
+    panel.inputFloat("Sim speed", simSpeed);
     panel.checkbox("Paused", paused);
     panel.colorEdit("Tint", tint);
     panel.text("Status", status);
@@ -137,6 +139,7 @@ TEST(UIImGuiLayer, APanelBindingRoundTripsThroughARealFrameUnchanged) {
     }
 
     EXPECT_FLOAT_EQ(timeScale, 2.5f);
+    EXPECT_FLOAT_EQ(simSpeed, 42.0f);
     EXPECT_TRUE(paused);
     EXPECT_VEC_APPROX(tint, (Vec3f{0.1f, 0.2f, 0.3f}));
     EXPECT_EQ(status, "idle");
