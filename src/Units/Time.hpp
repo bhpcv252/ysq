@@ -34,12 +34,18 @@ inline constexpr Time nanosecond{1.0e-9};
 inline constexpr Time minute{60.0};
 inline constexpr Time hour{3600.0};
 inline constexpr Time day{86400.0};
+inline constexpr Time week{604800.0};
 
 /// The Julian year, exactly 365.25 days. This is the year astronomy uses for
 /// intervals, and the one the light-year is defined against. It is not the
 /// tropical year and not a calendar year, neither of which is a fixed number
 /// of seconds.
 inline constexpr Time year{31557600.0};
+
+/// A twelfth of the Julian year above, not a calendar month: unlike a real
+/// month (28 to 31 days), this is a fixed number of seconds, so it composes
+/// with the rest of this file's constants the same way year already does.
+inline constexpr Time month{2629800.0};
 inline constexpr Time megayear{3.15576e13};
 inline constexpr Time gigayear{3.15576e16};
 

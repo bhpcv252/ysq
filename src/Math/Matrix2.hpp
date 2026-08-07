@@ -267,9 +267,9 @@ template <Numeric T>
 [[nodiscard]] constexpr std::optional<Matrix2<T>>
 tryInverse(const Matrix2<T>& m) noexcept {
     const T det = determinant(m);
-    // Finiteness as well as non-zero. A determinant that overflowed used to
-    // pass both of the old checks and then divide the adjugate down to a zero
-    // matrix, reported as a success.
+    // Finiteness as well as non-zero: an overflowed determinant is nonzero
+    // but not finite, and dividing the adjugate by it would silently produce
+    // a zero matrix that reads as a successful result rather than an error.
     if (det == T{0} || !detail::isFiniteValue(det)) {
         return std::nullopt;
     }

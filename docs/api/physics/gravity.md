@@ -51,6 +51,28 @@ ysq::VelocityVerletStepper<ysq::NBodyState> stepper;
 stepper.step(field, time, state, h, next);
 ```
 
+### `NewtonianJerkField`
+
+The time-derivative of `NewtonianField`'s own acceleration, one body at a
+time: `jerk_i (from j) = G m_j [ v/R^3 - 3 (r.v) r/R^5 ]`, `r`/`v` the
+relative position/velocity, `R^2 = |r|^2 + softening^2`. Matches
+`IndividualJerkField` (see
+[docs/api/physics/mechanics.md](mechanics.md#physicsmechanicshermitehpp)),
+what `IndividualTimestepScheduler` needs alongside acceleration to predict
+and correct a body's own state and to choose its own next step. **J2 jerk
+is not implemented** -- future work, not a limitation for a body whose
+`j2` actually is zero (every body the Solar System catalog names).
+
+```cpp
+class NewtonianJerkField {
+public:
+    explicit NewtonianJerkField(std::span<const Body> bodies,
+                                Length softening = Length::zero());
+    std::pair<Vec3, Vec3> operator()(std::size_t bodyIndex, const NBodyState& positions,
+                                     const NBodyState& velocities) const;
+};
+```
+
 ## `Physics/Gravity/BarnesHut.hpp`
 
 Approximate N-body gravity: a distant group of bodies is treated as one
@@ -116,6 +138,67 @@ add this to the Newtonian acceleration:
 const ysq::Acceleration3 total =
     ysq::newtonianAcceleration(testParticle.position, {&source, 1}) +
     ysq::postNewtonianCorrection(testParticle, source);
+```
+
+### `RelativisticNBodySystem`
+
+The practical N-body extension: direct-summation Newtonian gravity for
+every pair (the same kernel `NewtonianField` uses, J2 included) plus this
+correction for whichever bodies the caller assigns a primary to -- each
+body against its own dominant nearby source (a moon's own planet, not the
+Sun), not full Einstein-Infeld-Hoffmann cross terms between every pair.
+
+```cpp
+class RelativisticNBodySystem {
+public:
+    RelativisticNBodySystem(std::span<const Body> bodies, std::vector<int> primaryIndex,
+                            Length softening = Length::zero());
+
+    PhaseState<NBodyState> operator()(double time,
+                                      const PhaseState<NBodyState>& state) const;
+};
+```
+
+| Member | Description |
+| --- | --- |
+| `primaryIndex[i]` | Which body (by index into `bodies`) body `i`'s own 1PN correction is computed against. Negative, or equal to `i`, means no correction for that body. |
+| `operator()(time, state)` | The full first-order system `d(position, velocity)/dt = (velocity, acceleration)`, for an explicit stepper. |
+
+**Velocity-dependent, unlike `NewtonianField`**: the 1PN term needs
+velocity, so this is an `OdeSystem` over `PhaseState<NBodyState>` for
+`Rk4Stepper<PhaseState<NBodyState>>`, not an `AccelerationField` a
+symplectic stepper (`VelocityVerletStepper` and the rest of
+`Math/Integrators/Symplectic.hpp`) could take. That trade -- the
+symplectic bounded-energy-error guarantee, for the real relativistic
+physics -- is real and documented, not a limitation to route around.
+`Applications/SolarSystem/main.cpp` is the worked example: a "Relativistic
+corrections" toggle switches which jerk-providing system
+`IndividualTimestepScheduler` is driven with, with `primaryIndex` built
+once from each real body's own parent in the loaded catalog.
+
+### `relativisticJerkTerm` and `RelativisticNBodyJerkSystem`
+
+The jerk (accel/velocity/1PN counterparts) `IndividualTimestepScheduler`
+needs alongside acceleration. `relativisticJerkTerm` is the
+time-derivative of the 1PN acceleration term above -- a real, multi-term
+closed-form expression, differentiated through `r`, `v`, `n = r/|r|`, and
+the radial speed `s = v.n`, not a formula that can be looked up. Verified
+against a finite-difference of the acceleration term
+(`tests/unit/physics_gravity.cpp`) rather than trusted on the derivation
+alone. `RelativisticNBodyJerkSystem` combines it with `NewtonianJerkField`
+the same way `RelativisticNBodySystem` combines the acceleration terms;
+matches `IndividualJerkField`.
+
+```cpp
+Vec3 relativisticJerkTerm(const Vec3& r, const Vec3& v, double gm);
+
+class RelativisticNBodyJerkSystem {
+public:
+    RelativisticNBodyJerkSystem(std::span<const Body> bodies, std::vector<int> primaryIndex,
+                                Length softening = Length::zero());
+    std::pair<Vec3, Vec3> operator()(std::size_t bodyIndex, const NBodyState& positions,
+                                     const NBodyState& velocities) const;
+};
 ```
 
 ---

@@ -10,6 +10,8 @@ add_library(ysq_physics STATIC
     Mechanics/Dynamics.cpp
     Mechanics/RigidBody.hpp
     Mechanics/RigidBody.cpp
+    Mechanics/Hermite.hpp
+    Mechanics/Hermite.cpp
 
     Gravity/Newtonian.hpp
     Gravity/Newtonian.cpp
@@ -17,6 +19,8 @@ add_library(ysq_physics STATIC
     Gravity/PostNewtonian.cpp
     Gravity/BarnesHut.hpp
     Gravity/BarnesHut.cpp
+    Gravity/Kepler.hpp
+    Gravity/Kepler.cpp
 
     Spacetime/Metric.hpp
     Spacetime/Minkowski.hpp

@@ -1,52 +1,51 @@
 #pragma once
 
+#include <Applications/Helper/BodyCatalog.hpp>
 #include <Math/Vector3.hpp>
 #include <Physics/Body.hpp>
 
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace ysq::solar_system {
 
-/// One planet: its physical Body plus render-only display metadata. Color and
-/// renderRadius are chosen for legibility, not measured; see kRenderUnitsPerAu
-/// below for why size is not to scale.
-struct Planet {
-    std::string name;
-    Body body;
-    Vec3f color;
-    float renderRadius = 0.2f;
-};
-
-/// Sun + five planets (Mercury through Jupiter), circular orbits at each
-/// planet's real semi-major axis, real (textbook-approximate) masses. Total
-/// system momentum is exactly zero by construction: the Sun's initial
-/// momentum is set to minus the sum of the planets', the same center-of-mass
-/// setup tests/integration/orbit_stability.cpp uses for two bodies.
+/// The real Sun, all 8 planets, and every moon JPL SSD publishes orbital
+/// elements for -- loaded from `data/solar_system_bodies.csv` via
+/// `Applications/Helper/BodyCatalog.hpp`, not hardcoded. Real masses,
+/// radii, and orbital elements throughout; see that file's own header
+/// comment for sourcing, and the note there on the moons whose mass/radius
+/// is estimated (not individually measured, and gravitationally negligible
+/// either way) rather than the roughly forty JPL has precise values for.
 ///
-/// Masses and orbital radii are standard published approximate values, and
-/// eccentricity is taken as zero. This is a recognizable, physically valid
-/// solar system for a demo, not a precision ephemeris.
+/// Total system momentum is exactly zero by construction: the Sun's own
+/// momentum is set to minus the sum of every other body's, the same
+/// center-of-mass convention `LunarEclipse`'s scenario already uses.
 struct Scenario {
-    Body sun;
-    Vec3f sunColor;
-    float sunRenderRadius = 1.5f;
-    std::vector<Planet> planets;
+    /// Sun first (index 0, `applications::CatalogBody::parent` empty),
+    /// then every planet and moon, `parent` naming the body it orbits by
+    /// name (a planet's own name for a moon, "Sun" for a planet).
+    std::vector<applications::CatalogBody> bodies;
 
-    /// Every body, Sun first, in the order gravity should sum them.
+    /// Every body's `Body`, in `bodies`' own order, for the physics
+    /// integrator.
     [[nodiscard]] std::vector<Body> allBodies() const;
 };
 
-[[nodiscard]] Scenario makeScenario();
+/// `std::nullopt` if the data file could not be loaded or parsed; `error`
+/// (when given) names why, the caller decides how to report it.
+[[nodiscard]] std::optional<Scenario> makeScenario(std::string* error = nullptr);
 
 /// Physics runs in real SI meters; rendering does not use that scale
 /// directly, or bodies would be either invisible or off in the distance.
 /// One astronomical unit of separation maps to this many render units.
 inline constexpr float kRenderUnitsPerAu = 5.0f;
 
-/// Body *sizes* are never to this or any consistent scale: the Sun's true
-/// radius is about 109 Earth radii, which at a zoom that shows the outer
-/// planets' orbits would make every planet a sub-pixel dot.
+/// `toRenderPosition` and `toRenderRadius` use the exact same factor: true
+/// to scale, position and size both, the same convention
+/// `LunarEclipse::toRenderRadius` already uses (unlike this file's own
+/// previous cosmetic, not-to-scale `Planet::renderRadius`).
 [[nodiscard]] Vec3f toRenderPosition(const Length3& position);
+[[nodiscard]] float toRenderRadius(Length radius);
 
 }  // namespace ysq::solar_system

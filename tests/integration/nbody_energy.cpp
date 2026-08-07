@@ -1,11 +1,14 @@
+#include <Math/Integrators/RK4.hpp>
 #include <Math/Integrators/Symplectic.hpp>
 #include <Math/ODE.hpp>
+#include <Math/Scalar.hpp>
 #include <Math/Statistics.hpp>
 #include <Math/Vector3.hpp>
 #include <Physics/Body.hpp>
 #include <Physics/Gravity/BarnesHut.hpp>
 #include <Physics/Gravity/Newtonian.hpp>
 #include <Physics/Mechanics/Dynamics.hpp>
+#include <Physics/Mechanics/Hermite.hpp>
 #include <Units/Constants.hpp>
 #include <Units/Length.hpp>
 #include <Units/Mass.hpp>
@@ -203,6 +206,210 @@ TEST(NBodyEnergy, BarnesHutDrivenIntegrationKeepsEnergyBounded) {
         << "a Barnes-Hut-driven integration must still keep energy roughly "
            "conserved, even though the approximation costs it the direct "
            "method's structural exactness";
+}
+
+// --- IndividualTimestepScheduler ------------------------------------------
+
+TEST(NBodyEnergy, IndividualTimestepSchedulerKeepsEnergyBounded) {
+    const std::vector<Body> bodies = randomCluster(16);
+    const std::vector<double> masses = massesOf(bodies);
+    constexpr double softening = 1.0e9;
+
+    const ysq::NewtonianJerkField jerkField(bodies, ysq::Length{softening});
+    const NBodyState positions = ysq::positionsOf(bodies);
+    const NBodyState velocities = ysq::velocitiesOf(bodies);
+
+    NBodyState accelerations(bodies.size());
+    NBodyState jerks(bodies.size());
+    for (std::size_t i = 0; i < bodies.size(); ++i) {
+        const auto [acceleration, jerk] = jerkField(i, positions, velocities);
+        accelerations[i] = acceleration;
+        jerks[i] = jerk;
+    }
+
+    constexpr double eta = 0.01;
+    // Well above the cluster's own characteristic timescale (a few times
+    // 1e4 s, per randomCluster's own comment), so the Aarseth criterion is
+    // what actually sets each body's own step, not this ceiling.
+    constexpr double baseInterval = 1.0e6;
+    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations, jerks,
+                                               0.0, eta, baseInterval);
+
+    const double initialEnergy = totalEnergy(masses, positions, velocities, softening);
+
+    ysq::RunningStatistics<double> deviation;
+    constexpr double totalTime = 5.0e7;
+    constexpr int samples = 200;
+    constexpr int maxUpdatesPerSample = 200000;
+
+    for (int sample = 1; sample <= samples; ++sample) {
+        const double targetTime = totalTime * static_cast<double>(sample) / samples;
+        scheduler.advanceTo(jerkField, targetTime, maxUpdatesPerSample);
+
+        NBodyState sampledPositions(bodies.size());
+        NBodyState sampledVelocities(bodies.size());
+        for (std::size_t i = 0; i < bodies.size(); ++i) {
+            const auto [p, v] = scheduler.predictedState(i, scheduler.currentTime());
+            sampledPositions[i] = p;
+            sampledVelocities[i] = v;
+        }
+        const double energy =
+            totalEnergy(masses, sampledPositions, sampledVelocities, softening);
+        deviation.add(std::abs((energy - initialEnergy) / initialEnergy));
+    }
+
+    // Not symplectic (Physics/Mechanics/Hermite.hpp's own header comment):
+    // no strict bounded-error guarantee the way VelocityVerletStepper has,
+    // so this tolerance is looser than
+    // DirectSummationConservesEnergyOverManySteps's -- the point here is
+    // "bounded, not diverging", not "as tight as a symplectic method".
+    EXPECT_LT(deviation.maximum(), 1e-2)
+        << "individual-timestep integration must still keep energy roughly "
+           "bounded over many orbits";
+}
+
+TEST(NBodyEnergy, IndividualTimestepSchedulerMatchesRk4GroundTruthAcrossVeryDifferentTimescales) {
+    // A star with one distant, slow-orbiting body and one close,
+    // fast-orbiting body -- the same shape of problem (timescales three
+    // orders of magnitude apart) that motivated giving each body its own
+    // step size in the first place. Checked against an independent RK4 run
+    // stepped uniformly fine enough to resolve the fast body everywhere,
+    // the same "ground truth" role src/Applications/SolarSystem/main.cpp's
+    // own fixedStep already plays today.
+    const double starMass = 2.0e30;
+    const double gm = ysq::constants::G.value() * starMass;
+
+    const double slowRadius = 1.5e11;
+    const double slowSpeed = std::sqrt(gm / slowRadius);
+    const double fastRadius = 1.0e9;
+    const double fastSpeed = std::sqrt(gm / fastRadius);
+    const double fastPeriod = ysq::kTau<double> * fastRadius / fastSpeed;
+
+    Body star{};
+    star.mass = ysq::Mass{starMass};
+
+    Body slow{};
+    slow.mass = ysq::Mass{1.0e24};
+    slow.position = ysq::Length3{Vec3{slowRadius, 0.0, 0.0}};
+    slow.momentum = ysq::Momentum3{Vec3{0.0, slowSpeed, 0.0} * slow.mass.value()};
+
+    Body fast{};
+    fast.mass = ysq::Mass{1.0e20};
+    fast.position = ysq::Length3{Vec3{fastRadius, 0.0, 0.0}};
+    fast.momentum = ysq::Momentum3{Vec3{0.0, fastSpeed, 0.0} * fast.mass.value()};
+
+    const std::vector<Body> bodies{star, slow, fast};
+
+    constexpr std::size_t stepsPerFastPeriod = 2000;
+    constexpr std::size_t fastPeriods = 5;
+    const double rk4Step = fastPeriod / static_cast<double>(stepsPerFastPeriod);
+    const std::size_t rk4StepCount = stepsPerFastPeriod * fastPeriods;
+    const double totalTime = rk4Step * static_cast<double>(rk4StepCount);
+
+    // --- Ground truth: RK4, stepped fine enough to resolve the fast body. ---
+    ysq::Rk4Stepper<Phase> rk4Stepper;
+    ysq::NewtonianField field(bodies);
+    const auto rk4System = ysq::asPhaseSystem(field);
+    Phase rk4State{ysq::positionsOf(bodies), ysq::velocitiesOf(bodies)};
+    Phase rk4Next = rk4State;
+    for (std::size_t i = 0; i < rk4StepCount; ++i) {
+        rk4Stepper.step(rk4System, static_cast<double>(i) * rk4Step, rk4State, rk4Step,
+                        rk4Next);
+        rk4State = rk4Next;
+    }
+
+    // --- System under test: individual timesteps, each body at its own rate. ---
+    const ysq::NewtonianJerkField jerkField(bodies);
+    const NBodyState positions = ysq::positionsOf(bodies);
+    const NBodyState velocities = ysq::velocitiesOf(bodies);
+    NBodyState accelerations(bodies.size());
+    NBodyState jerks(bodies.size());
+    for (std::size_t i = 0; i < bodies.size(); ++i) {
+        const auto [acceleration, jerk] = jerkField(i, positions, velocities);
+        accelerations[i] = acceleration;
+        jerks[i] = jerk;
+    }
+
+    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations, jerks,
+                                               0.0, 0.01, fastPeriod);
+    scheduler.advanceTo(jerkField, totalTime, 2000000);
+
+    for (std::size_t i = 0; i < bodies.size(); ++i) {
+        const auto [predictedPosition, predictedVelocity] =
+            scheduler.predictedState(i, totalTime);
+        (void)predictedVelocity;
+        EXPECT_NEAR(distance(predictedPosition, rk4State.position[i]), 0.0,
+                    slowRadius * 1e-4)
+            << "body " << i;
+    }
+}
+
+TEST(NBodyEnergy, PredictedStateStaysBoundedWhenTheSchedulerFallsBehind) {
+    // Regression test for the exact failure a real run hit: a caller that
+    // keeps asking predictedState() for an ever-advancing target time,
+    // without ever checking whether advanceTo() actually reached it, feeds
+    // the predictor a gap that grows every call once maxUpdates stops
+    // being enough -- and the cubic extrapolation diverges. The fix is for
+    // the caller to clamp its own notion of "now" to currentTime() after
+    // every advanceTo(), the same way Core::Clock lets simulation time
+    // fall behind real time rather than let an unconsumed backlog
+    // compound; this proves that pattern actually stays bounded, deliberately
+    // forcing the scheduler to fall behind (a tiny maxUpdates) for far
+    // longer than any real frame budget would.
+    const std::vector<Body> bodies = randomCluster(16);
+    const std::vector<double> masses = massesOf(bodies);
+    constexpr double softening = 1.0e9;
+
+    const ysq::NewtonianJerkField jerkField(bodies, ysq::Length{softening});
+    const NBodyState positions = ysq::positionsOf(bodies);
+    const NBodyState velocities = ysq::velocitiesOf(bodies);
+    NBodyState accelerations(bodies.size());
+    NBodyState jerks(bodies.size());
+    for (std::size_t i = 0; i < bodies.size(); ++i) {
+        const auto [acceleration, jerk] = jerkField(i, positions, velocities);
+        accelerations[i] = acceleration;
+        jerks[i] = jerk;
+    }
+
+    constexpr double eta = 0.01;
+    constexpr double baseInterval = 1.0e6;
+    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations, jerks,
+                                               0.0, eta, baseInterval);
+
+    const double initialEnergy = totalEnergy(masses, positions, velocities, softening);
+
+    double simulationTime = 0.0;
+    constexpr double requestedPerFrame = 5.0e6;  // far more than a tiny maxUpdates can reach
+    constexpr int tinyMaxUpdates = 5;
+    constexpr int frames = 500;
+
+    for (int frame = 0; frame < frames; ++frame) {
+        simulationTime += requestedPerFrame;
+        scheduler.advanceTo(jerkField, simulationTime, tinyMaxUpdates);
+        // The fix under test: clamp to what was actually reached.
+        simulationTime = scheduler.currentTime();
+
+        NBodyState sampledPositions(bodies.size());
+        NBodyState sampledVelocities(bodies.size());
+        for (std::size_t i = 0; i < bodies.size(); ++i) {
+            const auto [position, velocity] =
+                scheduler.predictedState(i, simulationTime);
+            ASSERT_TRUE(std::isfinite(length(position)))
+                << "frame " << frame << " body " << i;
+            ASSERT_TRUE(std::isfinite(length(velocity)))
+                << "frame " << frame << " body " << i;
+            sampledPositions[i] = position;
+            sampledVelocities[i] = velocity;
+        }
+
+        const double energy =
+            totalEnergy(masses, sampledPositions, sampledVelocities, softening);
+        ASSERT_TRUE(std::isfinite(energy)) << "frame " << frame;
+        const double drift = std::abs((energy - initialEnergy) / initialEnergy);
+        EXPECT_LT(drift, 1e-2) << "frame " << frame
+                               << ": energy must stay bounded even when the scheduler "
+                                  "can never catch up to the requested rate";
+    }
 }
 
 }  // namespace

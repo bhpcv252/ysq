@@ -131,6 +131,67 @@ ysq::applyState(bodies, next.position, next.velocity);
 `positionsOf`/`velocitiesOf`/`applyState` require `bodies`, `positions`, and
 `velocities` to all be the same size (asserted, not checked, in release).
 
+## `Physics/Mechanics/Hermite.hpp`
+
+A 4th-order predictor-corrector (Makino & Aarseth 1992) and the per-body
+scheduler built on it, giving each body its own step size instead of one
+shared global step. See
+[src/Physics/README.md](../../../src/Physics/README.md)'s "Individual
+timesteps" section for the full derivation and the measured performance
+result against the real Solar System catalog. Force-law-agnostic, the
+same sense `NBodyState` above already is:
+[docs/api/physics/gravity.md](gravity.md) supplies the concrete gravity
+(and 1PN) jerk this is evaluated against.
+
+```cpp
+std::pair<Vec3, Vec3> hermitePredict(const Vec3& position, const Vec3& velocity,
+                                     const Vec3& acceleration, const Vec3& jerk, double dt);
+
+std::pair<Vec3, Vec3> hermiteCorrect(const Vec3& oldAcceleration, const Vec3& oldJerk,
+                                     const Vec3& newAcceleration, const Vec3& newJerk,
+                                     double dt, const Vec3& predictedPosition,
+                                     const Vec3& predictedVelocity);
+
+double hermiteTimestep(const Vec3& acceleration, const Vec3& jerk, double eta,
+                       double baseInterval);
+// dt = sqrt(eta * |a| / |jerk|), rounded down to a power-of-two fraction of baseInterval
+
+template <class F>
+concept IndividualJerkField =
+    /* (bodyIndex, predictedPositions, predictedVelocities) -> pair<Vec3, Vec3> */;
+
+class IndividualTimestepScheduler {
+public:
+    IndividualTimestepScheduler(NBodyState positions, NBodyState velocities,
+                                NBodyState accelerations, NBodyState jerks,
+                                double initialTime, double eta, double baseInterval);
+
+    template <IndividualJerkField JerkField>
+    void advanceTo(const JerkField& jerkField, double targetTime, int maxUpdates);
+
+    std::pair<Vec3, Vec3> predictedState(std::size_t bodyIndex, double atTime) const;
+    double currentTime() const noexcept;
+    std::size_t bodyCount() const noexcept;
+};
+```
+
+| Member | Description |
+| --- | --- |
+| `advanceTo` | Whichever body's own (last update + its own step) is soonest goes next: every other body predicted to that instant, the caller's jerk field asked for the mover's own new (acceleration, jerk), corrected, requeued with a freshly chosen step. Stops at `targetTime` or after `maxUpdates` single-body updates -- the individual-update analogue of a uniform stepper's `maxStepsPerAdvance`. |
+| `predictedState` | Every body's position/velocity predicted to `atTime`, regardless of whether its own next scheduled update lands exactly there. Rendering, trails, and any energy/momentum diagnostic should all read through this, not a body's own last true update: total system energy is only meaningful when every body is read at the same instant, and bodies advancing at their own rate are essentially never all exactly synchronized except incidentally. |
+
+**Not symplectic**: 4th-order accurate, the same category RK4 is in, not
+`VelocityVerletStepper`'s -- no guarantee against slow energy drift over
+an arbitrarily long run.
+
+```cpp
+ysq::RelativisticNBodyJerkSystem jerkField(bodies, primaryIndex, softening);
+// initialAccelerations/initialJerks: jerkField(i, positions, velocities) for every i
+ysq::IndividualTimestepScheduler scheduler(positions, velocities, initialAccelerations,
+                                           initialJerks, 0.0, eta, baseInterval);
+scheduler.advanceTo(jerkField, targetTime, maxUpdates);
+```
+
 ---
 Notice something missing or wrong on this page?
 [Open an issue](https://github.com/bhpcv252/ysq/issues/new?title=docs:+api/physics/mechanics)

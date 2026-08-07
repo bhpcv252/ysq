@@ -18,6 +18,7 @@ nothing in the engine.
 | `Core/UUID.hpp`    | RFC 4122 version 4 identifiers                           |
 | `Core/Event.hpp`   | Type-keyed event bus                                     |
 | `Core/Config.hpp`  | Key/value configuration with an INI text form            |
+| `Core/Csv.hpp`     | Typed CSV table loading                                   |
 
 Nothing here is thread-safe unless it says so. `Logger` is; the rest assume a
 single owning thread, which for `Clock` and `EventBus` is the simulation loop.
@@ -221,3 +222,55 @@ same bytes, so a config file does not churn every time something rewrites it.
 
 There is no JSON or TOML dependency. The format is small enough to own, and the
 dependency table in the root `README.md` stays as short as it is.
+
+## Csv
+
+A CSV table, header row plus typed data rows, for loading tabular data a
+consumer downloaded or hand-curated -- real orbital elements for a solar-system
+scenario, for instance -- rather than something this engine wrote itself.
+Unlike `Config`, round-tripping is not a goal: this reads data, it does not own
+writing it back out.
+
+```
+# source: JPL SSD, epoch 2000-01-01.5 TDB
+name, mass_kg, semi_major_axis_km
+Io, 8.9319e22, 421800
+"Europa, Jupiter II", 4.7998e22, 671100
+```
+
+```cpp
+const std::optional<ysq::Csv> table = ysq::Csv::load("moons.csv", &error);
+for (const ysq::Csv::Row& row : *table) {
+    const std::string name = row.get<std::string>("name", "");
+    const double massKg = row.get<double>("mass_kg", 0.0);
+}
+```
+
+Supported types are `bool`, integral, floating-point and `std::string`, the
+same set `Config` supports, parsed with the same helpers: a missing column or a
+field that will not parse as `T` yields the fallback rather than throwing.
+`Row::lineNumber()` gives the row's own 1-based source line, for a caller that
+wants to report its own error about one row's data (a mass outside a physically
+sane range, say) the same way `ConfigError::line` does for a bad config file.
+
+The text form is RFC 4180 with two documented extensions:
+
+- A field is quoted with `"`, doubled (`""`) to embed a literal quote, and a
+  quoted field may contain a literal comma or newline. A `"` appearing outside
+  a quoted field, or real content appearing after a quoted field closes and
+  before the next comma, is a parse error naming its line.
+- An unquoted field is trimmed of leading and trailing whitespace; a quoted
+  field is not, since the point of quoting is to preserve exactly what is
+  inside it.
+- A line whose first non-whitespace character is `#` is a comment, skipped the
+  same way `Config`'s text form treats one. A real field beginning with `#`
+  must be quoted.
+- A line with no characters at all is skipped; a line that parses to fields
+  that happen to be empty (`,,`) is a real, present row.
+- Every data row must have exactly as many fields as the header has columns; a
+  short or long row is a parse error, not a silently padded or truncated one.
+  Header column names must be non-empty and unique.
+
+`load()` refuses a file larger than `kDefaultMaxFileBytes` (64 MiB, overridable
+per call), the same guard `Config::load` uses and for the same reason: this is
+the one other place `Core` reads a file it did not write.

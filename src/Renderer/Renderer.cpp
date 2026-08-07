@@ -2,6 +2,8 @@
 
 #include <Renderer/shaders/Basic.frag.hpp>
 #include <Renderer/shaders/Basic.vert.hpp>
+#include <Renderer/shaders/Glow.frag.hpp>
+#include <Renderer/shaders/Glow.vert.hpp>
 #include <Renderer/shaders/Instanced.vert.hpp>
 #include <Renderer/shaders/Skybox.frag.hpp>
 #include <Renderer/shaders/Skybox.vert.hpp>
@@ -166,6 +168,11 @@ std::optional<Renderer> Renderer::create(std::string* error) {
     if (!skyboxShader) {
         return std::nullopt;
     }
+    std::optional<Shader> glowShader =
+        Shader::compile(shaders::kGlowVertSource, shaders::kGlowFragSource, error);
+    if (!glowShader) {
+        return std::nullopt;
+    }
     std::optional<DebugDraw> debugDraw = DebugDraw::create(error);
     if (!debugDraw) {
         return std::nullopt;
@@ -174,10 +181,15 @@ std::optional<Renderer> Renderer::create(std::string* error) {
     if (!skyboxCube) {
         return std::nullopt;
     }
+    std::optional<Mesh> glowQuad = Mesh::quad(1.0f);
+    if (!glowQuad) {
+        return std::nullopt;
+    }
 
     return std::optional<Renderer>{Renderer{
         std::move(*basicShader), std::move(*instancedShader), std::move(*skyboxShader),
-        std::move(*debugDraw), std::move(*skyboxCube)}};
+        std::move(*glowShader), std::move(*debugDraw), std::move(*skyboxCube),
+        std::move(*glowQuad)}};
 }
 
 void Renderer::beginFrame(const Camera& camera, float aspect, int viewportWidth,
@@ -216,18 +228,15 @@ void Renderer::applyLights(const Shader& shader) const {
     std::vector<Vec3f> position;
     std::vector<Vec3f> color;
     std::vector<float> intensity;
-    std::vector<float> radius;
     for (std::size_t i = 0; i < pointCount; ++i) {
         position.push_back(m_pointLights[i].position);
         color.push_back(m_pointLights[i].color);
         intensity.push_back(m_pointLights[i].intensity);
-        radius.push_back(m_pointLights[i].radius);
     }
     shader.setUniform("uPointLightCount", static_cast<int>(pointCount));
     shader.setUniformArray("uPointLightPosition", position);
     shader.setUniformArray("uPointLightColor", color);
     shader.setUniformArray("uPointLightIntensity", intensity);
-    shader.setUniformArray("uPointLightRadius", radius);
 
     const std::size_t directionalCount =
         std::min(m_directionalLights.size(), kMaxDirectionalLights);
@@ -254,6 +263,12 @@ void applyMaterial(const Shader& shader, const Material& material) {
     shader.setUniform("uDiffuse", material.diffuse);
     shader.setUniform("uSpecular", material.specular);
     shader.setUniform("uShininess", material.shininess);
+    // Harmless no-op on m_instancedShader, which has no uLightMultiplier
+    // uniform of its own (glGetUniformLocation returns -1 for an unknown
+    // name, and every glUniform* call against location -1 is a defined
+    // no-op) -- drawInstanced() reads Mesh::setInstanceLightMultipliers's own
+    // per-instance value instead, not this.
+    shader.setUniform("uLightMultiplier", material.lightMultiplier);
 }
 
 }  // namespace
@@ -298,6 +313,31 @@ void Renderer::drawSkybox(const Cubemap& sky) {
 
     m_skyboxCube.draw();
     glDepthFunc(GL_GREATER);
+    ++m_drawCallCount;
+}
+
+void Renderer::drawGlow(const Vec3f& position, float worldRadius, const Vec3f& color,
+                        float intensity) {
+    // Additive, and never writes depth: many overlapping glows should only
+    // ever brighten each other, and this must not occlude anything drawn
+    // after it. Depth *testing* stays on (untouched here), so a body in
+    // front of the light still correctly hides its glow.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDepthMask(GL_FALSE);
+
+    m_glowShader.use();
+    m_glowShader.setUniform("uViewProjection", m_projection * m_view);
+    m_glowShader.setUniform("uCenter", position);
+    m_glowShader.setUniform("uCameraRight", m_cameraRight);
+    m_glowShader.setUniform("uCameraUp", m_cameraUp);
+    m_glowShader.setUniform("uWorldRadius", worldRadius);
+    m_glowShader.setUniform("uColor", color);
+    m_glowShader.setUniform("uIntensity", intensity);
+    m_glowQuad.draw();
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
     ++m_drawCallCount;
 }
 

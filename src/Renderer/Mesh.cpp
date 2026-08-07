@@ -173,6 +173,7 @@ Mesh::Mesh(Mesh&& other) noexcept
       m_vbo(std::exchange(other.m_vbo, 0u)),
       m_ebo(std::exchange(other.m_ebo, 0u)),
       m_instanceVbo(std::exchange(other.m_instanceVbo, 0u)),
+      m_instanceLightMultiplierVbo(std::exchange(other.m_instanceLightMultiplierVbo, 0u)),
       m_indexCount(std::exchange(other.m_indexCount, std::size_t{0})),
       m_instanceCount(std::exchange(other.m_instanceCount, std::size_t{0})) {}
 
@@ -185,6 +186,7 @@ Mesh& Mesh::operator=(Mesh&& other) noexcept {
     m_vbo = std::exchange(other.m_vbo, 0u);
     m_ebo = std::exchange(other.m_ebo, 0u);
     m_instanceVbo = std::exchange(other.m_instanceVbo, 0u);
+    m_instanceLightMultiplierVbo = std::exchange(other.m_instanceLightMultiplierVbo, 0u);
     m_indexCount = std::exchange(other.m_indexCount, std::size_t{0});
     m_instanceCount = std::exchange(other.m_instanceCount, std::size_t{0});
     return *this;
@@ -195,6 +197,9 @@ Mesh::~Mesh() {
 }
 
 void Mesh::destroy() noexcept {
+    if (m_instanceLightMultiplierVbo != 0) {
+        glDeleteBuffers(1, &m_instanceLightMultiplierVbo);
+    }
     if (m_instanceVbo != 0) {
         glDeleteBuffers(1, &m_instanceVbo);
     }
@@ -207,7 +212,7 @@ void Mesh::destroy() noexcept {
     if (m_vao != 0) {
         glDeleteVertexArrays(1, &m_vao);
     }
-    m_vao = m_vbo = m_ebo = m_instanceVbo = 0;
+    m_vao = m_vbo = m_ebo = m_instanceVbo = m_instanceLightMultiplierVbo = 0;
     m_indexCount = m_instanceCount = 0;
 }
 
@@ -234,6 +239,29 @@ void Mesh::setInstanceTransforms(std::span<const Matrix4<float>> transforms) {
                               reinterpret_cast<const void*>(offset));
         glVertexAttribDivisor(location, 1);
     }
+    glBindVertexArray(0);
+
+    // Defaults every instance to fully lit, so a caller that never calls
+    // setInstanceLightMultipliers gets a fully-lit result, not an
+    // uninitialized attribute.
+    const std::vector<float> fullyLit(transforms.size(), 1.0f);
+    setInstanceLightMultipliers(fullyLit);
+}
+
+void Mesh::setInstanceLightMultipliers(std::span<const float> factors) {
+    if (m_instanceLightMultiplierVbo == 0) {
+        glGenBuffers(1, &m_instanceLightMultiplierVbo);
+    }
+
+    glBindVertexArray(m_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, m_instanceLightMultiplierVbo);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(factors.size_bytes()), factors.data(),
+                GL_DYNAMIC_DRAW);
+
+    constexpr unsigned kLocation = 7;
+    glEnableVertexAttribArray(kLocation);
+    glVertexAttribPointer(kLocation, 1, GL_FLOAT, GL_FALSE, sizeof(float), nullptr);
+    glVertexAttribDivisor(kLocation, 1);
     glBindVertexArray(0);
 }
 

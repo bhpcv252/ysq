@@ -27,6 +27,7 @@ else may depend on it.
 | `Core/UUID.hpp` | Random, unique identifiers |
 | `Core/Event.hpp` | A type-keyed event bus for anything copyable |
 | `Core/Config.hpp` | Key/value settings, read from a small INI-like text format |
+| `Core/Csv.hpp` | Typed CSV table loading, for data a consumer downloaded or curated |
 | `Core/Version.hpp` | The engine's own version, generated from the CMake project version |
 
 The one to understand first is `Clock`, because its shape is the shape of
@@ -76,6 +77,23 @@ const double timestep = config->get<double>("physics.timestep", 1e-3);
 or a value that won't parse as `T` all fall back to the default you gave
 rather than throwing, so a malformed settings file degrades to defaults
 instead of crashing your simulation on startup.
+
+`Csv` is the same idea for tabular data: a header row and typed rows, for
+loading something like real orbital elements downloaded from JPL rather than
+hardcoding them into a scenario:
+
+```cpp
+#include <Core/Csv.hpp>
+
+const std::optional<ysq::Csv> table = ysq::Csv::load("planets.csv", &error);
+for (const ysq::Csv::Row& row : *table) {
+    const std::string name = row.get<std::string>("name", "");
+    const double massKg = row.get<double>("mass_kg", 0.0);
+}
+```
+
+Same totality guarantee as `Config::get`: a missing column or an unparsable
+field falls back rather than throwing.
 
 ## Go deeper
 

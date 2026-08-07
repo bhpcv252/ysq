@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+    message(FATAL_ERROR
+        "In-source builds are not allowed. Configure into a separate "
+        "directory instead, e.g.: cmake -B build")
+endif()
+
 project(YSQ
     VERSION 0.1.0
     DESCRIPTION "Yotta Spacetime Quantities: a C++ engine for simulating and visualizing physical systems"
@@ -7,11 +13,20 @@ project(YSQ
 
 # C is enabled for GLAD's generated loader, the only C source in the tree.
 
+# Single-config generators (Makefiles, Ninja) leave this empty with no flags
+# of their own otherwise, which is neither Debug nor Release, just
+# unoptimized. Multi-config generators (Xcode, Ninja Multi-Config) use
+# CMAKE_CONFIGURATION_TYPES instead and ignore this entirely, so this must not
+# touch them.
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(YSQ_BUILD_TESTS "Build the YSQ test suite" ON)
+option(YSQ_BUILD_TESTS "Build the YSQ test suite" OFF)
 option(YSQ_BUILD_COMPILE_FAIL_TESTS
     "Build the tests that assert something does not compile" ON)
 option(YSQ_BUILD_GRAPHICS "Build graphics-dependent modules (GLFW, GLAD, Dear ImGui)" ON)
