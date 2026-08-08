@@ -27,9 +27,14 @@
 ///
 /// The physics here is deliberately the simplest case with a closed form: one
 /// body about a fixed centre, with the gravitational parameter set to one, so
-/// the period of an orbit of semi-major axis a is exactly 2 pi a^(3/2). None
-/// of it belongs in the engine; a Kepler orbit is a scenario, and scenarios
-/// live in Applications.
+/// the period of an orbit of semi-major axis a is exactly 2 pi a^(3/2). The
+/// force law and integration loop below are hand-rolled rather than reused
+/// from Physics, on purpose: this file tests whether Math's own pieces (an
+/// integrator, a vector type, a coordinate conversion, a running accumulator)
+/// add up on their own, with no dependency on Physics to confound the
+/// answer. The closed-form two-body solution itself, which this numerically
+/// integrated orbit is checked against, lives in
+/// Physics/Gravity/Kepler.hpp.
 
 namespace {
 

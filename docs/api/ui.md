@@ -68,6 +68,8 @@ public:
 
     void slider(std::string label, float& value, float min, float max);
     void slider(std::string label, int& value, int min, int max);
+    void inputFloat(std::string label, float& value, float step = 0.0f,
+                    float stepFast = 0.0f, const char* format = "%.3f");
     void checkbox(std::string label, bool& value);
     void colorEdit(std::string label, Vec3f& value);
     void text(std::string label, std::string& value);            // a live readout

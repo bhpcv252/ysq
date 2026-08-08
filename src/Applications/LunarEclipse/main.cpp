@@ -13,6 +13,7 @@
 #include <Math/Vector3.hpp>
 
 #include <Physics/Body.hpp>
+#include <Physics/Gravity/Kepler.hpp>
 #include <Physics/Gravity/Newtonian.hpp>
 #include <Physics/Mechanics/Dynamics.hpp>
 #include <Physics/Mechanics/RigidBody.hpp>
@@ -206,9 +207,7 @@ int main() {
     const double gmEarth = ysq::constants::G.value() * bodies[kEarth].mass.value();
     const double moonOrbitRadius =
         length(bodies[kMoon].position.value() - bodies[kEarth].position.value());
-    const double moonPeriod =
-        ysq::kTau<double> *
-        std::sqrt(moonOrbitRadius * moonOrbitRadius * moonOrbitRadius / gmEarth);
+    const double moonPeriod = ysq::keplerOrbitalPeriod(gmEarth, moonOrbitRadius);
     const double fixedStep = moonPeriod / 2000.0;
 
     ysq::Clock::Settings clockSettings;
@@ -250,8 +249,7 @@ int main() {
     int povSelection = 0;  // "Free"
     // Focus's list starts as ["Free", "Sun", "Earth", "Moon"] (nothing
     // excluded yet, since POV starts Free), so 2 is Earth: the most
-    // immediately interesting body to start on, matching this app's past
-    // default.
+    // immediately interesting body to start on.
     int focusSelection = 2;
     int previousFocusSelection = -1;
 
@@ -485,8 +483,14 @@ int main() {
         ysq::PointLight sunLight;
         sunLight.position = sunRenderPosition;
         sunLight.color = scenario.sunColor;
-        sunLight.intensity = 3.0f;
-        sunLight.radius = 200.0f;
+        // Real inverse-square falloff (Renderer/Light.hpp): intensity is
+        // calibrated so Earth, 1 AU (kRenderUnitsPerAu render units) from
+        // the Sun, reads at this scene's intended brightness -- intensity /
+        // 5^2 gives that near-full-intensity value at Earth's distance, so
+        // Earth looks right and points farther out (Mercury and beyond)
+        // correctly fall off relative to it instead of everything reading
+        // at roughly the same, physically wrong brightness.
+        sunLight.intensity = 75.0f;
         const std::array<ysq::PointLight, 1> fullSunlight{sunLight};
         renderer.setLights(fullSunlight, {});
 
@@ -527,8 +531,7 @@ int main() {
             ysq::Vec3f{static_cast<float>(illumination.result.transmission.x),
                        static_cast<float>(illumination.result.transmission.y),
                        static_cast<float>(illumination.result.transmission.z)};
-        moonLight.intensity = 3.0f;
-        moonLight.radius = 200.0f;
+        moonLight.intensity = 75.0f;  // same real-inverse-square calibration as sunLight above
         const std::array<ysq::PointLight, 1> moonIllumination{moonLight};
         renderer.setLights(moonIllumination, {});
 
@@ -549,8 +552,8 @@ int main() {
             // depending on zoom, so a label's size and offset are tied to
             // the current orbit distance (roughly "screen-space constant
             // size") rather than to the body's own radius: a fixed offset
-            // like the old cosmetic scale used would either vanish inside
-            // the Sun or dwarf the Moon depending on which body is in view.
+            // would either vanish inside the Sun or dwarf the Moon
+            // depending on which body is in view.
             const float labelHeight = cameraDistance * 0.06f;
             const float labelOffset = cameraDistance * 0.1f;
             if (!sceneCamera.isHidden(kSun)) {

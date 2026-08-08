@@ -30,15 +30,20 @@ far.
 | `Physics/Mechanics/Kinematics.hpp` | Lorentz factor, four-velocity, proper time, relativistic velocity addition |
 | `Physics/Mechanics/Dynamics.hpp` | `NBodyState`, the boundary between a span of `Body` and Math's integrators |
 | `Physics/Mechanics/RigidBody.hpp` | Gravity-gradient torque and Euler's rotation equation, general for any oblate body |
-| `Physics/Gravity/Newtonian.hpp` | Pairwise gravity, direct-sum N-body, potential energy, J2 oblateness |
-| `Physics/Gravity/PostNewtonian.hpp` | The 1PN two-body correction (perihelion precession) |
+| `Physics/Mechanics/Hermite.hpp` | 4th-order predictor-corrector integration and `IndividualTimestepScheduler`: each body its own step size, force-law-agnostic |
+| `Physics/Gravity/Newtonian.hpp` | Pairwise gravity, direct-sum N-body, potential energy, J2 oblateness, and `NewtonianJerkField` for `IndividualTimestepScheduler` |
+| `Physics/Gravity/PostNewtonian.hpp` | The 1PN two-body correction (perihelion precession), `RelativisticNBodySystem`'s per-body-primary N-body extension of it, and their jerk counterparts |
 | `Physics/Gravity/BarnesHut.hpp` | O(N log N) approximate N-body gravity |
+| `Physics/Gravity/Kepler.hpp` | Closed-form two-body orbits: classical elements to state vectors, Kepler's equation, mean motion and period |
 | `Physics/Spacetime/Metric.hpp` | The `SpacetimeMetric` concept, Christoffel symbols, causal character |
 | `Physics/Spacetime/Minkowski.hpp` | Flat spacetime |
 | `Physics/Spacetime/Schwarzschild.hpp` | Non-rotating mass |
 | `Physics/Spacetime/Kerr.hpp` | Rotating mass |
 | `Physics/Spacetime/FLRW.hpp` | Expanding universe, single-component analytic solutions |
 | `Physics/Spacetime/Geodesic.hpp` | Timelike and null geodesics |
+| `Physics/Spacetime/ADM.hpp` | The primitive 3+1 variables as `Grid3D` fields: a spacetime that evolves, not a prescribed one |
+| `Physics/Spacetime/Bssn.hpp` | The BSSN reformulation, its evolution equations, and the moving-puncture gauge |
+| `Physics/Spacetime/PunctureInitialData.hpp` | Brandt-Brügmann puncture data with Bowen-York extrinsic curvature |
 | `Physics/Optics/Propagation.hpp` | Light as a null geodesic |
 | `Physics/Optics/Lensing.hpp` | Gravitational deflection angle |
 | `Physics/Optics/FrequencyShift.hpp` | Doppler, gravitational and cosmological shift, one formula |
@@ -137,6 +142,18 @@ it approximates. Full derivations, the softening rationale, and Barnes-Hut's
 error-versus-theta tradeoff are in [Softening](#softening) and
 [Barnes-Hut](#barnes-hut) below.
 
+**`Gravity/Kepler.hpp`** is the closed-form counterpart to all of the
+above: the exact, unperturbed two-body solution, rather than a force law
+to integrate. `stateVectorFromElements` converts classical orbital
+elements straight to a Cartesian position/velocity state; `stateVectorAtTime`
+does the same at any later time, propagating through Kepler's equation
+(`trueAnomalyFromMeanAnomaly`, solved by Newton-Raphson) at a cost that
+does not grow with how far forward the query is, unlike stepping a real
+integrator that far. `keplerMeanMotion`/`keplerOrbitalPeriod` give the same
+two-body mean motion `n = sqrt(gm / a^3)` every other rung above already
+needs, in one place rather than re-derived at each call site. See
+[Kepler orbit](#kepler-orbit) below for the full derivation.
+
 ## Spacetime: a metric is a concept, not a base class
 
 `SpacetimeMetric` requires one thing: `components(Vector4<T>) const` for any
@@ -178,6 +195,12 @@ to `0`, checked with `isTimelike` / `isNull`.
 
 Full derivations, each metric's line element, and the geodesic tests'
 reasoning are in [Derivations](#derivations) below.
+
+**Every metric above is prescribed, not solved for.** `ADM.hpp`, `Bssn.hpp`
+and `PunctureInitialData.hpp` are this module's other case: a spacetime the
+engine itself evolves, one timestep at a time, from Einstein's field
+equations rather than from a closed form someone solved by hand. See
+[3+1 and BSSN](#3+1-and-bssn) below.
 
 ## Optics: light propagation, lensing and frequency shift are one geodesic
 
@@ -229,6 +252,21 @@ extended light source is visible from a point, through a scene of opaque
 and refracting-and-scattering bodies. It carries no scenario knowledge of
 its own; what a caller does with the color and geometric visibility it
 returns is entirely up to `Applications/`.
+
+`discOcclusionFraction`, in the same header, is the cheap sibling `illuminate()`
+does not replace: the closed-form circle-circle overlap of a light
+source's own apparent disc and a single opaque occluder's, as seen from a
+point (each disc's own apparent angular radius and the angular separation
+between their centers -- real eclipse/transit geometry), not a sampled or
+ray-marched approximation. No atmosphere, no color, no per-wavelength
+transmission -- exactly what a real shadow needs and nothing an
+`illuminate()`-style caller (`LunarEclipse`) needs on top, which is what
+makes it cheap enough to call once per particle for a large population
+every rendered frame. `KeplerSolarSystem/main.cpp` is the worked example:
+a moon's own real shadow from its planet, a ring particle's own real
+shadow from its planet, both feeding `Renderer::Material::lightMultiplier`
+(a single draw) or `Mesh::setInstanceLightMultipliers` (an instanced one) --
+see `src/Renderer/README.md`'s own section on both.
 
 ## Electromagnetism is a ladder too
 
@@ -527,16 +565,199 @@ delta_phi = 6 pi GM / (c^2 a (1 - e^2))
 ```
 
 where `a` is the semi-major axis and `e` the eccentricity of the
-(now slowly precessing) ellipse. This is the formula the Mercury-like case in
-`physics_gravity.cpp` validates the correction against, and the same formula
-`lensing_deflection.cpp` validates a full Schwarzschild geodesic against once
-`Physics/Spacetime` exists, confirming the two rungs of the gravity ladder
-agree in the regime they overlap.
+(now slowly precessing) ellipse. This is the formula
+`physics_gravity.cpp`'s `RelativisticNBodySystemPerihelionPrecessionMatchesTheAnalyticRate`
+validates the correction against (a Mercury-like case: negligible-mass
+planet, dominant star), and the same formula `lensing_deflection.cpp`
+validates a full Schwarzschild geodesic against once `Physics/Spacetime`
+exists, confirming the two rungs of the gravity ladder agree in the regime
+they overlap.
 
-**Scope.** This is the two-body, test-particle form: exact where the source's
-mass dominates, which is the regime the precession formula itself assumes.
-The N-body generalization is the Einstein-Infeld-Hoffmann equations, which
-add cross terms between every pair of bodies and are not implemented here.
+`perihelionPrecessionPerOrbit(gm, semiMajorAxis, eccentricity)` is this
+same closed form as a real, reusable function rather than inline test
+math: for a caller that wants the real precession rate without running a
+real integrator over `postNewtonianCorrection` at all, dividing the
+result by `keplerOrbitalPeriod` (see [Kepler orbit](#kepler-orbit) above)
+to get radians per second. `KeplerSolarSystem`'s own closed-form Kepler
+propagator (`Physics/Gravity/Kepler.hpp`'s
+`stateVectorAtTime`) is the worked example: it rotates a body's own
+argument of periapsis at that rate directly, which is how a caller with no
+n-body integration at all still shows Mercury's real perihelion advance.
+
+**Scope.** The correction itself, `postNewtonianCorrection`, is the
+two-body, test-particle form: exact where the source's mass dominates,
+which is the regime the precession formula itself assumes. The full N-body
+generalization is the Einstein-Infeld-Hoffmann equations, which add cross
+terms between every pair of bodies and are not implemented here.
+
+**`RelativisticNBodySystem`** is the practical middle ground a real
+hierarchical system (planets around a star, moons around their own
+planet) actually needs: direct-summation Newtonian gravity for every
+pair, exactly as `NewtonianField` already computes it (J2 included), plus
+this correction for whichever bodies the caller names a primary for --
+each body against its *own* dominant nearby source, not full EIH cross
+terms between every pair. A moon's primary is its own planet, not the
+Sun; `Applications/SolarSystem/main.cpp` is the worked example, one
+`primaryIndex` entry per real body in the catalog.
+
+This is also the one place in the gravity ladder that is
+**velocity-dependent**: the 1PN term needs velocity, not only position, so
+`RelativisticNBodySystem` is a full `OdeSystem` over
+`PhaseState<NBodyState>` for an explicit stepper
+(`Rk4Stepper<PhaseState<NBodyState>>`), not an `AccelerationField` a
+symplectic stepper (`VelocityVerletStepper` and the rest of
+`Math/Integrators/Symplectic.hpp`) could take. Turning this on is a real,
+documented trade: the symplectic bounded-energy-error guarantee for the
+actual relativistic physics (visible perihelion precession), not a
+limitation to work around.
+
+### Kepler orbit
+
+The unperturbed two-body problem has an exact, closed-form solution, which
+is what makes it worth having alongside a numerical integrator rather than
+only ever stepping toward it: given the central body's own gravitational
+parameter `gm` and the six classical orbital elements (semi-major axis
+`a`, eccentricity `e`, inclination, longitude of ascending node, argument
+of periapsis, and either true or mean anomaly), the state is known at any
+instant with no accumulated integration error at all.
+
+`stateVectorFromElements` builds the position and velocity in the
+perifocal frame (the ellipse's own plane, periapsis along +x) from the
+standard formulas
+
+```
+r = a (1 - e^2) / (1 + e cos(nu))
+h = sqrt(gm a (1 - e^2))
+x_pf = r cos(nu),  y_pf = r sin(nu)
+vx_pf = -(gm/h) sin(nu),  vy_pf = (gm/h) (e + cos(nu))
+```
+
+then rotates both into the reference frame by the standard
+`Rz(Omega) Rx(i) Rz(omega)` composition (longitude of ascending node,
+inclination, argument of periapsis).
+
+Real published data (JPL's included) gives the mean anomaly `M`, the angle
+a body *would* have moving at the constant mean motion `n = sqrt(gm/a^3)`
+(`keplerMeanMotion`), not the true anomaly the state-vector formula above
+needs. The two are related by Kepler's equation, `M = E - e sin(E)`, for
+the eccentric anomaly `E`; `trueAnomalyFromMeanAnomaly` solves it by
+Newton-Raphson (a handful of iterations reach double precision for any
+bound orbit) starting from `E0 = M + e sin(M)`, then converts `E` to true
+anomaly by the numerically robust atan2 form of
+`tan(nu/2) = sqrt((1+e)/(1-e)) tan(E/2)`.
+
+`stateVectorAtTime` composes both: it advances the mean anomaly (and,
+if `precessionRatePerSecond` is nonzero, the argument of periapsis) to the
+requested time, solves Kepler's equation, and converts to a state vector --
+at a cost that does not grow with how far forward the query is, unlike
+stepping a real integrator that far. `precessionRatePerSecond` is how a
+caller with no real integrator at all still shows a real effect like
+relativistic perihelion advance: convert
+[`postNewtonianCorrection`](#the-1pn-correction)'s
+`perihelionPrecessionPerOrbit` (radians per orbit) to radians per second by
+dividing by `keplerOrbitalPeriod`.
+
+### Individual timesteps (the Hermite scheme)
+
+A shared global step forces every body through whichever one moves
+fastest: correct for that body, wasteful for every slower one, and there
+is no single step size that is both cheap and accurate for bodies whose
+dynamical timescales differ by orders of magnitude (an inner ring moon
+under a day, an outer irregular moon decades). `Physics/Mechanics/Hermite.hpp`
+gives each body its own step instead.
+
+**The predictor** extrapolates a body's position and velocity forward by
+`dt` using its own last known acceleration `a` and jerk (`ȧ`, the rate
+`a` itself is changing) via a third-order Taylor expansion:
+
+    x_pred = x + v dt + (1/2) a dt^2 + (1/6) ȧ dt^3
+    v_pred = v + a dt + (1/2) ȧ dt^2
+
+This is what lets one body's force evaluation use a physically reasonable
+estimate of another body's position, even when that other body has not
+been updated in a while.
+
+**The corrector** fits the acceleration's own 2nd and 3rd derivatives
+("snap" and "crackle") from the (acceleration, jerk) pair known at both
+the start and the predicted end of the step (Makino & Aarseth 1992):
+
+    ä = [-6 (a - a_new) - dt (4 ȧ + 2 ȧ_new)] / dt^2
+    ⃛a = [12 (a - a_new) + 6 dt (ȧ + ȧ_new)] / dt^3
+    x = x_pred + (1/24) ä dt^4 + (1/120) ⃛a dt^5
+    v = v_pred + (1/6) ä dt^3 + (1/24) ⃛a dt^4
+
+Verified by measuring the observed convergence order on a circular
+Kepler orbit (`tests/unit/physics_mechanics_hermite.cpp`), the same
+methodology `tests/unit/math_integrators.cpp` uses for RK4 and Verlet:
+4th order, as the derivation claims.
+
+**Each body's own step** comes from the Aarseth (1985) criterion --
+`dt = sqrt(eta * |a| / |ȧ|)`, shrinking automatically where a body's
+acceleration is large and rapidly changing (a close encounter, any sharp
+perturbation) and growing where it is calm and slowly varying, with
+nothing naming an orbit or a parent anywhere in the formula -- rounded
+down to the nearest power-of-two fraction of a caller-chosen base
+interval, so bodies with similar timescales land on shared update times
+rather than each drifting to a time nothing else ever lines up with.
+
+**`IndividualTimestepScheduler`** owns every body's own (last-update
+time, step, position, velocity, acceleration, jerk) and, each cycle,
+advances whichever body's own next update is soonest: every other body
+is predicted to that instant, the caller's jerk field (see below) is
+asked for the mover's own new (acceleration, jerk), the corrector
+refines its position and velocity, and its next step is re-chosen. This
+lives in Mechanics, not Gravity: nothing here knows what jerk *is*
+physically, the same way `Dynamics.hpp`'s `NBodyState` does not know
+what force law produced an acceleration. `Physics/Gravity/Newtonian.hpp`'s
+`NewtonianJerkField` and `Physics/Gravity/PostNewtonian.hpp`'s
+`RelativisticNBodyJerkSystem` supply the concrete gravity (and 1PN) jerk.
+
+**Jerk formulas.** The pairwise Newtonian jerk (`NewtonianJerkField`) is
+the direct time-derivative of the same softened term
+`NewtonianField` already computes:
+
+    r = position_j - position_i,  v = velocity_j - velocity_i
+    R = sqrt(|r|^2 + softening^2)
+    jerk_i (from j) = G m_j [ v / R^3 - 3 (r . v) r / R^5 ]
+
+The 1PN correction's own jerk (`relativisticJerkTerm`) is the
+time-derivative of `relativisticAccelerationTerm`, differentiated
+term-by-term through `r`, `v`, the unit vector `n = r / |r|`, and the
+radial speed `s = v . n` -- a real, multi-term closed-form expression,
+not a formula that can be looked up the way the base 1PN term itself
+was. Verified against a finite-difference of the already-tested
+acceleration term rather than trusted on the derivation alone
+(`tests/unit/physics_gravity.cpp`), exactly the kind of closed-form
+derivative that is easy to get subtly wrong. Its own relative
+acceleration term uses the two-body Newtonian relative acceleration,
+`-gm r / |r|^3` -- the same test-particle-around-a-dominant-source scope
+`relativisticAccelerationTerm` itself already assumes, so this pulls in
+no more of the full N-body picture than that formula already does.
+
+**J2 jerk is not implemented.** Differentiating the quadrupole term
+through a rotating spin axis is a separate derivation, future work
+rather than a limitation of this being wrong for a body whose `j2`
+actually is zero -- every body the Solar System catalog names. A future
+consumer with an oblate body under this scheduler needs that term added
+first.
+
+**Not symplectic.** This is 4th-order accurate, the same category RK4
+is in, not `VelocityVerletStepper`'s: there is no guarantee against slow
+energy drift over an arbitrarily long run, only a small per-step error
+and each body resolved at its own appropriate scale rather than everyone
+paying for the fastest one.
+
+**What this actually buys, measured against the real catalog.** For
+`Applications/SolarSystem`'s real ~175-body dataset, advancing 1
+simulated month takes about 30 seconds of real compute with individual
+timesteps, against roughly 40 seconds the old single-global-step
+approach would need to do the same amount of work (both uncapped, i.e.
+the total cost of the work itself, not throttled by a per-frame cap). A
+real improvement, but a modest one (roughly 1.3x): about a fifth of this
+catalog's ~175 bodies have their own period under a day, not just the
+one fastest moon, so most of the benefit an individual-timestep scheme
+gets from letting *slow* bodies skip needless updates is diluted by how
+many bodies in a real solar system are not slow.
 
 ### Spacetime conventions
 
@@ -625,6 +846,187 @@ an acceleration that is identically zero. In Schwarzschild, a null geodesic
 launched tangentially at the photon sphere, `r = 1.5 r_s`, holds that radius:
 the unstable circular photon orbit, and the test that actually exercises
 `christoffelSymbols` and the stepper together on curved spacetime.
+
+### 3+1 and BSSN
+
+Every metric above is a closed-form solution someone already solved
+Einstein's equations to get. `ADM.hpp`, `Bssn.hpp` and
+`PunctureInitialData.hpp` are what lets this engine solve them itself:
+given a spatial slice's own geometry and matter content, evolve what the
+next slice looks like, rather than only tracing a test particle through a
+geometry handed to it. This is genuine engine infrastructure, general for
+any consumer who needs a spacetime that responds to what's in it -- not
+built for, or limited to, any one scenario.
+
+**The 3+1 (ADM) split.** Foliate spacetime into a stack of spatial slices,
+each with its own metric `gamma_ij`, and describe how one slice is embedded
+in spacetime by its extrinsic curvature `K_ij` -- how the normal vector to
+the slice changes as you move within it. The lapse `alpha` and shift
+`beta^i` say how to step from one slice to the next: `alpha` is how much
+proper time passes for an observer moving normal to the slice, `beta^i` is
+how the spatial coordinates themselves shift. Einstein's equations become
+an initial-value problem in these variables: two evolution equations
+(for `gamma_ij` and `K_ij`) and two constraint equations (Hamiltonian and
+momentum) that must hold on every slice, evolution preserving them if they
+held on the last one. See Gourgoulhon, "3+1 formalism and bases of
+numerical relativity" (arXiv:gr-qc/0703035) for the full derivation from
+the 4D field equations.
+
+**Why BSSN, not raw ADM.** The plain ADM evolution equations are only
+weakly hyperbolic: small, high-frequency errors are not damped, and a
+numerical evolution built on them is unstable beyond the shortest runs.
+Baumgarte & Shapiro (Phys. Rev. D 59, 024007, 1998) and, independently,
+Shibata & Nakamura (Phys. Rev. D 52, 5428, 1995) found a reformulation that
+fixes this:
+
+- **Conformal decomposition.** `gamma_ij = e^{4 phi} gammaTilde_ij`, with
+  `phi` chosen so `det(gammaTilde_ij) = 1`.
+- **Trace/trace-free split.** `K_ij = Atilde_ij / e^{-4 phi} + (1/3) gamma_ij K`
+  (equivalently, `Atilde_ij = e^{-4 phi} (K_ij - (1/3) gamma_ij K)`), `K`
+  evolved as its own variable.
+- **Promoting the contracted Christoffel symbols to an independent
+  variable**, `GammaTilde^i = gammaTilde^jk GammaTilde^i_jk`, evolved by its
+  own equation rather than recomputed from second derivatives of
+  `gammaTilde_ij` every step. This is the specific change that makes the
+  system strongly hyperbolic -- substituting the momentum constraint into
+  this variable's own evolution equation is what removes the weakly
+  hyperbolic terms raw ADM has.
+
+`Bssn.hpp`'s evolved state is exactly `(phi, gammaTilde_ij, K, Atilde_ij,
+GammaTilde^i, alpha, beta^i, B^i)`, the last an auxiliary variable the
+shift condition below needs. The evolution equations themselves (cited
+individually in `Bssn.cpp`'s own comments, term by term, since this is the
+single most index-heavy derivation in the codebase and worth being able to
+check against the source directly):
+
+```
+dt phi        = beta^i d_i phi - (1/6) alpha K
+dt gammaTilde_ij = -2 alpha Atilde_ij + Lie_beta(gammaTilde_ij)
+dt K          = -gamma^ij D_i D_j alpha + alpha (Atilde_ij Atilde^ij + K^2/3) + beta^i d_i K
+dt Atilde_ij  = e^{-4 phi} [-D_i D_j alpha + alpha R_ij]^TF
+              + alpha (K Atilde_ij - 2 Atilde_ik Atilde^k_j) + Lie_beta(Atilde_ij)
+dt GammaTilde^i = gammaTilde^jk d_j d_k beta^i + (1/3) gammaTilde^ij d_j d_k beta^k
+                + beta^j d_j GammaTilde^i - GammaTilde^j d_j beta^i
+                + (2/3) GammaTilde^i d_j beta^j - 2 Atilde^ij d_j alpha
+                + 2 alpha (GammaTilde^i_jk Atilde^jk - (2/3) gammaTilde^ij d_j K
+                           - 6 Atilde^ij d_j phi)
+```
+
+`R_ij` is the physical Ricci tensor, split as `R_ij = RtildeIJ + R^phi_ij`:
+`RtildeIJ` (the conformal metric's own Ricci tensor, built from
+`GammaTilde^i` rather than directly from second derivatives of
+`gammaTilde_ij`, per the strong-hyperbolicity point above) and `R^phi_ij`
+(the standard conformal-transformation correction from `phi`'s own
+gradient and Hessian). `conformalRicciAt` in `Bssn.cpp` implements
+`RtildeIJ` as literally as possible -- direct nested summation over every
+term, no hand-simplified closed form -- specifically so it can be checked
+term by term against Baumgarte & Shapiro's own equations rather than
+trusted on the strength of this description alone.
+
+**Moving-puncture gauge.** 1+log slicing for the lapse (Bona-Masso family,
+`dt alpha = beta^i d_i alpha - 2 alpha K`) and a Gamma-driver for the shift
+(`dt beta^i = (3/4) B^i`, `dt B^i = dt GammaTilde^i - eta B^i`): the
+combination that made dynamical black-hole evolution numerically tractable
+(Campanelli, Lousto, Marronetti & Zlochower 2006; Baker, Centrella, Choi,
+Koppitz & van Meter 2006; van Meter et al. 2006). This omits the advective
+(`beta^j d_j B^i` / `beta^j d_j GammaTilde^i`) terms some implementations
+add to the Gamma-driver: those mainly help track a puncture moving quickly
+across the grid (an orbiting or merging binary), not the stability of
+evolution itself, so this module does not need them yet -- a future
+consumer whose scenario does can add them.
+
+**Time integration reuses `Rk4Stepper`.** BSSN's evolution is a
+Method-of-Lines system, `dt(state) = RHS(state, spatial derivatives)` --
+exactly `Math/ODE.hpp`'s general `OdeSystem` shape. `BssnState` implements
+`OdeState` by delegating its vector-space operations field by field to
+`Grid3D`'s own (added there for exactly this reason), so it hands straight
+to `Rk4Stepper<BssnState>` with no new integrator needed, unlike
+`Physics/Gravity/PostNewtonian.hpp`'s velocity-dependent correction, which
+genuinely cannot use any of the symplectic steppers.
+
+**Puncture initial data.** A slice's `gamma_ij` and `K_ij` cannot be chosen
+freely -- they must satisfy the Hamiltonian and momentum constraints before
+evolution even starts. Brandt & Brügmann's puncture construction
+(arXiv:gr-qc/9711015), with Bowen-York extrinsic curvature (Bowen & York,
+Phys. Rev. D 21, 2047, 1980):
+
+```
+AbarIJ = (3 / 2 r^2) [P^i n^j + P^j n^i - (delta^ij - n^i n^j) P.n]
+       + (3 / r^3) [(S x n)^i n^j + (S x n)^j n^i]
+```
+
+satisfies the momentum constraint identically, for any puncture
+mass/momentum/spin, in a conformally flat background -- an exact, closed-form
+property of this particular ansatz, not a numerical coincidence. That
+leaves only the Hamiltonian constraint, one elliptic equation for the
+conformal factor's correction `u` (`psi = 1 + sum m_i/(2 r_i) + u`, the
+singular Brill-Lindquist part factored out so `u` itself is smooth
+everywhere, including at every puncture):
+
+```
+flatLaplacian(u) = -(1/8) AbarIJ AbarIJ (1 + sum m_i/(2 r_i) + u)^{-7}
+```
+
+solved by `Math/Multigrid.hpp`'s general FAS (Full Approximation Scheme)
+nonlinear multigrid solver, not a plain relaxation loop. For a single,
+momentarily-static puncture, `AbarIJ` is identically zero and `u = 0` is
+the exact solution regardless of which solver finds it; a binary's is not
+(see "Binary initial data" below), which is the actual reason this moved
+off plain Gauss-Seidel -- plain relaxation converges far too slowly once
+there is a genuinely nonzero, spatially varying source term to resolve.
+
+**Binary initial data.** Two punctures, momentarily on a quasi-circular
+orbit, need nonzero momentum: `PunctureSpec::momentum` opposite and equal
+in magnitude on each, estimated by the Newtonian circular-orbit relation
+`P = mu sqrt(M / D)` (`mu` the reduced mass, `M` the total mass, `D` the
+coordinate separation) --
+`newtonianCircularMomentum` in `PunctureInitialData.hpp`. This is the
+standard, simple starting point real numerical-relativity papers themselves
+use before iterative refinement (Cook's effective-potential method,
+post-Newtonian momenta, eccentricity reduction); genuinely accurate
+quasi-circular data construction is its own research topic and not
+approximated further here. With nonzero momentum, `AbarIJ` is genuinely
+nonzero and spatially varying, and its square enters the Hamiltonian
+constraint's source term steeply near each puncture -- exactly the case
+multigrid exists for, and exactly what a single static puncture's `u = 0`
+answer never exercised.
+
+**Validation.** `tests/unit/bssn.cpp` builds a static Schwarzschild puncture
+directly (not via the solver) and checks that `hamiltonianConstraint` is
+small in the bulk (away from the handful of cells immediately around the
+puncture, where any discretization of `1 + m/2r` has large local truncation
+error regardless of correctness) and shrinks under grid refinement -- the
+actual signature of a correct implementation, not merely a small number at
+one resolution. `tests/integration/single_puncture_stability.cpp` is Stage
+1's full validated milestone: evolve, confirm the run stays finite and the
+constraint stays bounded (not growing without limit) through the initial
+"wormhole to trumpet" transient the moving-puncture gauge produces (Hannam,
+Husa, Pollney, Brügmann & O'Murchadha, arXiv:0804.0628), and confirm the
+ADM mass recovered from `psi = e^{phi}`'s own asymptotic falloff is
+consistent with the puncture's input mass.
+
+`tests/integration/binary_puncture_stability.cpp` is Stage 2's own
+milestone: two equal-mass, non-spinning punctures at a wide (`D = 6M`)
+separation, with the quasi-circular momentum above. Multigrid converges in
+18 V-cycles on this genuinely nontrivial source term (down from the
+default cap of 50, and the test itself asserts under 30), with a bulk
+Hamiltonian-constraint violation around 4e-3 on the raw initial data.
+Both the Hamiltonian and momentum constraints, excluding both the
+near-puncture cells (the same well-understood, expected large local error
+as the static case) and a domain-edge margin (this test's simplified
+outflow boundary condition does not itself satisfy either constraint, by
+construction, near the edge -- see that test's own doc comment), stay
+small and bounded through a short evolution.
+
+**Scope, honestly.** At the resolution and step count this suite runs on
+every push (16 cells across, 16 RK4 steps), the run covers a negligible
+fraction of one Newtonian orbital period and is not itself evidence the
+orbit tracks the Newtonian estimate `newtonianCircularMomentum` provides --
+only that initial data construction and short-term evolution are stable.
+A longer, higher-resolution run to actually verify orbital dynamics is a
+real gap, not something already checked elsewhere in this repository; it
+needs its own follow-up before this stage's initial data can be trusted
+for anything beyond the stability this suite verifies.
 
 ### Schwarzschild
 

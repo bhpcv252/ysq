@@ -17,7 +17,7 @@ Built only under `YSQ_BUILD_GRAPHICS`, same as `Renderer`.
 | Header | Purpose |
 | --- | --- |
 | `UI/ImGuiLayer.hpp` | Owns the ImGui/ImPlot contexts and their GLFW+OpenGL3 backends |
-| `UI/Panel.hpp` | Generic bound-widget vocabulary: slider, checkbox, color edit, readout, button, combo |
+| `UI/Panel.hpp` | Generic bound-widget vocabulary: slider, typed numeric input, checkbox, color edit, readout, button, combo |
 | `UI/StatsOverlay.hpp` | Frame time, FPS, draw-call count |
 | `UI/CameraOverlay.hpp` | A camera's current status (position, mode-specific detail) as plain text a Renderer-side source builds |
 | `UI/PlotPanel.hpp` | `TimeSeriesPlot`, `ScatterPlot`: live charts backed by ImPlot |

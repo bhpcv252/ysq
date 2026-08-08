@@ -72,7 +72,6 @@ uniform int uPointLightCount;
 uniform vec3 uPointLightPosition[MAX_POINT_LIGHTS];
 uniform vec3 uPointLightColor[MAX_POINT_LIGHTS];
 uniform float uPointLightIntensity[MAX_POINT_LIGHTS];
-uniform float uPointLightRadius[MAX_POINT_LIGHTS];
 
 uniform int uDirectionalLightCount;
 uniform vec3 uDirectionalLightDirection[MAX_DIRECTIONAL_LIGHTS];
@@ -221,11 +220,10 @@ vec3 shade(Hit hit, vec3 viewDir) {
             continue;
         }
 
-        float attenuation = uPointLightIntensity[i];
-        if (uPointLightRadius[i] > 0.0) {
-            float r = uPointLightRadius[i];
-            attenuation /= (1.0 + (dist * dist) / (r * r));
-        }
+        // Real inverse-square falloff; the max() is a numerical floor
+        // against the true 1/d^2 singularity as a surface approaches the
+        // light itself, not a physical parameter to tune.
+        float attenuation = uPointLightIntensity[i] / max(dist * dist, 1e-4);
         float diffuseTerm = max(dot(hit.normal, L), 0.0);
         vec3 halfway = normalize(L + viewDir);
         float specularTerm = pow(max(dot(hit.normal, halfway), 0.0), hit.shininess);

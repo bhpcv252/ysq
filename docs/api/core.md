@@ -402,6 +402,82 @@ missing file, a missing key, or an unparsable value all fall back to the
 default you gave rather than throwing, so a malformed settings file degrades
 to defaults instead of crashing startup.
 
+## `Core/Csv.hpp`
+
+A CSV table, header row plus typed data rows, for data a consumer downloaded
+or hand-curated. Round-tripping is not a goal the way it is for `Config`.
+
+```cpp
+struct CsvError {
+    std::size_t line = 0;   // 1-based; 0 if not tied to a line
+    std::string message;
+};
+
+class Csv {
+public:
+    class Row {
+    public:
+        template <class T> std::optional<T> tryGet(std::string_view column) const;
+        template <class T> T get(std::string_view column, const T& fallback) const;
+        std::string get(std::string_view column, const char* fallback) const;
+        bool has(std::string_view column) const;
+        std::size_t lineNumber() const noexcept;   // 1-based source line
+    };
+
+    const std::vector<std::string>& columns() const noexcept;
+    std::size_t columnCount() const noexcept;
+    std::size_t rowCount() const noexcept;
+    bool hasColumn(std::string_view column) const;
+
+    Row row(std::size_t index) const;
+    RowIterator begin() const noexcept;   // range-for support
+    RowIterator end() const noexcept;
+
+    static constexpr std::uintmax_t kDefaultMaxFileBytes = 64u * 1024u * 1024u;
+    static std::optional<Csv> parse(std::string_view text, CsvError* error = nullptr);
+    static std::optional<Csv> load(const std::filesystem::path& path,
+                                    CsvError* error = nullptr,
+                                    std::uintmax_t maxBytes = kDefaultMaxFileBytes);
+};
+```
+
+Supported `T`: the same set `Config` supports -- `bool`, any integral type
+except `bool`/character types, floating-point, and `std::string`.
+
+| Member | Description |
+| --- | --- |
+| `Row::tryGet<T>(column)` | `std::nullopt` if the column is missing or the field won't parse/fit as `T`. |
+| `Row::get<T>(column, fallback)` | `tryGet<T>(column).value_or(fallback)`. Never throws. |
+| `Row::lineNumber()` | This row's own 1-based source line, for a caller's own error message about that row's data. |
+| `parse(text, error)` / `load(path, error, maxBytes)` | Parse failures (a ragged row, an unterminated quote, a duplicate header column, and so on) report a line number through `CsvError`. `load` refuses a file over `maxBytes` (default 64 MiB). |
+| `begin()` / `end()` | Row objects are views into the `Csv` that produced them and do not outlive it. |
+
+```
+# source: JPL SSD, epoch 2000-01-01.5 TDB
+name, mass_kg, semi_major_axis_km
+Io, 8.9319e22, 421800
+"Europa, Jupiter II", 4.7998e22, 671100
+```
+
+```cpp
+ysq::CsvError error;
+const std::optional<ysq::Csv> table = ysq::Csv::load("moons.csv", &error);
+for (const ysq::Csv::Row& row : *table) {
+    const std::string name = row.get<std::string>("name", "");
+    const double massKg = row.get<double>("mass_kg", 0.0);
+}
+```
+
+The text form is RFC 4180 with two documented extensions: a line whose first
+non-whitespace character is `#` is a comment (skipped, matching `Config`'s own
+convention), and an unquoted field is trimmed of leading/trailing whitespace
+while a quoted one is preserved exactly. A quoted field may contain a literal
+comma or newline (`""` embeds a literal quote); a `"` outside a quoted field,
+or content after a quoted field closes and before the next comma, is a parse
+error naming its line. Every data row must have exactly as many fields as the
+header has columns, and header names must be non-empty and unique -- both are
+parse errors, not silently padded, truncated, or overwritten rows.
+
 ---
 Notice something missing or wrong on this page?
 [Open an issue](https://github.com/bhpcv252/ysq/issues/new?title=docs:+api/core)

@@ -18,14 +18,14 @@ This is the middle of three tiers of documentation:
 
 | Page | Covers |
 | --- | --- |
-| [Core](core.md) | `Version`, `Logger`, `Timer`/`Clock`, `UUID`, `Event`, `Config` |
+| [Core](core.md) | `Version`, `Logger`, `Timer`/`Clock`, `UUID`, `Event`, `Config`, `Csv` |
 | [Math: vectors, matrices, scalars](math/algebra.md) | `Vector2/3/4`, `Matrix2/3/4`, `Quaternion`, `Complex`, `Dual`, `Tensor`, `Statistics`, `Interpolation`, `Calculus`, `CoordinateSystems`, `Format`, `Grid` |
 | [Math: ODE integrators](math/integrators.md) | The stepper interface, `Euler`/`RK4`/`Adaptive`/`Symplectic` steppers, the fixed-step and adaptive drivers |
 | [Units](units.md) | `Quantity`, `Dimension`, every per-quantity header, unit constants, literals, the SI-defining constants |
 | [Platform](platform.md) | `Platform`, `Window`, `Input`/`InputState` |
 | [Compute](compute.md) | `ComputeBackend`, `CpuBackend`, `OpenGLBackend`, `CudaBackend`/`VulkanBackend` |
 | [Physics/Mechanics](physics/mechanics.md) | `Body`, `Frame`, relativistic `Kinematics`, `NBodyState` |
-| [Physics/Gravity](physics/gravity.md) | `NewtonianField`, `BarnesHutTree`, the 1PN correction |
+| [Physics/Gravity](physics/gravity.md) | `NewtonianField`, `BarnesHutTree`, the 1PN correction, `RelativisticNBodySystem` |
 | [Physics/Spacetime](physics/spacetime.md) | The metric concept, `christoffelSymbols`, `Minkowski`/`Schwarzschild`/`Kerr`/`FLRW`, `geodesicSystem` |
 | [Physics/Electromagnetism](physics/electromagnetism.md) | `electricField`/`magneticField`, `lorentzForce`, `MaxwellField1D` |
 | [Physics/Fluids](physics/fluids.md) | `SPHParticle` and the SPH functions, `EulerianFluid1D` |
@@ -37,6 +37,11 @@ This is the middle of three tiers of documentation:
 `Applications/` itself has no reference page here: it's a convention
 (`Scenario.hpp`/`main.cpp` per app), not an engine API. See
 [docs/applications.md](../applications.md) for that convention in full.
+`Applications/Helper/README.md` is the reference for the scenario-setup
+code shared between applications (`Kepler`, `Pole`, `BodyCatalog`) --
+real, reusable code, but not engine content either, so it stays
+documented alongside the applications that use it rather than gaining a
+tier-2 page of its own here.
 
 ---
 Notice something missing or wrong on this page?

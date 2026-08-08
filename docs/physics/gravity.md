@@ -34,7 +34,7 @@ amount of accuracy for `N log N` instead of `N^2`.
 | --- | --- |
 | `Gravity/Newtonian.hpp` | The force law, softened, direct pairwise summation, potential energy |
 | `Gravity/BarnesHut.hpp` | The same physics, `O(N log N)`, via an octree |
-| `Gravity/PostNewtonian.hpp` | The 1PN correction: the first step toward general relativity |
+| `Gravity/PostNewtonian.hpp` | The 1PN correction (the first step toward general relativity) and its `RelativisticNBodySystem` N-body extension |
 | `Body::j2`, `Body::radius` | Oblateness: a body's own shape, read by every function above |
 
 **Softening** adds one parameter, `epsilon`, to the force law:
@@ -60,7 +60,16 @@ is always evaluated exactly, whatever `theta` is.
 acceleration of a test particle orbiting one dominant mass, on top of the
 Newtonian force rather than replacing it. It's what produces the extra
 perihelion precession that Mercury's orbit famously shows and Newtonian
-gravity alone can't explain.
+gravity alone can't explain. `RelativisticNBodySystem` is the practical
+N-body version: Newtonian gravity for every pair, plus this correction for
+each body against whichever *one* nearby source the caller names as its
+primary (a moon's own planet, not the Sun) -- not full pairwise
+relativistic cross terms between every body, but enough for a real
+hierarchical system like a solar system. It is velocity-dependent, unlike
+everything else on this page, so it needs an explicit stepper
+(`Rk4Stepper`) rather than a symplectic one; see
+[docs/api/physics/gravity.md](../api/physics/gravity.md) for the worked
+example and the tradeoff that involves.
 
 **Oblateness (J2)** is not a fourth rung, it's the same Newtonian force law
 carried one term further: a point mass is the zeroth term of integrating
@@ -118,7 +127,7 @@ for a worked example moving between rungs.
 
 [docs/api/physics/gravity.md](../api/physics/gravity.md) has every
 signature: `newtonianForce`/`Acceleration`/`Accelerations`, `NewtonianField`,
-`BarnesHutTree`, and `postNewtonianCorrection`.
+`BarnesHutTree`, `postNewtonianCorrection`, and `RelativisticNBodySystem`.
 
 [src/Physics/README.md](../../src/Physics/README.md) has the full
 derivations: the exact 1PN acceleration formula and the perihelion

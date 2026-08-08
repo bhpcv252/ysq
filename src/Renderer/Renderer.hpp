@@ -112,6 +112,23 @@ public:
     /// never appears to move as the camera does.
     void drawSkybox(const Cubemap& sky);
 
+    /// A soft, additive-blended, camera-facing glow disc of world-space
+    /// diameter `2 * worldRadius` centered at `position`: for a
+    /// self-luminous body a plain lit/emissive mesh alone does not read as
+    /// what it is once its real angular size drops below a pixel (a star
+    /// seen from far enough away), the same reason a rasterized point
+    /// source needs *some* on-screen representation general to any distance
+    /// scale, not physics-specific to any one scenario. `intensity` is
+    /// entirely the caller's own -- this does not know or assume any
+    /// falloff law, real or otherwise; a caller wanting it to fade
+    /// correctly with distance computes `intensity` from whatever law it is
+    /// already using for its lights (real inverse-square, say) and passes
+    /// the result straight through. Depth-tested against the rest of the
+    /// scene (so a body in front of it still occludes it) but does not
+    /// write depth itself, so it never occludes anything drawn after it.
+    void drawGlow(const Vec3f& position, float worldRadius, const Vec3f& color,
+                 float intensity);
+
     /// Accumulates into the batch flushed at endFrame(). Call draw() calls
     /// and debugDraw() calls in any order within a frame.
     [[nodiscard]] DebugDraw& debugDraw() noexcept { return m_debugDraw; }
@@ -127,22 +144,28 @@ public:
 
 private:
     Renderer(Shader basicShader, Shader instancedShader, Shader skyboxShader,
-             DebugDraw debugDraw, Mesh skyboxCube) noexcept
+             Shader glowShader, DebugDraw debugDraw, Mesh skyboxCube, Mesh glowQuad) noexcept
         : m_basicShader(std::move(basicShader)),
           m_instancedShader(std::move(instancedShader)),
           m_skyboxShader(std::move(skyboxShader)),
+          m_glowShader(std::move(glowShader)),
           m_debugDraw(std::move(debugDraw)),
-          m_skyboxCube(std::move(skyboxCube)) {}
+          m_skyboxCube(std::move(skyboxCube)),
+          m_glowQuad(std::move(glowQuad)) {}
 
     void applyLights(const Shader& shader) const;
 
     Shader m_basicShader;
     Shader m_instancedShader;
     Shader m_skyboxShader;
+    Shader m_glowShader;
     DebugDraw m_debugDraw;
     /// Drawn from the inside for drawSkybox(): skybox.vert reads aPosition
     /// directly as a sample direction, so any cube works regardless of size.
     Mesh m_skyboxCube;
+    /// drawGlow()'s own unit quad, billboarded and scaled per call; see
+    /// shaders/glow.vert.
+    Mesh m_glowQuad;
 
     std::vector<PointLight> m_pointLights;
     std::vector<DirectionalLight> m_directionalLights;

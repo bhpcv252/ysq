@@ -56,8 +56,23 @@ used directly and nothing else exposes either `PUBLIC`, so both are listed.
 
 | Application | Scenario |
 | --- | --- |
-| `SolarSystem` | Sun and five planets, Newtonian N-body gravity, energy/momentum tracked live |
+| `SolarSystem` | The real Sun, all 8 planets, and every moon JPL SSD publishes an orbit for (~175 bodies), true to scale, real Newtonian N-body gravity, energy/momentum tracked live |
 | `LunarEclipse` | Sun, Earth, Moon, Jupiter under real n-body gravity with Earth's J2 and rotation active; the Moon's eclipse illumination is computed from `Optics/Illumination.hpp`, not scripted |
+| `KeplerSolarSystem` | The same real bodies as `SolarSystem` plus the 5 IAU dwarf planets, procedural asteroid-belt/Kuiper-belt populations and real planetary rings; every position a direct closed-form Kepler evaluation at the current simulated time, not an integration step, so requested speed (1 year/sec, or far beyond) costs nothing extra. See "Closed-form propagation vs. real N-body" below for what that trades away. |
+
+`Helper/` is not an application: it has no executable, just scenario-setup
+code more than one application needs (`Pole.hpp`'s
+published-pole-to-frame-rotation conversion, `BodyCatalog.hpp`'s
+whole-hierarchy CSV loader, and `KeplerPopulation.hpp`'s procedural
+population generator, all built for loading and rendering real, downloaded
+orbital data). It is not engine content -- it knows about named bodies, a
+specific CSV column schema, and render colors, the same distinction the
+root `CLAUDE.md`'s "Engine vs. phenomena" note draws for `Applications/`
+generally -- so it lives here rather than in `Math` or `Physics`, alongside
+the applications that actually use it. The orbital-element and
+Kepler's-equation machinery it builds on top of is a general two-body law,
+not a scenario, so that part lives in `Physics/Gravity/Kepler.hpp` instead.
+See `Helper/README.md` for the reasoning in full.
 
 Binaries land in `build/bin/`; see the root `README.md`'s Running section.
 
@@ -73,3 +88,47 @@ real bodies with real physical properties; nothing about an "eclipse" is
 computed until `main.cpp` calls the engine's general `illuminate()` with
 this scenario's own Sun/Earth/Moon geometry and interprets the result. See
 the root `CLAUDE.md`'s "Engine vs. phenomena" note.
+
+## Closed-form propagation vs. real N-body
+
+`KeplerSolarSystem` exists as its own application, deliberately not a mode
+of `SolarSystem`, because the two answer different questions and trade off
+against each other. `SolarSystem` integrates real Newtonian (optionally
+1PN-corrected) N-body gravity forward in time: bodies genuinely pull on
+each other, which is what makes its energy/momentum tracking, and Mercury's
+visible perihelion precession, mean something. That real interaction is
+also exactly why it cannot cheaply jump simulated time by a year per
+second: `Physics/Mechanics/Hermite.hpp`'s individual-timestep scheduler has
+to actually step every body forward, however small a step the fastest one
+needs, to get there.
+
+`KeplerSolarSystem` evaluates every body's position directly from its own
+fixed (Sun-fixed, per-body) two-body orbital elements at whatever
+simulated time is asked for --
+`Physics/Gravity/Kepler.hpp`'s `stateVectorAtTime` -- so a jump of any
+size costs the same handful of Newton-Raphson iterations a jump of one
+second would. The real cost: no body's gravity affects any other's. A
+moon's ellipse around its planet never perturbs another moon; the
+asteroid belt shows no real Kirkwood gaps, because those come from actual
+resonant interaction with Jupiter that a non-interacting Kepler orbit
+cannot produce. What it does still show as real, not scripted, physics:
+`Physics/Gravity/PostNewtonian.hpp`'s own closed-form GR perihelion
+precession rate, applied as a real rotation of each Sun-parented body's
+own argument of periapsis over time (`Scenario.cpp`'s own precession
+loop) -- Mercury's ellipse still visibly precesses at the real rate,
+without needing a real integrator to get it.
+
+Its data file (`KeplerSolarSystem/data/solar_system_bodies.csv`) is its
+own copy of `SolarSystem`'s, not shared, extended with the 5 IAU dwarf
+planets; see that file's own header comment for sourcing. Rings, the
+asteroid belt and the Kuiper belt are all the same kind of thing: a real
+population of independently orbiting particles
+(`Applications/Helper/KeplerPopulation.hpp`), a ring's own particles
+parented to its planet (not the Sun), so a real ring shows the same real
+differential rotation Kepler's third law implies -- an inner particle
+genuinely completes a revolution faster than an outer one. One real,
+stated simplification remains, in `Scenario.hpp`'s own `RingPopulation`
+doc comment: a ring's particles are sampled in the shared frame the rest
+of the scenario's elements are expressed in, not tilted to its real
+planet's own spin-axis plane (no per-planet pole is part of this
+catalog's schema, only per-moon ones).

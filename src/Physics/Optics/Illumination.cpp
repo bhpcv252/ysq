@@ -7,6 +7,7 @@
 #include <Physics/Optics/Propagation.hpp>
 #include <Physics/Optics/RayleighScattering.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <optional>
 
@@ -275,6 +276,60 @@ IlluminationResult illuminate(const Vec3& sourceCenter, double sourceRadius,
     result.transmission = transmissionSum / static_cast<double>(sourceSamples);
     result.geometricVisibility = geometricVisible / static_cast<double>(sourceSamples);
     return result;
+}
+
+double discOcclusionFraction(const Vec3& point, const Vec3& sourceCenter, double sourceRadius,
+                             const Vec3& occluderCenter, double occluderRadius) {
+    const Vec3 toSource = sourceCenter - point;
+    const Vec3 toOccluder = occluderCenter - point;
+    const double distanceToSource = length(toSource);
+    const double distanceToOccluder = length(toOccluder);
+
+    if (distanceToSource <= 0.0 || distanceToOccluder <= 0.0 ||
+        distanceToOccluder >= distanceToSource) {
+        // Coincident with a center (degenerate), or the occluder is not
+        // even nearer than the source -- it cannot be sitting between
+        // point and source either way.
+        return 1.0;
+    }
+
+    // Apparent angular radius of each disc as seen from point: the real
+    // quantity an eclipse's own geometry is about, not either body's
+    // linear size directly.
+    const double sourceAngularRadius = std::atan(sourceRadius / distanceToSource);
+    const double occluderAngularRadius = std::atan(occluderRadius / distanceToOccluder);
+
+    const double cosSeparation =
+        std::clamp(dot(toSource, toOccluder) / (distanceToSource * distanceToOccluder), -1.0, 1.0);
+    const double separation = std::acos(cosSeparation);
+
+    if (separation >= sourceAngularRadius + occluderAngularRadius) {
+        return 1.0;  // the two discs do not overlap at all
+    }
+    if (separation <= std::abs(sourceAngularRadius - occluderAngularRadius)) {
+        // One disc entirely inside the other: a total eclipse (occluder at
+        // least as big, angularly) or an annular one (occluder smaller,
+        // covering only the fraction of the source's own area its disc's
+        // area is -- pi cancels in the ratio).
+        return occluderAngularRadius >= sourceAngularRadius
+                  ? 0.0
+                  : 1.0 - (occluderAngularRadius * occluderAngularRadius) /
+                              (sourceAngularRadius * sourceAngularRadius);
+    }
+
+    // Partial eclipse: the standard closed-form area of intersection of
+    // two circles (radii r1, r2, centers separated by d), as a fraction of
+    // the source disc's own area.
+    const double d = separation;
+    const double r1 = sourceAngularRadius;
+    const double r2 = occluderAngularRadius;
+    const double part1 = r1 * r1 * std::acos((d * d + r1 * r1 - r2 * r2) / (2.0 * d * r1));
+    const double part2 = r2 * r2 * std::acos((d * d + r2 * r2 - r1 * r1) / (2.0 * d * r2));
+    const double part3 = 0.5 * std::sqrt(std::max(
+                                   0.0, (-d + r1 + r2) * (d + r1 - r2) * (d - r1 + r2) * (d + r1 + r2)));
+    const double overlapArea = part1 + part2 - part3;
+    const double sourceArea = kPi<double> * r1 * r1;
+    return std::clamp(1.0 - overlapArea / sourceArea, 0.0, 1.0);
 }
 
 }  // namespace ysq

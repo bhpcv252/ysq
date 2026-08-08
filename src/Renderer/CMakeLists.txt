@@ -31,6 +31,10 @@ ysq_embed_shader(${CMAKE_CURRENT_SOURCE_DIR}/shaders/text.vert
     ${_ysq_renderer_shader_dir}/Text.vert.hpp kTextVertSource)
 ysq_embed_shader(${CMAKE_CURRENT_SOURCE_DIR}/shaders/text.frag
     ${_ysq_renderer_shader_dir}/Text.frag.hpp kTextFragSource)
+ysq_embed_shader(${CMAKE_CURRENT_SOURCE_DIR}/shaders/glow.vert
+    ${_ysq_renderer_shader_dir}/Glow.vert.hpp kGlowVertSource)
+ysq_embed_shader(${CMAKE_CURRENT_SOURCE_DIR}/shaders/glow.frag
+    ${_ysq_renderer_shader_dir}/Glow.frag.hpp kGlowFragSource)
 
 add_library(ysq_renderer STATIC
     Camera.hpp
@@ -66,7 +70,9 @@ add_library(ysq_renderer STATIC
     shaders/raytrace.vert
     shaders/raytrace.frag
     shaders/text.vert
-    shaders/text.frag)
+    shaders/text.frag
+    shaders/glow.vert
+    shaders/glow.frag)
 add_library(ysq::Renderer ALIAS ysq_renderer)
 
 target_include_directories(ysq_renderer

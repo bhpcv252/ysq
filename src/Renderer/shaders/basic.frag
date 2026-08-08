@@ -6,6 +6,12 @@
 in vec3 vWorldPosition;
 in vec3 vNormal;
 in vec2 vUV;
+// Real eclipse/shadow support: scales every light's own contribution here,
+// not the ambient/emissive terms above -- a fully eclipsed surface still
+// has its own ambient light and its own emission, it just receives none
+// of a light this factor covers. See basic.vert/instanced.vert for where
+// this comes from.
+in float vLightMultiplier;
 
 out vec4 fragColor;
 
@@ -22,7 +28,6 @@ uniform int uPointLightCount;
 uniform vec3 uPointLightPosition[MAX_POINT_LIGHTS];
 uniform vec3 uPointLightColor[MAX_POINT_LIGHTS];
 uniform float uPointLightIntensity[MAX_POINT_LIGHTS];
-uniform float uPointLightRadius[MAX_POINT_LIGHTS];
 
 uniform int uDirectionalLightCount;
 uniform vec3 uDirectionalLightDirection[MAX_DIRECTIONAL_LIGHTS];
@@ -49,18 +54,17 @@ void main() {
         vec3 toLight = uPointLightPosition[i] - vWorldPosition;
         float dist = length(toLight);
         vec3 L = toLight / max(dist, 1e-4);
-        float attenuation = uPointLightIntensity[i];
-        if (uPointLightRadius[i] > 0.0) {
-            float r = uPointLightRadius[i];
-            attenuation /= (1.0 + (dist * dist) / (r * r));
-        }
+        // Real inverse-square falloff; the max() is a numerical floor
+        // against the true 1/d^2 singularity as a surface approaches the
+        // light itself, not a physical parameter to tune.
+        float attenuation = uPointLightIntensity[i] / max(dist * dist, 1e-4) * vLightMultiplier;
         color += blinnPhong(normal, viewDir, L, uPointLightColor[i], attenuation);
     }
 
     for (int i = 0; i < uDirectionalLightCount; ++i) {
         vec3 L = normalize(-uDirectionalLightDirection[i]);
         color += blinnPhong(normal, viewDir, L, uDirectionalLightColor[i],
-                           uDirectionalLightIntensity[i]);
+                           uDirectionalLightIntensity[i] * vLightMultiplier);
     }
 
     fragColor = vec4(color, 1.0);

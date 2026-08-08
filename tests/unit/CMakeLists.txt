@@ -1,5 +1,6 @@
 ysq_add_test(test_core_clock SOURCES core_clock.cpp LIBS ysq::Core)
 ysq_add_test(test_core_config SOURCES core_config.cpp LIBS ysq::Core)
+ysq_add_test(test_core_csv SOURCES core_csv.cpp LIBS ysq::Core)
 ysq_add_test(test_core_event SOURCES core_event.cpp LIBS ysq::Core)
 ysq_add_test(test_core_logger SOURCES core_logger.cpp LIBS ysq::Core)
 ysq_add_test(test_core_timer SOURCES core_timer.cpp LIBS ysq::Core)
@@ -36,6 +37,12 @@ ysq_add_test(test_math_coordinates SOURCES math_coordinates.cpp
 ysq_add_test(test_math_ode SOURCES math_ode.cpp
     LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_integrators SOURCES math_integrators.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_grid3d SOURCES grid3d.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_finite_difference SOURCES finite_difference.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_multigrid SOURCES multigrid.cpp
     LIBS ysq::Math ysq::TestSupport)
 
 # Units links ysq::Units for the module itself and ysq::TestSupport only for
@@ -81,12 +88,16 @@ ysq_add_test(test_physics_body SOURCES physics_body.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_physics_mechanics SOURCES physics_mechanics.cpp
     LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_mechanics_hermite SOURCES physics_mechanics_hermite.cpp
+    LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_physics_rigidbody SOURCES physics_rigidbody.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_physics_gravity SOURCES physics_gravity.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_physics_barneshut SOURCES physics_barneshut.cpp
     LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_gravity_kepler SOURCES physics_gravity_kepler.cpp
+    LIBS ysq::Physics ysq::Math)
 
 ysq_add_test(test_spacetime_metric SOURCES spacetime_metric.cpp
     LIBS ysq::Physics ysq::TestSupport)
@@ -97,6 +108,8 @@ ysq_add_test(test_spacetime_kerr SOURCES spacetime_kerr.cpp
 ysq_add_test(test_spacetime_flrw SOURCES spacetime_flrw.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_spacetime_geodesic SOURCES spacetime_geodesic.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_bssn SOURCES bssn.cpp
     LIBS ysq::Physics ysq::TestSupport)
 
 ysq_add_test(test_optics_propagation SOURCES optics_propagation.cpp
@@ -133,3 +146,16 @@ ysq_add_test(test_thermodynamics_heatequation SOURCES thermodynamics_heatequatio
 # themselves; see src/Applications/README.md. No graphics dependency.
 ysq_add_test(test_solar_system_scenario SOURCES solar_system_scenario.cpp
     LIBS ysq::SolarSystemScenario ysq::Math)
+ysq_add_test(test_kepler_solar_system_scenario SOURCES kepler_solar_system_scenario.cpp
+    LIBS ysq::KeplerSolarSystemScenario ysq::Units)
+ysq_add_test(test_applications_helper_pole SOURCES applications_helper_pole.cpp
+    LIBS ysq::ApplicationsHelper ysq::Math)
+ysq_add_test(test_applications_helper_bodycatalog SOURCES applications_helper_bodycatalog.cpp
+    LIBS ysq::ApplicationsHelper ysq::Core ysq::Math ysq::Physics)
+ysq_add_test(test_applications_helper_kepler_population
+    SOURCES applications_helper_kepler_population.cpp
+    LIBS ysq::ApplicationsHelper ysq::Math)
+# The real, curated data file this test's own sanity check reads directly,
+# by absolute source path: robust to whatever directory ctest is run from.
+target_compile_definitions(test_applications_helper_bodycatalog PRIVATE
+    YSQ_SOLAR_SYSTEM_DATA_DIR="${CMAKE_SOURCE_DIR}/src/Applications/SolarSystem/data")

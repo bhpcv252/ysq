@@ -69,4 +69,28 @@ illuminate(const Vec3& sourceCenter, double sourceRadius,
            const RefractingOccluder* refractingOccluder, const Vec3& target,
            const std::array<double, 3>& wavelengths, int sourceSamples, int stepBudget);
 
+/// The fraction of a circular light source's own disc, by area, that
+/// remains unobstructed as seen from `point`, for a single opaque
+/// spherical `occluder` -- real eclipse/transit geometry (each disc's own
+/// apparent angular radius as seen from `point`, and the angular
+/// separation between their centers), not a sampled or ray-marched
+/// approximation like `illuminate()` above: closed-form, O(1) regardless
+/// of how fine an answer is wanted, and with no atmosphere or color of
+/// its own to trace through, which is what makes this cheap enough to
+/// call once per particle for a large population every rendered frame,
+/// unlike `illuminate()`.
+///
+/// 1.0 means fully lit (the occluder's own disc, as seen from `point`,
+/// does not overlap the source's at all); 0.0 means the occluder fully
+/// covers the source (a total eclipse, or an occluder whose own apparent
+/// size at least matches the source's); a value in between is the real,
+/// geometrically exact partial fraction -- an annular eclipse (the
+/// occluder's own disc entirely inside the source's, but too small to
+/// cover it) included. Returns 1.0 outright, with no further geometry, if
+/// `occluder` is not even nearer to `point` than `sourceCenter` is, since
+/// it cannot be sitting between them.
+[[nodiscard]] double discOcclusionFraction(const Vec3& point, const Vec3& sourceCenter,
+                                           double sourceRadius, const Vec3& occluderCenter,
+                                           double occluderRadius);
+
 }  // namespace ysq
