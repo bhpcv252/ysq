@@ -10,16 +10,17 @@
 namespace {
 
 TEST(CoreCsv, ParsesAHeaderAndTypedRows) {
-    const std::optional<ysq::Csv> csv = ysq::Csv::parse(
-        "name,mass_kg,semi_major_axis_km,is_regular\n"
-        "Io,8.9319e22,421800,true\n"
-        "Europa,4.7998e22,671100,true\n");
+    const std::optional<ysq::Csv> csv =
+        ysq::Csv::parse("name,mass_kg,semi_major_axis_km,is_regular\n"
+                        "Io,8.9319e22,421800,true\n"
+                        "Europa,4.7998e22,671100,true\n");
 
     ASSERT_TRUE(csv.has_value());
     EXPECT_EQ(csv->columnCount(), 4u);
     EXPECT_EQ(csv->rowCount(), 2u);
-    EXPECT_EQ(csv->columns(), (std::vector<std::string>{"name", "mass_kg",
-                                                         "semi_major_axis_km", "is_regular"}));
+    EXPECT_EQ(csv->columns(),
+              (std::vector<std::string>{"name", "mass_kg", "semi_major_axis_km",
+                                        "is_regular"}));
 
     const ysq::Csv::Row io = csv->row(0);
     EXPECT_EQ(io.get<std::string>("name", ""), "Io");
@@ -44,14 +45,14 @@ TEST(CoreCsv, RangeForWalksEveryRowInOrder) {
 }
 
 TEST(CoreCsv, CommentAndBlankLinesAreSkippedNotTreatedAsRows) {
-    const std::optional<ysq::Csv> csv = ysq::Csv::parse(
-        "# source: JPL, epoch 2000-01-01.5 TDB\n"
-        "\n"
-        "name,a\n"
-        "   \n"
-        "Mercury,0.387\n"
-        "# a mid-file comment\n"
-        "Venus,0.723\n");
+    const std::optional<ysq::Csv> csv =
+        ysq::Csv::parse("# source: JPL, epoch 2000-01-01.5 TDB\n"
+                        "\n"
+                        "name,a\n"
+                        "   \n"
+                        "Mercury,0.387\n"
+                        "# a mid-file comment\n"
+                        "Venus,0.723\n");
 
     ASSERT_TRUE(csv.has_value());
     EXPECT_EQ(csv->rowCount(), 2u);
@@ -82,8 +83,7 @@ TEST(CoreCsv, QuotedFieldsPreserveCommasNewlinesAndEscapedQuotes) {
 }
 
 TEST(CoreCsv, UnquotedFieldsAreTrimmedQuotedFieldsAreNot) {
-    const std::optional<ysq::Csv> csv =
-        ysq::Csv::parse("a, b ,c\n 1 , \" 2 \" , 3\n");
+    const std::optional<ysq::Csv> csv = ysq::Csv::parse("a, b ,c\n 1 , \" 2 \" , 3\n");
     ASSERT_TRUE(csv.has_value());
     // Header names are trimmed too, so " b " reads back as "b".
     EXPECT_TRUE(csv->hasColumn("b"));
@@ -108,12 +108,11 @@ TEST(CoreCsv, UnparsableValueYieldsTheFallbackRatherThanThrowing) {
 }
 
 TEST(CoreCsv, RowLineNumberPointsAtTheSourceLineIncludingSkippedComments) {
-    const std::optional<ysq::Csv> csv = ysq::Csv::parse(
-        "# comment\n"
-        "name,a\n"
-        "\n"
-        "Mercury,0.387\n"
-        "Venus,0.723\n");
+    const std::optional<ysq::Csv> csv = ysq::Csv::parse("# comment\n"
+                                                        "name,a\n"
+                                                        "\n"
+                                                        "Mercury,0.387\n"
+                                                        "Venus,0.723\n");
     ASSERT_TRUE(csv.has_value());
     EXPECT_EQ(csv->row(0).lineNumber(), 4u);
     EXPECT_EQ(csv->row(1).lineNumber(), 5u);
@@ -143,7 +142,8 @@ TEST(CoreCsv, UnterminatedQuoteIsAParseError) {
 
 TEST(CoreCsv, ContentAfterAClosedQuoteIsAParseError) {
     ysq::CsvError error;
-    const std::optional<ysq::Csv> csv = ysq::Csv::parse("name\n\"quoted\"stray\n", &error);
+    const std::optional<ysq::Csv> csv =
+        ysq::Csv::parse("name\n\"quoted\"stray\n", &error);
     EXPECT_FALSE(csv.has_value());
     EXPECT_EQ(error.line, 2u);
 }

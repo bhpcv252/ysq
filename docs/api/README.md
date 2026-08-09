@@ -18,19 +18,24 @@ This is the middle of three tiers of documentation:
 
 | Page | Covers |
 | --- | --- |
-| [Core](core.md) | `Version`, `Logger`, `Timer`/`Clock`, `UUID`, `Event`, `Config`, `Csv` |
-| [Math: vectors, matrices, scalars](math/algebra.md) | `Vector2/3/4`, `Matrix2/3/4`, `Quaternion`, `Complex`, `Dual`, `Tensor`, `Statistics`, `Interpolation`, `Calculus`, `CoordinateSystems`, `Format`, `Grid` |
+| [Core](core.md) | `Version`, `Logger`, `Timer`/`Clock`, `UUID`, `Event`, `Config`, `Csv`, `ExecutablePath` |
+| [Math: vectors, matrices, scalars](math/algebra.md) | `Vector2/3/4`, `Matrix2/3/4`, `Quaternion`, `Complex`, `Dual`, `Tensor`, `Statistics`, `Interpolation`, `Calculus`, `CoordinateSystems`, `Format`, `Grid`/`Grid3D`, `FiniteDifference`, `Multigrid` |
 | [Math: ODE integrators](math/integrators.md) | The stepper interface, `Euler`/`RK4`/`Adaptive`/`Symplectic` steppers, the fixed-step and adaptive drivers |
+| [Math: numerical methods](math/numerics.md) | `RootFinding`, `LinearSolve` (`MatrixN`/`VectorN`), `Eigen` (symmetric/general eigenvalues, SVD, QR), `SpecialFunctions`, `Polynomial`, `Random`, `Optimization`, `FFT` (1D and 3D) |
+| [Math: Euclidean geometry and spatial partitioning](math/geometry.md) | `Geometry/Primitives` (incl. `OBB3`), `Intersection`, `Queries`, `ConvexHull`, `SpatialPartition/KdTree`/`Bvh`/`Octree` |
 | [Units](units.md) | `Quantity`, `Dimension`, every per-quantity header, unit constants, literals, the SI-defining constants |
 | [Platform](platform.md) | `Platform`, `Window`, `Input`/`InputState` |
 | [Compute](compute.md) | `ComputeBackend`, `CpuBackend`, `OpenGLBackend`, `CudaBackend`/`VulkanBackend` |
-| [Physics/Mechanics](physics/mechanics.md) | `Body`, `Frame`, relativistic `Kinematics`, `NBodyState` |
-| [Physics/Gravity](physics/gravity.md) | `NewtonianField`, `BarnesHutTree`, the 1PN correction, `RelativisticNBodySystem` |
+| [Physics/Mechanics](physics/mechanics.md) | `Body`, `Frame`, relativistic `Kinematics`, `NBodyState`, general-purpose forces (`Spring`, `Drag`, `Collision`, `Friction`, `Constraints`), rigid-body inertia diagonalization |
+| [Physics/Gravity](physics/gravity.md) | `NewtonianField` (with `SphericalHarmonicsField` oblateness), `BarnesHutTree`, the 1PN correction, `RelativisticNBodySystem`, Kepler orbit elements |
 | [Physics/Spacetime](physics/spacetime.md) | The metric concept, `christoffelSymbols`, `Minkowski`/`Schwarzschild`/`Kerr`/`FLRW`, `geodesicSystem` |
-| [Physics/Electromagnetism](physics/electromagnetism.md) | `electricField`/`magneticField`, `lorentzForce`, `MaxwellField1D` |
-| [Physics/Fluids](physics/fluids.md) | `SPHParticle` and the SPH functions, `EulerianFluid1D` |
-| [Physics/Thermodynamics](physics/thermodynamics.md) | Ideal gas law, black-body radiation, `HeatEquation1D` |
-| [Physics/Optics](physics/optics.md) | `nullTangent`/`propagate`, `deflectionAngle`, `frequencyShift` |
+| [Physics/Electromagnetism](physics/electromagnetism.md) | `electricField`/`magneticField`, `lorentzForce`, `MaxwellField1D`/`MaxwellField3D` |
+| [Physics/Acoustics](physics/acoustics.md) | `AcousticField1D`/`AcousticField3D`: the linear acoustic wave equation |
+| [Physics/Fluids](physics/fluids.md) | `SPHParticle` and the SPH functions, `EulerianFluid1D`/`EulerianFluid3D` |
+| [Physics/Continuum](physics/continuum.md) | `hookeStress`, `ElasticChain1D`: Hooke's law and a discretized elastic bar |
+| [Physics/Thermodynamics](physics/thermodynamics.md) | Ideal gas law, black-body radiation, statistical mechanics, radiative transfer, `HeatEquation1D`/`HeatEquation3D` |
+| [Physics/Optics](physics/optics.md) | `nullTangent`/`propagate`, `deflectionAngle`, `frequencyShift`, radiation pressure, diffraction, relativistic aberration |
+| [Physics/QuantumMechanics](physics/quantummechanics.md) | `solveTimeIndependentSchrodinger`/`3D`, `TimeDependentWavefunction1D`/`3D` |
 | [Renderer](renderer.md) | `Camera`, `CameraController`s, `Mesh`, `Material`, `Light`, `Texture`, `Shader`, `DebugDraw`, `Renderer`, `RayTracer` |
 | [UI](ui.md) | `ImGuiLayer`, `Panel`, `TimeSeriesPlot`/`ScatterPlot`, `StatsOverlay` |
 

@@ -531,7 +531,8 @@ int main() {
             ysq::Vec3f{static_cast<float>(illumination.result.transmission.x),
                        static_cast<float>(illumination.result.transmission.y),
                        static_cast<float>(illumination.result.transmission.z)};
-        moonLight.intensity = 75.0f;  // same real-inverse-square calibration as sunLight above
+        moonLight.intensity =
+            75.0f;  // same real-inverse-square calibration as sunLight above
         const std::array<ysq::PointLight, 1> moonIllumination{moonLight};
         renderer.setLights(moonIllumination, {});
 

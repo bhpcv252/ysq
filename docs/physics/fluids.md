@@ -37,12 +37,19 @@ regimes, the same relationship as the gravity ladder in
 | --- | --- |
 | `Fluids/SPH.hpp` | `SPHParticle`, the cubic-spline kernel, density/pressure, the symmetric pressure-gradient force |
 | `Fluids/Eulerian.hpp` | `EulerianFluid1D`: the compressible Euler equations on a fixed 1D grid |
+| `Fluids/Eulerian3D.hpp` | `EulerianFluid3D`: the same equations in 3D, by dimensional (Godunov) splitting |
 
 SPH's pressure force is written in a symmetric form that conserves momentum
 *exactly*, regardless of how the particles are arranged, the same kind of
 structural guarantee Newtonian gravity's pairwise force has. The Eulerian
 solver's periodic boundary makes mass, momentum, and energy exactly
 conserved too: whatever leaves one edge of the grid enters the other.
+`EulerianFluid3D` gets there by sweeping a full x-update, then a full
+y-update, then a full z-update, each `dt` — the identical 1D update
+carrying the two transverse momentum components along passively — rather
+than a genuinely multi-dimensional flux, which keeps the same "robust,
+simple to verify, at the cost of smearing a shock" tradeoff the 1D solver
+already makes.
 
 ## Using it
 
@@ -64,17 +71,31 @@ fluid.setState(cell, density, velocity, pressure);
 fluid.step(fluid.stableTimeStep(/*courantNumber=*/0.4));
 ```
 
+The same equations in 3D:
+
+```cpp
+#include <Physics/Fluids/Eulerian3D.hpp>
+
+ysq::EulerianFluid3D fluid(nx, ny, nz, spacing, adiabaticIndex);
+fluid.setState(i, j, k, density, velocityX, velocityY, velocityZ, pressure);
+fluid.step(fluid.stableTimeStep(/*courantNumber=*/0.4));
+```
+
 ## Go deeper
 
 [docs/api/physics/fluids.md](../api/physics/fluids.md) has every signature:
-`SPHParticle` and the kernel/density/pressure functions, and
-`EulerianFluid1D`'s full interface.
+`SPHParticle` and the kernel/density/pressure functions, and both
+`EulerianFluid1D`'s and `EulerianFluid3D`'s full interfaces.
 
 [src/Physics/README.md](../../src/Physics/README.md) has the cubic spline
-kernel's exact form, the Rusanov flux the Eulerian solver uses, and a real
-pitfall its own test walked into: a periodic domain split into a left half
+kernel's exact form, the Rusanov flux the Eulerian solver uses (generalized
+to a passively-advected transverse momentum for the 3D sweep), a real
+pitfall its own test walked into (a periodic domain split into a left half
 and a right half actually creates *two* shock tubes, not one, since the
-domain wraps around at the edges too.
+domain wraps around at the edges too), and how `EulerianFluid3D` is
+validated: an exact reduction to `EulerianFluid1D` when held uniform along
+two axes, and conservation of mass, all three momentum components, and
+energy for a genuinely 3D case.
 
 ---
 Notice something missing or wrong on this page?

@@ -63,9 +63,12 @@ struct TrailPoint {
 /// says nothing about what order that has to be in.
 class BodyPositions {
 public:
-    explicit BodyPositions(const std::vector<ysq::applications::KeplerCatalogBody>& bodies,
-                           double simulationTime)
-        : m_bodies(bodies), m_simulationTime(simulationTime), m_resolved(bodies.size(), false),
+    explicit BodyPositions(
+        const std::vector<ysq::applications::KeplerCatalogBody>& bodies,
+        double simulationTime)
+        : m_bodies(bodies),
+          m_simulationTime(simulationTime),
+          m_resolved(bodies.size(), false),
           m_positions(bodies.size(), ysq::Vec3::zero()) {}
 
     const ysq::Vec3& at(std::size_t index) {
@@ -81,10 +84,12 @@ private:
         if (!body.elements.has_value()) {
             m_positions[index] = ysq::Vec3::zero();  // the Sun, fixed
         } else {
-            const ysq::Vec3& parentPosition = at(static_cast<std::size_t>(body.parentIndex));
+            const ysq::Vec3& parentPosition =
+                at(static_cast<std::size_t>(body.parentIndex));
             const ysq::KeplerStateVector local =
                 ysq::stateVectorAtTime(*body.elements, body.parentGm, m_simulationTime);
-            m_positions[index] = parentPosition + rotate(body.frameRotation, local.position);
+            m_positions[index] =
+                parentPosition + rotate(body.frameRotation, local.position);
         }
         m_resolved[index] = true;
     }
@@ -163,9 +168,8 @@ int main() {
     constexpr std::array<const char*, 7> kSimSpeedUnitNames{
         "second", "minute", "hour", "day", "week", "month", "year"};
     constexpr std::array<double, 7> kSecondsPerUnit{
-        ysq::units::second.value(), ysq::units::minute.value(),
-        ysq::units::hour.value(),   ysq::units::day.value(),
-        ysq::units::week.value(),   ysq::units::month.value(),
+        ysq::units::second.value(), ysq::units::minute.value(), ysq::units::hour.value(),
+        ysq::units::day.value(),    ysq::units::week.value(),   ysq::units::month.value(),
         ysq::units::year.value()};
 
     float simSpeedValue =
@@ -189,10 +193,10 @@ int main() {
     }
     const Scenario& scenario = *scenarioOpt;
 
-    ysq::logging::info(
-        "scenario: {} bodies, {} asteroid-belt particles, {} Kuiper-belt particles, {} rings",
-        scenario.bodies.size(), scenario.asteroidBelt.size(), scenario.kuiperBelt.size(),
-        scenario.rings.size());
+    ysq::logging::info("scenario: {} bodies, {} asteroid-belt particles, {} Kuiper-belt "
+                       "particles, {} rings",
+                       scenario.bodies.size(), scenario.asteroidBelt.size(),
+                       scenario.kuiperBelt.size(), scenario.rings.size());
 
     // The 8 real planets, looked up once by name: a Sun-parented particle
     // (an asteroid or Kuiper belt object) checks its own real eclipse
@@ -202,14 +206,15 @@ int main() {
     // the particle itself) is the only occluder that matters for it.
     std::array<std::size_t, 8> planetIndices{};
     {
-        constexpr std::array<const char*, 8> kPlanetNames{
-            "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"};
+        constexpr std::array<const char*, 8> kPlanetNames{"Mercury", "Venus",   "Earth",
+                                                          "Mars",    "Jupiter", "Saturn",
+                                                          "Uranus",  "Neptune"};
         for (std::size_t p = 0; p < kPlanetNames.size(); ++p) {
-            const auto it = std::find_if(
-                scenario.bodies.begin(), scenario.bodies.end(),
-                [&](const ysq::applications::KeplerCatalogBody& body) {
-                    return body.name == kPlanetNames[p];
-                });
+            const auto it =
+                std::find_if(scenario.bodies.begin(), scenario.bodies.end(),
+                             [&](const ysq::applications::KeplerCatalogBody& body) {
+                                 return body.name == kPlanetNames[p];
+                             });
             planetIndices[p] =
                 static_cast<std::size_t>(std::distance(scenario.bodies.begin(), it));
         }
@@ -225,25 +230,24 @@ int main() {
     // change with simulation time.
     const std::vector<float> albedos = [&] {
         constexpr std::array<std::pair<const char*, float>, 24> kRealAlbedos{{
-            {"Mercury", 0.142f}, {"Venus", 0.689f}, {"Earth", 0.434f}, {"Mars", 0.170f},
-            {"Jupiter", 0.538f}, {"Saturn", 0.499f}, {"Uranus", 0.488f}, {"Neptune", 0.442f},
-            {"Moon", 0.12f}, {"Phobos", 0.071f}, {"Deimos", 0.068f},
-            {"Io", 0.63f}, {"Europa", 0.67f}, {"Ganymede", 0.43f}, {"Callisto", 0.22f},
-            {"Titan", 0.22f},
-            {"Ceres", 0.09f}, {"Pluto", 0.52f}, {"Haumea", 0.66f}, {"Makemake", 0.82f},
-            {"Eris", 0.96f},
-            {"Halley", 0.04f}, {"Encke", 0.05f}, {"Swift-Tuttle", 0.05f},
+            {"Mercury", 0.142f}, {"Venus", 0.689f},   {"Earth", 0.434f},
+            {"Mars", 0.170f},    {"Jupiter", 0.538f}, {"Saturn", 0.499f},
+            {"Uranus", 0.488f},  {"Neptune", 0.442f}, {"Moon", 0.12f},
+            {"Phobos", 0.071f},  {"Deimos", 0.068f},  {"Io", 0.63f},
+            {"Europa", 0.67f},   {"Ganymede", 0.43f}, {"Callisto", 0.22f},
+            {"Titan", 0.22f},    {"Ceres", 0.09f},    {"Pluto", 0.52f},
+            {"Haumea", 0.66f},   {"Makemake", 0.82f}, {"Eris", 0.96f},
+            {"Halley", 0.04f},   {"Encke", 0.05f},    {"Swift-Tuttle", 0.05f},
         }};
         constexpr float kDefaultAlbedo = 0.1f;
 
         std::vector<float> result;
         result.reserve(scenario.bodies.size());
         for (const ysq::applications::KeplerCatalogBody& body : scenario.bodies) {
-            const auto it = std::find_if(
-                kRealAlbedos.begin(), kRealAlbedos.end(),
-                [&](const std::pair<const char*, float>& entry) {
-                    return body.name == entry.first;
-                });
+            const auto it = std::find_if(kRealAlbedos.begin(), kRealAlbedos.end(),
+                                         [&](const std::pair<const char*, float>& entry) {
+                                             return body.name == entry.first;
+                                         });
             result.push_back(it != kRealAlbedos.end() ? it->second : kDefaultAlbedo);
         }
         return result;
@@ -381,12 +385,14 @@ int main() {
         std::vector<ysq::NamedSphere> objects;
         objects.reserve(scenario.bodies.size());
         for (std::size_t i = 0; i < scenario.bodies.size(); ++i) {
-            objects.push_back(
-                ysq::NamedSphere{scenario.bodies[i].name, renderPositions[i], renderRadii[i]});
+            objects.push_back(ysq::NamedSphere{scenario.bodies[i].name,
+                                               renderPositions[i], renderRadii[i]});
         }
 
-        sceneCamera.povIndex = ysq::SceneCameraController::indexFromPovSelection(povSelection);
-        sceneCamera.focusIndex = sceneCamera.indexFromFocusSelection(focusSelection, objects);
+        sceneCamera.povIndex =
+            ysq::SceneCameraController::indexFromPovSelection(povSelection);
+        sceneCamera.focusIndex =
+            sceneCamera.indexFromFocusSelection(focusSelection, objects);
         sceneCamera.mode = (cameraModeSelection == 0) ? ysq::CameraMode::Orbit
                                                       : ysq::CameraMode::FreeFly;
 
@@ -394,12 +400,14 @@ int main() {
             previousFocusSelection = focusSelection;
             if (sceneCamera.focusIndex >= 0) {
                 sceneCamera.orbit.distance = std::max(
-                    objects[static_cast<std::size_t>(sceneCamera.focusIndex)].radius * 4.0f,
+                    objects[static_cast<std::size_t>(sceneCamera.focusIndex)].radius *
+                        4.0f,
                     1.0e-5f);
             }
         }
 
-        sceneCamera.update(camera, objects, window->input(), static_cast<float>(frameSeconds));
+        sceneCamera.update(camera, objects, window->input(),
+                           static_cast<float>(frameSeconds));
         focusOptionsLive = sceneCamera.focusOptions(objects);
 
         // Real physics: irradiance = luminosity / (4 pi distance^2), the
@@ -420,17 +428,19 @@ int main() {
             // surface -- rather than showing "inf".
             const double distanceMeters = std::max(
                 length(bodyPositions.at(static_cast<std::size_t>(sunlightBodyIndex))),
-                scenario.bodies[static_cast<std::size_t>(sunlightBodyIndex)].radiusMeters);
-            const double irradiance = ysq::units::solarLuminosity.value() /
-                                      (4.0 * ysq::kPi<double> * distanceMeters * distanceMeters);
+                scenario.bodies[static_cast<std::size_t>(sunlightBodyIndex)]
+                    .radiusMeters);
+            const double irradiance =
+                ysq::units::solarLuminosity.value() /
+                (4.0 * ysq::kPi<double> * distanceMeters * distanceMeters);
             const double earthIrradiance =
                 ysq::units::solarLuminosity.value() /
-                (4.0 * ysq::kPi<double> *
-                 ysq::units::astronomicalUnit.value() * ysq::units::astronomicalUnit.value());
-            sunlightReadoutText =
-                std::format("{:.3g} W/m^2 ({:.4g}x Earth's) at {}", irradiance,
-                           irradiance / earthIrradiance,
-                           scenario.bodies[static_cast<std::size_t>(sunlightBodyIndex)].name);
+                (4.0 * ysq::kPi<double> * ysq::units::astronomicalUnit.value() *
+                 ysq::units::astronomicalUnit.value());
+            sunlightReadoutText = std::format(
+                "{:.3g} W/m^2 ({:.4g}x Earth's) at {}", irradiance,
+                irradiance / earthIrradiance,
+                scenario.bodies[static_cast<std::size_t>(sunlightBodyIndex)].name);
         } else {
             sunlightReadoutText = "(select a POV or Focus body)";
         }
@@ -440,7 +450,8 @@ int main() {
             if (sceneCamera.isHidden(i)) {
                 continue;
             }
-            cameraDistance = std::min(cameraDistance, length(camera.position - objects[i].position));
+            cameraDistance =
+                std::min(cameraDistance, length(camera.position - objects[i].position));
         }
         cameraDistance = std::max(cameraDistance, 1.0e-7f);
 
@@ -454,16 +465,19 @@ int main() {
         systemExtent += renderRadii[0] + 10.0f;
 
         camera.perspectiveSettings.nearPlane = std::max(cameraDistance * 0.001f, 1.0e-7f);
-        camera.perspectiveSettings.farPlane = std::max(cameraDistance * 1000.0f, systemExtent);
+        camera.perspectiveSettings.farPlane =
+            std::max(cameraDistance * 1000.0f, systemExtent);
 
         const float aspect = static_cast<float>(framebufferSize.width) /
                              static_cast<float>(framebufferSize.height);
-        renderer.beginFrame(camera, aspect, framebufferSize.width, framebufferSize.height);
+        renderer.beginFrame(camera, aspect, framebufferSize.width,
+                            framebufferSize.height);
 
         constexpr float kLabelPixelHeight = 40.0f;
         const float verticalHalfFovTangent =
             std::tan(camera.perspectiveSettings.fovYRadians * 0.5f);
-        const auto worldSizeForPixels = [&](const ysq::Vec3f& worldPosition, float pixels) {
+        const auto worldSizeForPixels = [&](const ysq::Vec3f& worldPosition,
+                                            float pixels) {
             const float distance = length(camera.position - worldPosition);
             return distance * verticalHalfFovTangent *
                    (pixels / static_cast<float>(framebufferSize.height));
@@ -482,7 +496,8 @@ int main() {
         // body's own brightness still falls out of the real 1/distance^2
         // law from there, not from any further tuning.
         constexpr float kSunReferenceExposure = 3.0f;
-        sunLight.intensity = kSunReferenceExposure * kRenderUnitsPerAu * kRenderUnitsPerAu;
+        sunLight.intensity =
+            kSunReferenceExposure * kRenderUnitsPerAu * kRenderUnitsPerAu;
         const std::array<ysq::PointLight, 1> pointLights{sunLight};
         renderer.setLights(pointLights, {});
 
@@ -507,7 +522,8 @@ int main() {
             if (!artificialLight) {
                 return 1.0;
             }
-            return std::pow(distanceFromSunMeters / ysq::units::astronomicalUnit.value(), 2.0);
+            return std::pow(distanceFromSunMeters / ysq::units::astronomicalUnit.value(),
+                            2.0);
         };
 
         for (std::size_t i = 0; i < scenario.bodies.size(); ++i) {
@@ -565,14 +581,17 @@ int main() {
                     static_cast<float>(eclipse * exposureCompensation);
             }
 
-            renderer.draw(sphereMesh, material,
-                          ysq::Matrix4<float>::translation(renderPosition) *
-                              ysq::Matrix4<float>::scale(ysq::Vec3f::splat(renderRadius)));
+            renderer.draw(
+                sphereMesh, material,
+                ysq::Matrix4<float>::translation(renderPosition) *
+                    ysq::Matrix4<float>::scale(ysq::Vec3f::splat(renderRadius)));
 
             if (showLabels) {
-                const float labelWorldHeight = worldSizeForPixels(renderPosition, kLabelPixelHeight);
+                const float labelWorldHeight =
+                    worldSizeForPixels(renderPosition, kLabelPixelHeight);
                 renderer.debugDraw().text(
-                    renderPosition + ysq::Vec3f{0.0f, renderRadius + labelWorldHeight * 0.5f, 0.0f},
+                    renderPosition +
+                        ysq::Vec3f{0.0f, renderRadius + labelWorldHeight * 0.5f, 0.0f},
                     body.name, labelWorldHeight);
             }
 
@@ -598,7 +617,8 @@ int main() {
                 orbitShape.semiMajorAxis = body.elements->semiMajorAxis;
                 orbitShape.eccentricity = body.elements->eccentricity;
                 orbitShape.inclination = body.elements->inclination;
-                orbitShape.longitudeOfAscendingNode = body.elements->longitudeOfAscendingNode;
+                orbitShape.longitudeOfAscendingNode =
+                    body.elements->longitudeOfAscendingNode;
                 orbitShape.argumentOfPeriapsis = currentArgumentOfPeriapsis;
 
                 const ysq::Vec3f& parentRenderPosition =
@@ -643,10 +663,11 @@ int main() {
                 std::max(length(camera.position - renderPositions[0]), 0.1f);
             constexpr float kSunGlowReferenceIntensity = 20.0f;
             constexpr float kSunGlowMinimumIntensity = 0.02f;
-            const float sunGlowIntensity = std::max(
-                kSunGlowReferenceIntensity / cameraToSunDistance, kSunGlowMinimumIntensity);
-            const float sunGlowRadius =
-                std::max(worldSizeForPixels(renderPositions[0], 24.0f), renderRadii[0] * 1.8f);
+            const float sunGlowIntensity =
+                std::max(kSunGlowReferenceIntensity / cameraToSunDistance,
+                         kSunGlowMinimumIntensity);
+            const float sunGlowRadius = std::max(
+                worldSizeForPixels(renderPositions[0], 24.0f), renderRadii[0] * 1.8f);
             renderer.drawGlow(renderPositions[0], sunGlowRadius, scenario.bodies[0].color,
                               sunGlowIntensity);
         }
@@ -682,26 +703,29 @@ int main() {
         // for the same reason: a ring or belt particle is just as
         // genuinely dim under the real, uncompensated law at a planet's
         // own distance as the planet itself is.
-        const auto particleLightMultiplier = [&](const ysq::applications::KeplerParticle& particle,
-                                              const ysq::Vec3& positionMeters) {
-            double eclipse = 1.0;
-            if (particle.parentIndex != 0) {
-                const std::size_t parent = static_cast<std::size_t>(particle.parentIndex);
-                eclipse = ysq::discOcclusionFraction(positionMeters, sunPositionMeters,
-                                              sunRadiusMeters, bodyPositions.at(parent),
-                                              scenario.bodies[parent].radiusMeters);
-            } else {
-                for (std::size_t planetIndex : planetIndices) {
-                    eclipse = std::min(
-                        eclipse, ysq::discOcclusionFraction(positionMeters, sunPositionMeters,
-                                                     sunRadiusMeters,
-                                                     bodyPositions.at(planetIndex),
-                                                     scenario.bodies[planetIndex].radiusMeters));
+        const auto particleLightMultiplier =
+            [&](const ysq::applications::KeplerParticle& particle,
+                const ysq::Vec3& positionMeters) {
+                double eclipse = 1.0;
+                if (particle.parentIndex != 0) {
+                    const std::size_t parent =
+                        static_cast<std::size_t>(particle.parentIndex);
+                    eclipse = ysq::discOcclusionFraction(
+                        positionMeters, sunPositionMeters, sunRadiusMeters,
+                        bodyPositions.at(parent), scenario.bodies[parent].radiusMeters);
+                } else {
+                    for (std::size_t planetIndex : planetIndices) {
+                        eclipse = std::min(
+                            eclipse, ysq::discOcclusionFraction(
+                                         positionMeters, sunPositionMeters,
+                                         sunRadiusMeters, bodyPositions.at(planetIndex),
+                                         scenario.bodies[planetIndex].radiusMeters));
+                    }
                 }
-            }
-            const double distanceFromSunMeters = length(positionMeters - sunPositionMeters);
-            return eclipse * sunDistanceCompensation(distanceFromSunMeters);
-        };
+                const double distanceFromSunMeters =
+                    length(positionMeters - sunPositionMeters);
+                return eclipse * sunDistanceCompensation(distanceFromSunMeters);
+            };
 
         // One real lighting scheme for every particle population -- real
         // eclipse geometry plus sunDistanceCompensation, same as every
@@ -721,8 +745,8 @@ int main() {
         // small body (typical, not a measurement, the same honest-
         // estimate status these populations' own sizes already have).
         const auto drawParticles =
-            [&](const std::vector<ysq::applications::KeplerParticle>& particles, float ambient,
-               float diffuse) {
+            [&](const std::vector<ysq::applications::KeplerParticle>& particles,
+                float ambient, float diffuse) {
                 if (particles.empty()) {
                     return;
                 }
@@ -731,17 +755,18 @@ int main() {
                 transforms.reserve(particles.size());
                 lightMultipliers.reserve(particles.size());
                 for (const ysq::applications::KeplerParticle& particle : particles) {
-                    const ysq::KeplerStateVector local =
-                        ysq::stateVectorAtTime(
-                            particle.elements, particle.parentGm, simulationTime);
+                    const ysq::KeplerStateVector local = ysq::stateVectorAtTime(
+                        particle.elements, particle.parentGm, simulationTime);
                     const ysq::Vec3 positionMeters =
                         bodyPositions.at(static_cast<std::size_t>(particle.parentIndex)) +
                         local.position;
                     const ysq::Vec3f position = toRenderPosition(positionMeters);
-                    const float scale = std::max(toRenderRadius(particle.realRadiusMeters),
-                                                 worldSizeForPixels(position, 1.0f));
-                    transforms.push_back(ysq::Matrix4<float>::translation(position) *
-                                         ysq::Matrix4<float>::scale(ysq::Vec3f::splat(scale)));
+                    const float scale =
+                        std::max(toRenderRadius(particle.realRadiusMeters),
+                                 worldSizeForPixels(position, 1.0f));
+                    transforms.push_back(
+                        ysq::Matrix4<float>::translation(position) *
+                        ysq::Matrix4<float>::scale(ysq::Vec3f::splat(scale)));
                     lightMultipliers.push_back(static_cast<float>(
                         particleLightMultiplier(particle, positionMeters)));
                 }
@@ -796,7 +821,8 @@ int main() {
              static_cast<std::size_t>(simSpeedUnitSelection) < kSecondsPerUnit.size())
                 ? static_cast<std::size_t>(simSpeedUnitSelection)
                 : 3;  // day
-        timeScale = static_cast<double>(simSpeedValue) * kSecondsPerUnit[simSpeedUnitIndex];
+        timeScale =
+            static_cast<double>(simSpeedValue) * kSecondsPerUnit[simSpeedUnitIndex];
         statsOverlay.draw();
         cameraOverlay.draw();
         ui.endFrame();

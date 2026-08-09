@@ -186,10 +186,10 @@ std::optional<Renderer> Renderer::create(std::string* error) {
         return std::nullopt;
     }
 
-    return std::optional<Renderer>{Renderer{
-        std::move(*basicShader), std::move(*instancedShader), std::move(*skyboxShader),
-        std::move(*glowShader), std::move(*debugDraw), std::move(*skyboxCube),
-        std::move(*glowQuad)}};
+    return std::optional<Renderer>{
+        Renderer{std::move(*basicShader), std::move(*instancedShader),
+                 std::move(*skyboxShader), std::move(*glowShader), std::move(*debugDraw),
+                 std::move(*skyboxCube), std::move(*glowQuad)}};
 }
 
 void Renderer::beginFrame(const Camera& camera, float aspect, int viewportWidth,

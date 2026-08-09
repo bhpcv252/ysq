@@ -10,15 +10,16 @@
 #include <cmath>
 #include <format>
 #include <string>
+#include <string_view>
 
 namespace {
 
+using ysq::radians;
+using ysq::stateVectorAtTime;
 using ysq::applications::CatalogBody;
 using ysq::applications::KeplerCatalogBody;
 using ysq::applications::loadBodyCatalog;
 using ysq::applications::loadKeplerBodyCatalog;
-using ysq::radians;
-using ysq::stateVectorAtTime;
 
 const ysq::Quat kIdentity = ysq::Quat::identity();
 
@@ -29,7 +30,7 @@ std::optional<ysq::Csv> parseOrDie(const std::string& text) {
     return table;
 }
 
-const CatalogBody& find(const std::vector<CatalogBody>& bodies, const std::string& name) {
+const CatalogBody& find(const std::vector<CatalogBody>& bodies, std::string_view name) {
     for (const CatalogBody& body : bodies) {
         if (body.name == name) {
             return body;
@@ -40,7 +41,7 @@ const CatalogBody& find(const std::vector<CatalogBody>& bodies, const std::strin
 }
 
 const KeplerCatalogBody& findKepler(const std::vector<KeplerCatalogBody>& bodies,
-                                    const std::string& name) {
+                                    std::string_view name) {
     for (const KeplerCatalogBody& body : bodies) {
         if (body.name == name) {
             return body;
@@ -93,7 +94,8 @@ TEST(ApplicationsHelperBodyCatalog, ACircularChildOrbitsAtExactlyItsSemiMajorAxi
     // Circular orbit: speed matches sqrt(GM/r) exactly.
     const double gm = ysq::constants::G.value() * 2e30;
     const double expectedSpeed = std::sqrt(gm / distanceMeters);
-    EXPECT_NEAR(length(planet.body.velocity().value()), expectedSpeed, expectedSpeed * 1e-9);
+    EXPECT_NEAR(length(planet.body.velocity().value()), expectedSpeed,
+                expectedSpeed * 1e-9);
 }
 
 TEST(ApplicationsHelperBodyCatalog, AMoonsAbsolutePositionAddsItsPlanetsOwnOffset) {
@@ -145,8 +147,8 @@ TEST(ApplicationsHelperBodyCatalog, ReferenceFrameRotationAppliesOnlyWherePoleIs
         ysq::Quat::fromAxisAngle(ysq::Vec3::unitX(), ysq::kPi<double> / 2.0);
 
     std::string error;
-    const std::optional<std::vector<CatalogBody>> bodies =
-        loadBodyCatalog(*table, ninetyAboutX, ysq::applications::kJ2000JulianDate, &error);
+    const std::optional<std::vector<CatalogBody>> bodies = loadBodyCatalog(
+        *table, ninetyAboutX, ysq::applications::kJ2000JulianDate, &error);
     ASSERT_TRUE(bodies.has_value()) << error;
 
     const CatalogBody& noPole = find(*bodies, "NoPole");
@@ -312,7 +314,8 @@ TEST(ApplicationsHelperBodyCatalog, RowsAtTheTargetEpochAlreadyNeedNoPropagation
     EXPECT_NEAR(planet.body.position.value().y, 1000.0 * 1000.0, 1e-3);
 }
 
-TEST(ApplicationsHelperBodyCatalog, EpochJdPropagatesMeanAnomalyByExactlyOneQuarterPeriod) {
+TEST(ApplicationsHelperBodyCatalog,
+     EpochJdPropagatesMeanAnomalyByExactlyOneQuarterPeriod) {
     // Independent derivation: pick rowEpoch = targetEpoch - period/4 for a
     // circular orbit starting at mean anomaly 0 (periapsis) at its own
     // epoch. By the time it reaches the target epoch it must have swept
@@ -330,9 +333,9 @@ TEST(ApplicationsHelperBodyCatalog, EpochJdPropagatesMeanAnomalyByExactlyOneQuar
     const double starMassKg = 1.989e30;
     const double semiMajorAxisMeters = 1.496e11;
     const double gm = ysq::constants::G.value() * starMassKg;
-    const double period = ysq::kTau<double> *
-                          std::sqrt(semiMajorAxisMeters * semiMajorAxisMeters *
-                                    semiMajorAxisMeters / gm);
+    const double period =
+        ysq::kTau<double> *
+        std::sqrt(semiMajorAxisMeters * semiMajorAxisMeters * semiMajorAxisMeters / gm);
     const double targetEpoch = ysq::applications::kJ2000JulianDate;
     const double rowEpoch = targetEpoch - (period / 4.0) / 86400.0;
 
@@ -354,17 +357,19 @@ TEST(ApplicationsHelperBodyCatalog, EpochJdPropagatesMeanAnomalyByExactlyOneQuar
     const CatalogBody& planet = find(*bodies, "Planet");
     EXPECT_NEAR(planet.body.position.value().x, 0.0, semiMajorAxisMeters * 1e-9);
     EXPECT_NEAR(planet.body.position.value().y, semiMajorAxisMeters,
-               semiMajorAxisMeters * 1e-9);
+                semiMajorAxisMeters * 1e-9);
 }
 
-TEST(ApplicationsHelperBodyCatalog, TheRealSolarSystemDataFileLoadsToRealDistancesAndOrder) {
+TEST(ApplicationsHelperBodyCatalog,
+     TheRealSolarSystemDataFileLoadsToRealDistancesAndOrder) {
     // Sanity check on the actual curated data file, not synthetic input:
     // catches a transcription mistake (a wrong column, a stray AU-vs-km
     // slip) that a synthetic-CSV test can never exercise.
     ysq::CsvError csvError;
     const std::optional<ysq::Csv> table =
         ysq::Csv::load(YSQ_SOLAR_SYSTEM_DATA_DIR "/solar_system_bodies.csv", &csvError);
-    ASSERT_TRUE(table.has_value()) << "line " << csvError.line << ": " << csvError.message;
+    ASSERT_TRUE(table.has_value())
+        << "line " << csvError.line << ": " << csvError.message;
 
     std::string error;
     const std::optional<std::vector<CatalogBody>> bodies =
@@ -383,7 +388,7 @@ TEST(ApplicationsHelperBodyCatalog, TheRealSolarSystemDataFileLoadsToRealDistanc
 
     const double auMeters = 1.495978707e11;
     const std::vector<std::pair<std::string, double>> expectedAu{
-        {"Mercury", 0.387}, {"Venus", 0.723},  {"Earth", 1.000},  {"Mars", 1.524},
+        {"Mercury", 0.387}, {"Venus", 0.723},  {"Earth", 1.000},   {"Mars", 1.524},
         {"Jupiter", 5.203}, {"Saturn", 9.537}, {"Uranus", 19.189}, {"Neptune", 30.070}};
 
     double previousDistance = 0.0;
@@ -400,7 +405,7 @@ TEST(ApplicationsHelperBodyCatalog, TheRealSolarSystemDataFileLoadsToRealDistanc
         // real margin covering every planet's own eccentricity, not a
         // threshold picked to make the test pass.
         EXPECT_NEAR(distanceMeters, semiMajorAxisAu * auMeters,
-                   semiMajorAxisAu * auMeters * 0.25)
+                    semiMajorAxisAu * auMeters * 0.25)
             << name;
         EXPECT_GT(distanceMeters, previousDistance)
             << name << " should orbit farther out than the previous planet";
@@ -419,7 +424,8 @@ TEST(ApplicationsHelperBodyCatalog, TheRealSolarSystemDataFileFullyResolvesEvery
     ysq::CsvError csvError;
     const std::optional<ysq::Csv> table =
         ysq::Csv::load(YSQ_SOLAR_SYSTEM_DATA_DIR "/solar_system_bodies.csv", &csvError);
-    ASSERT_TRUE(table.has_value()) << "line " << csvError.line << ": " << csvError.message;
+    ASSERT_TRUE(table.has_value())
+        << "line " << csvError.line << ": " << csvError.message;
 
     // J2000 mean obliquity, the fixed rotation that carries the planets'
     // (ecliptic-referenced) elements into the same equatorial frame the
@@ -450,7 +456,8 @@ TEST(ApplicationsHelperBodyCatalog, TheRealSolarSystemDataFileFullyResolvesEvery
         if (parent.empty()) {
             continue;
         }
-        const std::optional<double> semiMajorAxisKm = row.tryGet<double>("semi_major_axis_km");
+        const std::optional<double> semiMajorAxisKm =
+            row.tryGet<double>("semi_major_axis_km");
         const std::optional<double> eccentricity = row.tryGet<double>("eccentricity");
         ASSERT_TRUE(semiMajorAxisKm.has_value()) << name;
         ASSERT_TRUE(eccentricity.has_value()) << name;
@@ -494,8 +501,8 @@ TEST(ApplicationsHelperBodyCatalogKepler, RootBodyHasNoElementsAndNegativeParent
     ASSERT_TRUE(table.has_value());
 
     std::string error;
-    const std::optional<std::vector<KeplerCatalogBody>> bodies =
-        loadKeplerBodyCatalog(*table, kIdentity, ysq::applications::kJ2000JulianDate, &error);
+    const std::optional<std::vector<KeplerCatalogBody>> bodies = loadKeplerBodyCatalog(
+        *table, kIdentity, ysq::applications::kJ2000JulianDate, &error);
     ASSERT_TRUE(bodies.has_value()) << error;
 
     const KeplerCatalogBody& star = findKepler(*bodies, "Star");
@@ -505,7 +512,7 @@ TEST(ApplicationsHelperBodyCatalogKepler, RootBodyHasNoElementsAndNegativeParent
 }
 
 TEST(ApplicationsHelperBodyCatalogKepler,
-    AtElapsedZeroStateVectorAtTimeAgreesWithLoadBodyCatalogsOwnResolvedPosition) {
+     AtElapsedZeroStateVectorAtTimeAgreesWithLoadBodyCatalogsOwnResolvedPosition) {
     // The two loaders parse the same rows and the same epoch propagation;
     // they must describe the exact same physical state at elapsedSeconds =
     // 0 (which is targetEpochJulianDate), just one collapsed to a fixed
@@ -527,8 +534,9 @@ TEST(ApplicationsHelperBodyCatalogKepler,
     ASSERT_TRUE(catalogBodies.has_value()) << error;
 
     std::string keplerError;
-    const std::optional<std::vector<KeplerCatalogBody>> keplerBodies = loadKeplerBodyCatalog(
-        *table, kIdentity, ysq::applications::kJ2000JulianDate, &keplerError);
+    const std::optional<std::vector<KeplerCatalogBody>> keplerBodies =
+        loadKeplerBodyCatalog(*table, kIdentity, ysq::applications::kJ2000JulianDate,
+                              &keplerError);
     ASSERT_TRUE(keplerBodies.has_value()) << keplerError;
 
     for (const char* name : {"Planet", "Moon"}) {
@@ -557,8 +565,8 @@ TEST(ApplicationsHelperBodyCatalogKepler, MultipleRootsIsAnError) {
     ASSERT_TRUE(table.has_value());
 
     std::string error;
-    const std::optional<std::vector<KeplerCatalogBody>> bodies =
-        loadKeplerBodyCatalog(*table, kIdentity, ysq::applications::kJ2000JulianDate, &error);
+    const std::optional<std::vector<KeplerCatalogBody>> bodies = loadKeplerBodyCatalog(
+        *table, kIdentity, ysq::applications::kJ2000JulianDate, &error);
     EXPECT_FALSE(bodies.has_value());
 }
 
@@ -572,8 +580,8 @@ TEST(ApplicationsHelperBodyCatalogKepler, UnknownParentIsAnError) {
     ASSERT_TRUE(table.has_value());
 
     std::string error;
-    const std::optional<std::vector<KeplerCatalogBody>> bodies =
-        loadKeplerBodyCatalog(*table, kIdentity, ysq::applications::kJ2000JulianDate, &error);
+    const std::optional<std::vector<KeplerCatalogBody>> bodies = loadKeplerBodyCatalog(
+        *table, kIdentity, ysq::applications::kJ2000JulianDate, &error);
     EXPECT_FALSE(bodies.has_value());
 }
 
@@ -588,13 +596,13 @@ TEST(ApplicationsHelperBodyCatalogKepler, ACycleAmongNonRootBodiesIsAnError) {
     ASSERT_TRUE(table.has_value());
 
     std::string error;
-    const std::optional<std::vector<KeplerCatalogBody>> bodies =
-        loadKeplerBodyCatalog(*table, kIdentity, ysq::applications::kJ2000JulianDate, &error);
+    const std::optional<std::vector<KeplerCatalogBody>> bodies = loadKeplerBodyCatalog(
+        *table, kIdentity, ysq::applications::kJ2000JulianDate, &error);
     EXPECT_FALSE(bodies.has_value());
 }
 
 TEST(ApplicationsHelperBodyCatalogKepler,
-    TheRealSolarSystemDataFileCrossChecksAgainstLoadBodyCatalog) {
+     TheRealSolarSystemDataFileCrossChecksAgainstLoadBodyCatalog) {
     // Same cross-check as
     // AtElapsedZeroStateVectorAtTimeAgreesWithLoadBodyCatalogsOwnResolvedPosition,
     // over the real, curated data file rather than a synthetic table: every
@@ -602,7 +610,8 @@ TEST(ApplicationsHelperBodyCatalogKepler,
     ysq::CsvError csvError;
     const std::optional<ysq::Csv> table =
         ysq::Csv::load(YSQ_SOLAR_SYSTEM_DATA_DIR "/solar_system_bodies.csv", &csvError);
-    ASSERT_TRUE(table.has_value()) << "line " << csvError.line << ": " << csvError.message;
+    ASSERT_TRUE(table.has_value())
+        << "line " << csvError.line << ": " << csvError.message;
 
     const ysq::Quat eclipticToEquatorial =
         ysq::Quat::fromAxisAngle(ysq::Vec3::unitX(), radians(23.4392911));
@@ -613,8 +622,9 @@ TEST(ApplicationsHelperBodyCatalogKepler,
     ASSERT_TRUE(catalogBodies.has_value()) << error;
 
     std::string keplerError;
-    const std::optional<std::vector<KeplerCatalogBody>> keplerBodies = loadKeplerBodyCatalog(
-        *table, eclipticToEquatorial, ysq::applications::kJ2000JulianDate, &keplerError);
+    const std::optional<std::vector<KeplerCatalogBody>> keplerBodies =
+        loadKeplerBodyCatalog(*table, eclipticToEquatorial,
+                              ysq::applications::kJ2000JulianDate, &keplerError);
     ASSERT_TRUE(keplerBodies.has_value()) << keplerError;
     ASSERT_EQ(keplerBodies->size(), catalogBodies->size());
 

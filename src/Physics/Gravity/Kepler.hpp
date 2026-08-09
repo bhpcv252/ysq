@@ -33,16 +33,16 @@ struct KeplerStateVector {
 /// G times its mass, not the combined system's; the caller adds the central
 /// body's own position/velocity afterward.
 [[nodiscard]] KeplerStateVector stateVectorFromElements(const OrbitalElements& elements,
-                                                         double gm);
+                                                        double gm);
 
 /// Published orbital elements (JPL's included) give the mean anomaly `M`,
 /// the angle a body *would* have if it moved at a constant rate around the
 /// ellipse -- not the true anomaly `stateVectorFromElements` needs, the
 /// body's actual angle. The two are related by Kepler's equation,
 /// `M = E - e sin(E)`, for the eccentric anomaly `E`, solved here by
-/// Newton-Raphson (a handful of iterations reach double precision for any
-/// bound orbit, `e` in `[0, 1)`) and then converted to true anomaly by the
-/// standard half-angle relation
+/// `Math/RootFinding.hpp`'s `newtonRaphson` (a handful of iterations reach
+/// double precision for any bound orbit, `e` in `[0, 1)`) and then converted
+/// to true anomaly by the standard half-angle relation
 /// `tan(nu/2) = sqrt((1+e)/(1-e)) tan(E/2)`.
 [[nodiscard]] double trueAnomalyFromMeanAnomaly(double meanAnomaly, double eccentricity);
 
@@ -91,6 +91,6 @@ struct OrbitalElementsAtEpoch {
 /// evaluations proportional to the elapsed time the way stepping a real
 /// integrator forward would be.
 [[nodiscard]] KeplerStateVector stateVectorAtTime(const OrbitalElementsAtEpoch& elements,
-                                                   double gm, double elapsedSeconds);
+                                                  double gm, double elapsedSeconds);
 
 }  // namespace ysq

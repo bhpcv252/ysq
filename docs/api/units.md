@@ -138,12 +138,15 @@ spell it with a degraded copy of an exact number.
 | `Mass.hpp` | `Mass`, `Density`, `SurfaceDensity`, `LinearDensity` | `Mass`, `Density`, `SurfaceDensity`, `LinearDensity` | `kilogram`, `gram`, `tonne`, `atomicMassUnit`, `solarMass`, `earthMass`, `kilogramPerCubicMetre` | `_kg _g _Msun _Mearth` |
 | `Time.hpp` | `Time`, `Frequency` (= `AngularVelocity`) | `Time`, `Frequency`, `AngularVelocity` | `second`, `millisecond`, `microsecond`, `nanosecond`, `minute`, `hour`, `day`, `week`, `month` (a twelfth of the Julian year, not a calendar month), `year` (Julian), `megayear`, `gigayear`, `hertz` | `_s _ms _min _h _day _yr _Myr _Gyr _Hz` (collide with `std::chrono_literals`, deliberately; see below) |
 | `Velocity.hpp` | `Velocity` | `Speed` (scalar), `Velocity2/3/4` (vector) | `metrePerSecond`, `kilometrePerSecond`, `kilometrePerHour`, `speedOfLight` | `_mps _kmps` |
-| `Acceleration.hpp` | `Acceleration`, `Jerk` | `Acceleration`, `Acceleration2/3/4`, `Jerk`, `Jerk3` | `metrePerSecondSquared`, `standardGravity` | `_mps2 _g0` |
+| `Acceleration.hpp` | `Acceleration`, `Jerk`, `AngularAcceleration` | `Acceleration`, `Acceleration2/3/4`, `Jerk`, `Jerk3`, `AngularAcceleration`, `AngularAcceleration3` | `metrePerSecondSquared`, `standardGravity`, `radianPerSecondSquared` | `_mps2 _g0` |
 | `Force.hpp` | `Force`, `Momentum`, `AngularMomentum`, `Pressure`, `Torque` | `Force`, `Force2/3/4`, `Momentum`, `Momentum2/3/4`, `AngularMomentum`, `AngularMomentum3`, `Torque`, `Torque3`, `Pressure` | `newton`, `dyne`, `pascal`, `bar`, `atmosphere`, `kilogramMetrePerSecond` | `_N _Pa _bar` |
 | `Energy.hpp` | `Energy` (= `Torque`), `Power`, `Action`, `SpecificEnergy` | `Energy`, `Power`, `Action`, `SpecificEnergy` | `joule`, `erg`, `electronvolt`/`kilo`/`mega`/`gigaelectronvolt`, `watt` | `_J _eV _MeV _W` |
-| `Temperature.hpp` | `Temperature`, `HeatCapacity` (= `Entropy`) | `Temperature`, `HeatCapacity`, `Entropy` | `kelvin`, `joulePerKelvin` | `_K` (Celsius/Fahrenheit are functions, not constants; see below) |
+| `Temperature.hpp` | `Temperature`, `HeatCapacity` (= `Entropy`), `ThermalConductivity`, `ThermalDiffusivity` (= `Fluids.hpp`'s `KinematicViscosity`), `SpecificHeatCapacity` | `Temperature`, `HeatCapacity`, `Entropy`, `ThermalConductivity`, `ThermalDiffusivity`, `SpecificHeatCapacity` | `kelvin`, `joulePerKelvin`, `wattPerMetreKelvin`, `joulePerKilogramKelvin` | `_K` (Celsius/Fahrenheit are functions, not constants; see below) |
 | `Luminosity.hpp` | `RadiantPower` (= `Power`), `Irradiance` (= `Radiance`), `LuminousFlux` (= `LuminousIntensity`), `Illuminance` | `RadiantPower`, `Irradiance`, `Radiance`, `LuminousIntensity`, `LuminousFlux`, `Illuminance` | `solarLuminosity`, `candela`, `lumen`, `lux` | `_Lsun _cd` |
-| `Electromagnetism.hpp` | `ElectricField`, `MagneticFluxDensity` | `ElectricField`, `ElectricField3`, `MagneticFluxDensity`, `MagneticFluxDensity3` | `voltPerMetre`, `tesla`, `gauss` | none |
+| `Electromagnetism.hpp` | `ElectricField`, `MagneticFluxDensity`, `ElectricPotential`, `Capacitance`, `Resistance`, `Conductance`, `MagneticFlux`, `Inductance` | `ElectricField`, `ElectricField3`, `MagneticFluxDensity`, `MagneticFluxDensity3`, `ElectricPotential`, `Capacitance`, `Resistance`, `Conductance`, `MagneticFlux`, `Inductance` | `voltPerMetre`, `tesla`, `gauss`, `volt`, `farad`, `ohm`, `siemens`, `weber`, `henry` | none |
+| `Fluids.hpp` | `DynamicViscosity`, `KinematicViscosity`, `SurfaceTension` | `DynamicViscosity`, `KinematicViscosity`, `SurfaceTension` | `pascalSecond`, `squareMetrePerSecond`, `newtonPerMetre` | none |
+| `Chemistry.hpp` | `Amount` (= `AmountOfSubstance`), `Concentration`, `MolarMass` | `AmountOfSubstance`, `Concentration`, `MolarMass` | `mole`, `molePerCubicMetre`, `kilogramPerMole` | none |
+| `Elasticity.hpp` | `Stress` (= `Pressure`), `Strain` (dimensionless) | `Stress`, `Strain` | none (aliases only; use `Force.hpp`'s `pascal` for a `Stress` value) | none |
 | `Constants.hpp` | `ElectricCharge`, `GravitationalParameter`, `InverseAmount`, `LuminousEfficacy` | `ElectricCharge`, `GravitationalParameter`, `LuminousEfficacy` | see `constants::` below | none |
 
 ```cpp
@@ -207,10 +210,11 @@ applications sometimes need kilograms, and it is the lossy form.
 Several distinct physical quantities share a dimension and are therefore
 the *same type* here: `Torque`/`Energy`, `Frequency`/`AngularVelocity`,
 `Entropy`/`HeatCapacity`, `Radiance`/`Irradiance`,
-`LuminousFlux`/`LuminousIntensity`. Nothing stops handing one to code that
-expects the other; both aliases exist so code can at least say which one is
-meant. The formatter (below) reflects this honestly: it never guesses a
-named symbol like `J`, only base-unit powers.
+`LuminousFlux`/`LuminousIntensity`, `Stress`/`Pressure`, and
+`ThermalDiffusivity`/`KinematicViscosity`. Nothing stops handing one to
+code that expects the other; both aliases exist so code can at least say
+which one is meant. The formatter (below) reflects this honestly: it
+never guesses a named symbol like `J`, only base-unit powers.
 
 ## `Units/Format.hpp`
 

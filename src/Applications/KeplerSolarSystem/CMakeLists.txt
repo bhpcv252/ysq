@@ -22,12 +22,14 @@ target_link_libraries(ysq_kepler_solar_system_scenario
     PUBLIC ysq::Physics ysq::ApplicationsHelper
     PRIVATE ysq::Core ysq::warnings)
 
-# Scenario.cpp locates data/solar_system_bodies.csv by absolute source
-# path, baked in at build time: robust to whatever directory the built
-# executable is actually run from, unlike a path relative to the current
-# working directory. This is KeplerSolarSystem's own copy of the data file,
-# independent of Applications/SolarSystem/data's; see that file's own
-# header comment.
+# Scenario.cpp looks for data/solar_system_bodies.csv next to its own
+# running executable first (Core::executableDirectory), which is where a
+# packaged release ships it (see this file's install(DIRECTORY ...) below);
+# this compile-time source path is only the fallback for a local, uninstalled
+# build (a plain `cmake --build`, or any test linking this library directly),
+# where no such copy exists next to whatever executable is actually running.
+# This is KeplerSolarSystem's own copy of the data file, independent of
+# Applications/SolarSystem/data's; see that file's own header comment.
 target_compile_definitions(ysq_kepler_solar_system_scenario PRIVATE
     YSQ_KEPLER_SOLAR_SYSTEM_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 
@@ -46,4 +48,19 @@ if(YSQ_BUILD_GRAPHICS)
         ysq::Renderer
         ysq::UI
         ysq::warnings)
+
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # A downloaded binary needs to run on whatever libstdc++ version the
+        # user's own distro ships, not just the one this was built against.
+        target_link_options(kepler-solar-system PRIVATE -static-libgcc -static-libstdc++)
+    endif()
+
+    # One app per top-level install directory: release packaging zips each
+    # directory as that app's own downloadable archive, and the whole
+    # install prefix together as the combined "every app" archive. See
+    # src/Applications/README.md's convention section.
+    install(TARGETS kepler-solar-system RUNTIME DESTINATION KeplerSolarSystem)
+    # Ships data/ right next to the installed executable, exactly where
+    # Scenario.cpp's own executable-relative lookup expects to find it.
+    install(DIRECTORY data/ DESTINATION KeplerSolarSystem/data)
 endif()

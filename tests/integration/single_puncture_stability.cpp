@@ -108,7 +108,8 @@ double maxBulkHamiltonianViolation(const BssnState& state, std::ptrdiff_t cellCo
                 if (std::sqrt(x * x + y * y + z * z) < excludeRadius) {
                     continue;
                 }
-                maxAbs = std::max(maxAbs, std::abs(ysq::hamiltonianConstraint(state, i, j, k)));
+                maxAbs = std::max(maxAbs,
+                                  std::abs(ysq::hamiltonianConstraint(state, i, j, k)));
             }
         }
     }
@@ -164,13 +165,11 @@ TEST(SinglePunctureStability, RemainsFiniteAndConstraintsStayBoundedThroughEvolu
     const double spacing = 0.2;
     const std::size_t ghostCells = 3;
 
-    const std::vector<ysq::PunctureSpec> punctures{ysq::PunctureSpec{mass, ysq::Vec3::zero(),
-                                                                     ysq::Vec3::zero(),
-                                                                     ysq::Vec3::zero()}};
+    const std::vector<ysq::PunctureSpec> punctures{
+        ysq::PunctureSpec{mass, ysq::Vec3::zero(), ysq::Vec3::zero(), ysq::Vec3::zero()}};
 
-    const ysq::PunctureInitialDataResult initialData =
-        ysq::solvePunctureInitialData(punctures, cellCount, cellCount, cellCount, spacing,
-                                      ghostCells);
+    const ysq::PunctureInitialDataResult initialData = ysq::solvePunctureInitialData(
+        punctures, cellCount, cellCount, cellCount, spacing, ghostCells);
     // A single, momentarily-static puncture's Hamiltonian constraint source
     // (AbarIJ AbarIJ) is exactly zero, so the correction u the relaxation
     // solver looks for is exactly zero too -- this asserts the solver
@@ -191,13 +190,13 @@ TEST(SinglePunctureStability, RemainsFiniteAndConstraintsStayBoundedThroughEvolu
     };
 
     const double dt = 0.25 * spacing;
-    const int totalSteps = 24;  // t_final = 24 * 0.05 = 1.2, about one light-crossing time
+    const int totalSteps =
+        24;  // t_final = 24 * 0.05 = 1.2, about one light-crossing time
 
     ysq::Rk4Stepper<BssnState> stepper;
 
-    const double initialBulkViolation =
-        maxBulkHamiltonianViolation(state, static_cast<std::ptrdiff_t>(cellCount), spacing,
-                                    0.6 * mass);
+    const double initialBulkViolation = maxBulkHamiltonianViolation(
+        state, static_cast<std::ptrdiff_t>(cellCount), spacing, 0.6 * mass);
 
     for (int step = 0; step < totalSteps; ++step) {
         BssnState next(cellCount, cellCount, cellCount, spacing, ghostCells);
@@ -209,9 +208,8 @@ TEST(SinglePunctureStability, RemainsFiniteAndConstraintsStayBoundedThroughEvolu
             << "blew up at step " << step;
     }
 
-    const double finalBulkViolation =
-        maxBulkHamiltonianViolation(state, static_cast<std::ptrdiff_t>(cellCount), spacing,
-                                    0.6 * mass);
+    const double finalBulkViolation = maxBulkHamiltonianViolation(
+        state, static_cast<std::ptrdiff_t>(cellCount), spacing, 0.6 * mass);
 
     // The real check: the constraint has not grown by orders of magnitude
     // over the run. Some growth from the initial value is expected (this

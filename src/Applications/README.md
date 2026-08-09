@@ -31,6 +31,41 @@ One subdirectory per application, named for what it is
   so `tests/e2e/` can link it directly and assert the same physical
   invariants the running application would show.
 
+**A scenario needing its own data file locates it relative to its own
+running executable, not a path baked in at build time.**
+`Core/ExecutablePath.hpp`'s `executableDirectory()` reports where the
+current process is actually running from; `SolarSystem` and
+`KeplerSolarSystem` both look for `<executableDirectory>/data/*.csv` there
+first. A path baked in at compile time only ever resolves on the machine
+that built it, which breaks the instant the executable is copied anywhere
+else; resolving it at run time instead keeps the app relocatable, however
+big its data file is — this is real file I/O, not something with a
+practical size ceiling the way compiling a giant string literal would
+have. See the root `README.md`'s Downloads section.
+
+The one remaining compile-time path (`YSQ_SOLAR_SYSTEM_DATA_DIR` and
+`YSQ_KEPLER_SOLAR_SYSTEM_DATA_DIR`) is only a *fallback*, reached when
+nothing has shipped a copy next to whatever is currently running — the
+ordinary case for a plain local `cmake --build` and for any test linking
+a scenario library directly, neither of which is ever `install()`'d.
+
+**Every application's `CMakeLists.txt` installs its own executable — and
+its own data directory, if it has one — into its own top-level
+directory**, gated the same as the `add_executable` itself:
+
+```cmake
+install(TARGETS <exe-name> RUNTIME DESTINATION <AppName>)
+install(DIRECTORY data/ DESTINATION <AppName>/data)   # only if the app has one
+```
+
+`.github/workflows/release.yml` builds every application on every push to
+`main`, installs each into `stage/<AppName>/` via these rules, and zips
+each directory as that app's own downloadable release archive (plus one
+archive of the whole `stage/` tree with every app together). It discovers
+apps this way rather than naming them, so a new application only needs
+these one or two lines to be included in the next release automatically —
+no workflow change required.
+
 ## Link what a PUBLIC dependency doesn't already give you
 
 An application's `main.cpp` typically ends up `#include`-ing headers from

@@ -403,8 +403,7 @@ TEST(PhysicsGravity, RelativisticNBodySystemWithNoPrimariesMatchesPlainNewtonian
         makeBody(5.0e20, Vec3{-2.0e11, 1.0e10, 0.0}, Vec3{1.0e3, -2.0e4, 5.0e2})};
 
     const ysq::NewtonianField newtonian(bodies);
-    const ysq::RelativisticNBodySystem relativistic(
-        bodies, std::vector<int>{-1, -1, -1});
+    const ysq::RelativisticNBodySystem relativistic(bodies, std::vector<int>{-1, -1, -1});
 
     const ysq::PhaseState<ysq::NBodyState> state{ysq::positionsOf(bodies),
                                                  ysq::velocitiesOf(bodies)};
@@ -418,10 +417,11 @@ TEST(PhysicsGravity, RelativisticNBodySystemWithNoPrimariesMatchesPlainNewtonian
         // through, and the returned *velocity* slot holds the actual
         // acceleration.
         EXPECT_VEC_NEAR(actual.position[i], state.velocity[i], 0.0)
-            << "body " << i << ": the system's own position slot must be "
-                              "state.velocity echoed straight through";
+            << "body " << i
+            << ": the system's own position slot must be "
+               "state.velocity echoed straight through";
         EXPECT_VEC_NEAR(actual.velocity[i], expectedAcceleration[i],
-                       length(expectedAcceleration[i]) * 1e-12)
+                        length(expectedAcceleration[i]) * 1e-12)
             << "body " << i;
     }
 }
@@ -433,16 +433,15 @@ TEST(PhysicsGravity, RelativisticNBodySystemCorrectsAMoonAgainstItsOwnPlanetNotT
     // moon-planet relative state, not the star's -- the exact composition
     // Applications/SolarSystem/main.cpp relies on for real moons.
     const Body star = makeBody(2.0e30, Vec3{0.0, 0.0, 0.0});
-    const Body planet =
-        makeBody(6.0e24, Vec3{1.5e11, 0.0, 0.0}, Vec3{0.0, 3.0e4, 0.0});
+    const Body planet = makeBody(6.0e24, Vec3{1.5e11, 0.0, 0.0}, Vec3{0.0, 3.0e4, 0.0});
     // The moon sits at the planet's own position offset by a small amount,
     // with a small relative velocity: close enough that its 1PN term
     // against the (much less massive, much closer) planet is not
     // negligible next to what it would be against the (far more massive,
     // far more distant) star, so the two cases are numerically
     // distinguishable, not just formally different code paths.
-    const Body moon = makeBody(7.0e22, Vec3{1.5e11 + 4.0e8, 0.0, 0.0},
-                               Vec3{0.0, 3.0e4 + 1.0e3, 0.0});
+    const Body moon =
+        makeBody(7.0e22, Vec3{1.5e11 + 4.0e8, 0.0, 0.0}, Vec3{0.0, 3.0e4 + 1.0e3, 0.0});
     const std::array<Body, 3> bodies{star, planet, moon};
 
     const ysq::RelativisticNBodySystem correctedAgainstPlanet(
@@ -471,13 +470,14 @@ TEST(PhysicsGravity, RelativisticNBodySystemCorrectsAMoonAgainstItsOwnPlanetNotT
     // exactly the (primary-independent) Newtonian acceleration -- proving
     // the difference above is specifically the relativistic term, not some
     // other discrepancy.
-    const ysq::Acceleration3 expectedCorrection = ysq::postNewtonianCorrection(moon, planet);
+    const ysq::Acceleration3 expectedCorrection =
+        ysq::postNewtonianCorrection(moon, planet);
     const ysq::NewtonianField newtonian(bodies);
     const ysq::NBodyState newtonianOnly = newtonian(0.0, state.position);
 
     EXPECT_VEC_NEAR(withPlanetPrimary.velocity[2],
-                   newtonianOnly[2] + expectedCorrection.value(),
-                   length(expectedCorrection.value()) * 1e-9);
+                    newtonianOnly[2] + expectedCorrection.value(),
+                    length(expectedCorrection.value()) * 1e-9);
 }
 
 TEST(PhysicsGravity, RelativisticNBodySystemPerihelionPrecessionMatchesTheAnalyticRate) {
@@ -521,7 +521,8 @@ TEST(PhysicsGravity, RelativisticNBodySystemPerihelionPrecessionMatchesTheAnalyt
     const std::size_t maxSteps =
         static_cast<std::size_t>(newtonianPeriod / step) * (targetOrbits + 2);
 
-    ysq::PhaseState<ysq::NBodyState> state{ysq::positionsOf(bodies), ysq::velocitiesOf(bodies)};
+    ysq::PhaseState<ysq::NBodyState> state{ysq::positionsOf(bodies),
+                                           ysq::velocitiesOf(bodies)};
     ysq::PhaseState<ysq::NBodyState> next = state;
 
     // atan2 wraps to [-pi, pi] every step; the geodesic-based version of
@@ -536,15 +537,15 @@ TEST(PhysicsGravity, RelativisticNBodySystemPerihelionPrecessionMatchesTheAnalyt
     // differ by "precession mod 2*pi" instead of "2*pi + precession", and
     // the subtraction below would be measuring the wrong thing entirely.
     std::vector<double> periapsisAzimuths;
-    double previousRadialSpeed =
-        dot(state.position[1] - state.position[0], state.velocity[1] - state.velocity[0]) /
-        length(state.position[1] - state.position[0]);
+    double previousRadialSpeed = dot(state.position[1] - state.position[0],
+                                     state.velocity[1] - state.velocity[0]) /
+                                 length(state.position[1] - state.position[0]);
     double previousRawAzimuth = std::atan2(state.position[1].y, state.position[1].x);
     double previousUnwrappedAzimuth = previousRawAzimuth;
     double unwrappedAzimuth = previousRawAzimuth;
 
     for (std::size_t i = 0;
-        i < maxSteps && static_cast<int>(periapsisAzimuths.size()) < targetOrbits; ++i) {
+         i < maxSteps && static_cast<int>(periapsisAzimuths.size()) < targetOrbits; ++i) {
         stepper.step(system, static_cast<double>(i) * step, state, step, next);
 
         const Vec3 relativePosition = next.position[1] - next.position[0];
@@ -565,7 +566,8 @@ TEST(PhysicsGravity, RelativisticNBodySystemPerihelionPrecessionMatchesTheAnalyt
         if (previousRadialSpeed < 0.0 && radialSpeed >= 0.0) {
             const double t = -previousRadialSpeed / (radialSpeed - previousRadialSpeed);
             periapsisAzimuths.push_back(
-                previousUnwrappedAzimuth + t * (unwrappedAzimuth - previousUnwrappedAzimuth));
+                previousUnwrappedAzimuth +
+                t * (unwrappedAzimuth - previousUnwrappedAzimuth));
         }
 
         previousRadialSpeed = radialSpeed;
@@ -578,7 +580,8 @@ TEST(PhysicsGravity, RelativisticNBodySystemPerihelionPrecessionMatchesTheAnalyt
 
     double meanPrecession = 0.0;
     for (std::size_t i = 1; i < periapsisAzimuths.size(); ++i) {
-        meanPrecession += periapsisAzimuths[i] - periapsisAzimuths[i - 1] - ysq::kTau<double>;
+        meanPrecession +=
+            periapsisAzimuths[i] - periapsisAzimuths[i - 1] - ysq::kTau<double>;
     }
     meanPrecession /= static_cast<double>(periapsisAzimuths.size() - 1);
 
@@ -604,18 +607,21 @@ TEST(PhysicsGravity, PerihelionPrecessionPerOrbitMatchesTheClosedForm) {
         const double a = 200.0 * rs;
         const double e = 0.4;
         const double expected = 6.0 * ysq::kPi<double> * gm / (c * c * a * (1.0 - e * e));
-        EXPECT_NEAR(ysq::perihelionPrecessionPerOrbit(gm, a, e), expected, expected * 1e-12);
+        EXPECT_NEAR(ysq::perihelionPrecessionPerOrbit(gm, a, e), expected,
+                    expected * 1e-12);
     }
     {
         const double gm = 1.32712440018e20;  // the Sun's own, real GM
         const double a = 5.7909e10;          // Mercury's real semi-major axis
         const double e = 0.2056;             // Mercury's real eccentricity
         const double expected = 6.0 * ysq::kPi<double> * gm / (c * c * a * (1.0 - e * e));
-        EXPECT_NEAR(ysq::perihelionPrecessionPerOrbit(gm, a, e), expected, expected * 1e-12);
+        EXPECT_NEAR(ysq::perihelionPrecessionPerOrbit(gm, a, e), expected,
+                    expected * 1e-12);
     }
 }
 
-TEST(PhysicsGravity, RelativisticNBodyJerkSystemWithNoPrimariesMatchesPlainNewtonianJerk) {
+TEST(PhysicsGravity,
+     RelativisticNBodyJerkSystemWithNoPrimariesMatchesPlainNewtonianJerk) {
     // Same composition check RelativisticNBodySystem already has, one level
     // up: every primaryIndex negative must degenerate to exactly what
     // NewtonianJerkField alone computes for both acceleration and jerk.
@@ -638,7 +644,7 @@ TEST(PhysicsGravity, RelativisticNBodyJerkSystemWithNoPrimariesMatchesPlainNewto
             relativisticJerk(i, positions, velocities);
 
         EXPECT_VEC_NEAR(actualAcceleration, expectedAcceleration,
-                       length(expectedAcceleration) * 1e-12)
+                        length(expectedAcceleration) * 1e-12)
             << "body " << i;
         EXPECT_VEC_NEAR(actualJerk, expectedJerk, length(expectedJerk) * 1e-12)
             << "body " << i;
@@ -682,8 +688,8 @@ TEST(PhysicsGravity, RelativisticJerkTermMatchesFiniteDifferenceOfTheAcceleratio
 
     EXPECT_NEAR(distance(analyticJerk, finiteDifferenceJerk), 0.0,
                 length(finiteDifferenceJerk) * 1e-3)
-        << "analytic (" << analyticJerk.x << ", " << analyticJerk.y << ", " << analyticJerk.z
-        << ") vs finite-difference (" << finiteDifferenceJerk.x << ", "
+        << "analytic (" << analyticJerk.x << ", " << analyticJerk.y << ", "
+        << analyticJerk.z << ") vs finite-difference (" << finiteDifferenceJerk.x << ", "
         << finiteDifferenceJerk.y << ", " << finiteDifferenceJerk.z << ")";
 }
 

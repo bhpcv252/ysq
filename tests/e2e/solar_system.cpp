@@ -132,7 +132,8 @@ TEST(SolarSystemE2E, TheSunAndEightPlanetsConserveEnergyAndMomentumOverTwoJupite
            "accelerations are exactly antisymmetric under exchange";
 }
 
-TEST(SolarSystemE2E, TheSunAndEightPlanetsConserveEnergyAndMomentumUnderIndividualTimesteps) {
+TEST(SolarSystemE2E,
+     TheSunAndEightPlanetsConserveEnergyAndMomentumUnderIndividualTimesteps) {
     // Same 9-body dataset and duration as the symplectic test above, run
     // instead through IndividualTimestepScheduler + NewtonianJerkField --
     // the actual physics path src/Applications/SolarSystem/main.cpp now
@@ -185,8 +186,8 @@ TEST(SolarSystemE2E, TheSunAndEightPlanetsConserveEnergyAndMomentumUnderIndividu
         jerks[i] = jerk;
     }
 
-    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations, jerks,
-                                               0.0, 0.01, baseInterval);
+    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations,
+                                               jerks, 0.0, 0.01, baseInterval);
 
     ysq::RunningStatistics<double> energyDeviation;
     ysq::RunningStatistics<double> momentumDeviation;

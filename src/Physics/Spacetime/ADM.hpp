@@ -70,7 +70,7 @@ struct SymmetricSpatialTensorFields {
     /// Writes the six independent components of `value` back at one grid
     /// point, the inverse of `at`.
     void set(std::ptrdiff_t i, std::ptrdiff_t j, std::ptrdiff_t k,
-            const Tensor<double, 2, 3>& value) {
+             const Tensor<double, 2, 3>& value) {
         xx(i, j, k) = value(0, 0);
         xy(i, j, k) = value(0, 1);
         xz(i, j, k) = value(0, 2);
@@ -114,23 +114,23 @@ struct SymmetricSpatialTensorFields {
         return *this;
     }
 
-    [[nodiscard]] friend SymmetricSpatialTensorFields operator+(
-        SymmetricSpatialTensorFields lhs, const SymmetricSpatialTensorFields& rhs) {
+    [[nodiscard]] friend SymmetricSpatialTensorFields
+    operator+(SymmetricSpatialTensorFields lhs, const SymmetricSpatialTensorFields& rhs) {
         lhs += rhs;
         return lhs;
     }
-    [[nodiscard]] friend SymmetricSpatialTensorFields operator-(
-        SymmetricSpatialTensorFields lhs, const SymmetricSpatialTensorFields& rhs) {
+    [[nodiscard]] friend SymmetricSpatialTensorFields
+    operator-(SymmetricSpatialTensorFields lhs, const SymmetricSpatialTensorFields& rhs) {
         lhs -= rhs;
         return lhs;
     }
-    [[nodiscard]] friend SymmetricSpatialTensorFields operator*(
-        SymmetricSpatialTensorFields fields, double scalar) {
+    [[nodiscard]] friend SymmetricSpatialTensorFields
+    operator*(SymmetricSpatialTensorFields fields, double scalar) {
         fields *= scalar;
         return fields;
     }
-    [[nodiscard]] friend SymmetricSpatialTensorFields operator*(
-        double scalar, SymmetricSpatialTensorFields fields) {
+    [[nodiscard]] friend SymmetricSpatialTensorFields
+    operator*(double scalar, SymmetricSpatialTensorFields fields) {
         fields *= scalar;
         return fields;
     }
@@ -209,7 +209,7 @@ struct AdmData {
     SpatialVectorFields shift;
 
     AdmData(std::size_t cellCountX, std::size_t cellCountY, std::size_t cellCountZ,
-           double spacing, std::size_t ghostCells)
+            double spacing, std::size_t ghostCells)
         : spatialMetric(cellCountX, cellCountY, cellCountZ, spacing, ghostCells),
           extrinsicCurvature(cellCountX, cellCountY, cellCountZ, spacing, ghostCells),
           lapse(cellCountX, cellCountY, cellCountZ, spacing, ghostCells),

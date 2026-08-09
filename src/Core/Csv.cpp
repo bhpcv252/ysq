@@ -47,7 +47,7 @@ struct RawRecord {
 /// it ever becomes a record. This is the one place line-counting happens;
 /// everything downstream just trusts each RawRecord::line.
 [[nodiscard]] std::optional<std::vector<RawRecord>> tokenize(std::string_view text,
-                                                              CsvError* error) {
+                                                             CsvError* error) {
     std::vector<RawRecord> records;
     std::size_t pos = 0;
     std::size_t lineNumber = 1;
@@ -306,13 +306,14 @@ std::optional<Csv> Csv::load(const std::filesystem::path& path, CsvError* error,
     std::error_code ec;
     const std::uintmax_t size = std::filesystem::file_size(path, ec);
     if (ec) {
-        setError(error, 0, std::format("cannot stat '{}': {}", path.string(), ec.message()));
+        setError(error, 0,
+                 std::format("cannot stat '{}': {}", path.string(), ec.message()));
         return std::nullopt;
     }
     if (size > maxBytes) {
         setError(error, 0,
-                 std::format("'{}' is {} bytes, over the {} byte limit", path.string(), size,
-                             maxBytes));
+                 std::format("'{}' is {} bytes, over the {} byte limit", path.string(),
+                             size, maxBytes));
         return std::nullopt;
     }
 

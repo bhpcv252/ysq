@@ -1,5 +1,5 @@
-#include <Math/Multigrid.hpp>
 #include <Math/Grid3D.hpp>
+#include <Math/Multigrid.hpp>
 
 #include <gtest/gtest.h>
 
@@ -13,7 +13,9 @@ namespace {
 /// puncture data -- `Math/Multigrid.hpp` has to be correct as general
 /// elliptic-solver infrastructure on its own, not merely "correct enough"
 /// for the one nonlinear equation it happens to be used for elsewhere.
-double exactSolution(double x, double y, double) { return x * x - y * y; }
+double exactSolution(double x, double y, double) {
+    return x * x - y * y;
+}
 
 double cellCoordinate(std::ptrdiff_t index, double spacing, double half) {
     return (static_cast<double>(index) + 0.5) * spacing - half;
@@ -27,8 +29,8 @@ TEST(Multigrid, ConvergesToAKnownHarmonicFunction) {
     const auto applyOperator = [](const ysq::Grid3D<double>& u, std::ptrdiff_t i,
                                   std::ptrdiff_t j, std::ptrdiff_t k, double h) {
         return (u(i + 1, j, k) + u(i - 1, j, k) + u(i, j + 1, k) + u(i, j - 1, k) +
-               u(i, j, k + 1) + u(i, j, k - 1) - 6.0 * u(i, j, k)) /
-              (h * h);
+                u(i, j, k + 1) + u(i, j, k - 1) - 6.0 * u(i, j, k)) /
+               (h * h);
     };
 
     const auto relaxPoint = [](ysq::Grid3D<double>& u, std::ptrdiff_t i, std::ptrdiff_t j,
@@ -53,9 +55,9 @@ TEST(Multigrid, ConvergesToAKnownHarmonicFunction) {
                     u(-g, j, k) = exactSolution(cellCoordinate(-g, h, half),
                                                 cellCoordinate(j, h, half),
                                                 cellCoordinate(k, h, half));
-                    u(nx - 1 + g, j, k) = exactSolution(cellCoordinate(nx - 1 + g, h, half),
-                                                        cellCoordinate(j, h, half),
-                                                        cellCoordinate(k, h, half));
+                    u(nx - 1 + g, j, k) = exactSolution(
+                        cellCoordinate(nx - 1 + g, h, half), cellCoordinate(j, h, half),
+                        cellCoordinate(k, h, half));
                 }
             }
         }
@@ -65,9 +67,9 @@ TEST(Multigrid, ConvergesToAKnownHarmonicFunction) {
                     u(i, -g, k) = exactSolution(cellCoordinate(i, h, half),
                                                 cellCoordinate(-g, h, half),
                                                 cellCoordinate(k, h, half));
-                    u(i, ny - 1 + g, k) = exactSolution(cellCoordinate(i, h, half),
-                                                        cellCoordinate(ny - 1 + g, h, half),
-                                                        cellCoordinate(k, h, half));
+                    u(i, ny - 1 + g, k) = exactSolution(
+                        cellCoordinate(i, h, half), cellCoordinate(ny - 1 + g, h, half),
+                        cellCoordinate(k, h, half));
                 }
             }
         }
@@ -77,9 +79,9 @@ TEST(Multigrid, ConvergesToAKnownHarmonicFunction) {
                     u(i, j, -g) = exactSolution(cellCoordinate(i, h, half),
                                                 cellCoordinate(j, h, half),
                                                 cellCoordinate(-g, h, half));
-                    u(i, j, nz - 1 + g) = exactSolution(cellCoordinate(i, h, half),
-                                                        cellCoordinate(j, h, half),
-                                                        cellCoordinate(nz - 1 + g, h, half));
+                    u(i, j, nz - 1 + g) = exactSolution(
+                        cellCoordinate(i, h, half), cellCoordinate(j, h, half),
+                        cellCoordinate(nz - 1 + g, h, half));
                 }
             }
         }

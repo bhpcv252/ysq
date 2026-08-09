@@ -36,7 +36,8 @@ TEST(SolarSystemScenario, AllBodiesIsSunFirstThenEveryOtherBodyInScenarioOrder) 
     const std::vector<ysq::Body> bodies = scenario->allBodies();
 
     ASSERT_EQ(bodies.size(), scenario->bodies.size());
-    EXPECT_TRUE(scenario->bodies.front().parent.empty()) << "index 0 must be the one root";
+    EXPECT_TRUE(scenario->bodies.front().parent.empty())
+        << "index 0 must be the one root";
     EXPECT_EQ(scenario->bodies.front().name, "Sun");
 
     for (std::size_t i = 0; i < scenario->bodies.size(); ++i) {
@@ -49,10 +50,11 @@ TEST(SolarSystemScenario, PlanetsAreOrderedByIncreasingSemiMajorAxis) {
     const std::optional<Scenario> scenario = makeScenario();
     ASSERT_TRUE(scenario.has_value());
 
-    const std::array<std::string, 8> planetsInOrder{"Mercury", "Venus",  "Earth",  "Mars",
-                                                     "Jupiter", "Saturn", "Uranus", "Neptune"};
+    const std::array<std::string, 8> planetsInOrder{
+        "Mercury", "Venus", "Earth", "Mars", "Jupiter", "Saturn", "Uranus", "Neptune"};
 
-    const auto findByName = [&](const std::string& name) -> const ysq::applications::CatalogBody& {
+    const auto findByName =
+        [&](const std::string& name) -> const ysq::applications::CatalogBody& {
         for (const auto& body : scenario->bodies) {
             if (body.name == name) {
                 return body;
@@ -67,7 +69,8 @@ TEST(SolarSystemScenario, PlanetsAreOrderedByIncreasingSemiMajorAxis) {
         const ysq::applications::CatalogBody& planet = findByName(name);
         EXPECT_EQ(planet.parent, "Sun") << name;
         const double distance = length(planet.body.position.value());
-        EXPECT_GT(distance, previous) << name << " should orbit farther out than the previous planet";
+        EXPECT_GT(distance, previous)
+            << name << " should orbit farther out than the previous planet";
         previous = distance;
     }
 }

@@ -20,7 +20,22 @@ computes with, and nothing that knows what it is computing about.
 | `Math/Tensor.hpp`               | Fixed rank and dimension, with the index algebra             |
 | `Math/Statistics.hpp`           | Summaries, compensated summation, an online accumulator      |
 | `Math/Interpolation.hpp`        | Lerp through natural cubic splines                           |
+| `Math/Geometry/Primitives.hpp`  | `Ray3`, `Sphere3`, `Plane3`, `Segment3`, `AABB3`, `Triangle3`, `OBB3` |
+| `Math/Geometry/Intersection.hpp` | Ray/sphere/plane/triangle/AABB crossings, sphere/AABB/plane overlap |
+| `Math/Geometry/Queries.hpp`     | Closest point on a segment/plane/AABB/triangle, point-in-polygon |
+| `Math/Geometry/ConvexHull.hpp`  | 2D (monotone chain) and 3D (incremental) convex hull          |
+| `Math/SpatialPartition/KdTree.hpp` | Point-based radius and k-nearest-neighbor queries          |
+| `Math/SpatialPartition/Bvh.hpp` | Box-based overlap and ray queries over a set of `AABB3`s (object partitioning) |
+| `Math/SpatialPartition/Octree.hpp` | The same queries via region octants instead (space partitioning) |
+| `Math/FFT.hpp`                  | Iterative radix-2 Cooley-Tukey FFT/IFFT over `Complex`         |
 | `Math/Calculus.hpp`             | Differentiation and quadrature                               |
+| `Math/RootFinding.hpp`          | Newton-Raphson, secant and bisection                          |
+| `Math/LinearSolve.hpp`          | Dynamic `MatrixN`/`VectorN`, LU and Cholesky solves           |
+| `Math/Eigen.hpp`                | Symmetric (cyclic Jacobi) and general (Schur/QR-algorithm) eigenvalues, QR decomposition, SVD |
+| `Math/SpecialFunctions.hpp`     | Error, gamma, associated Legendre and Bessel functions        |
+| `Math/Polynomial.hpp`           | Evaluation, differentiation, closed-form roots to degree 4, deflation above it |
+| `Math/Random.hpp`               | Uniform/normal/Poisson sampling, normal CDF, Monte Carlo integration |
+| `Math/Optimization.hpp`         | Gradient descent with backtracking line search, Nelder-Mead      |
 | `Math/CoordinateSystems.hpp`    | Spherical, cylindrical and polar, with their local bases     |
 | `Math/ODE.hpp`                  | The integrator interface, state types, and the drivers       |
 | `Math/Integrators/Euler.hpp`    | Explicit, semi-implicit, midpoint, Heun                      |
@@ -661,6 +676,546 @@ a matched tolerance for that reason.
 halved step. It converges very fast for a smooth integrand and not at all for
 one with a kink, since the error expansion it extrapolates does not exist
 there.
+
+### Root finding
+
+Three methods, ordered by what they demand of the caller and what they give
+back in return.
+
+**Newton-Raphson** iterates `x ← x - f(x) / f'(x)`: the tangent line at the
+current guess, extended to where it crosses zero. Convergence is quadratic
+near a simple root (the number of correct digits roughly doubles each step),
+but a bad starting guess can send it anywhere, including nowhere. The
+derivative-free overload approximates `f'` with a central difference at each
+iterate instead, at the cost of one extra evaluation of `f` per step.
+
+`Physics/Gravity/Kepler.cpp`'s `trueAnomalyFromMeanAnomaly` is the reference
+consumer: it solves Kepler's equation `M = E - e sin(E)` for the eccentric
+anomaly `E`, starting from the standard `E0 = M + e sin(M)` guess, which is
+close enough that a handful of iterations reach double precision for any
+bound orbit.
+
+**Secant** replaces the derivative with the slope through the two most recent
+iterates, `(f(x1) - f(x0)) / (x1 - x0)`, converging at order φ ≈ 1.618 (the
+golden ratio) rather than quadratically, in exchange for never needing `f'`
+at all, analytic or approximated.
+
+**Bisection** only needs `f` and a bracket `[lower, upper]` where it changes
+sign, halving the bracket every step. Convergence is linear, the slowest of
+the three, but it is the only one of the three guaranteed to converge to a
+root inside the bracket regardless of how `f` behaves between the endpoints,
+since it only ever narrows a region it already knows contains a sign change
+rather than extrapolating past what it knows.
+
+### General linear solving
+
+`MatrixN`/`VectorN` are the dynamically sized counterpart to `Matrix2`/`3`/`4`:
+those three are fixed-size because they carry geometry (a transform, a
+metric), sized to what that geometry needs. A system whose size is only
+known at run time — one row per data point in a fit, one row per constraint
+in a solver — needs a matrix that doesn't know its size at compile time
+either.
+
+**LU decomposition** (Doolittle form, partial pivoting) is Gaussian
+elimination stopped halfway: instead of reducing all the way to the
+identity the way `Matrix2.hpp`'s `detail::solveByElimination` does, it stops
+at a lower-triangular `L` (unit diagonal, so never stored) and an
+upper-triangular `U`, packed together into one matrix. The payoff is that a
+caller solving `A x = b` for many different `b` against the same `A` pays
+the O(n³) factorization once and each subsequent solve is only the O(n²)
+pair of triangular substitutions. `solve` is the one-shot convenience for a
+single right-hand side; `luDecompose` + `luSolve` is the two-step form for
+repeated ones.
+
+Partial pivoting exists for the same reason `Matrix2.hpp`'s elimination
+pivots: without it, a small (or exactly zero) pivot either amplifies
+rounding error or halts the algorithm outright, and swapping in whichever
+remaining row has the largest entry in that column keeps every elimination
+factor at most 1 in magnitude.
+
+**Cholesky decomposition** (`A = L Lᵀ`) is the specialization for a symmetric
+positive-definite `A`: a normal-equations system `AᵀA x = Aᵀb`, a covariance
+matrix, a stiffness matrix from a physically stable system, all guaranteed
+positive-definite by construction. It costs about half the arithmetic of LU
+and needs no pivoting at all, because positive-definiteness alone already
+guarantees every pivot along the way is both positive and the largest
+available. `choleskyDecompose` returning `nullopt` the moment a diagonal
+entry it needs to take the square root of is non-positive doubles as the
+positive-definiteness test: a matrix that is symmetric but not
+positive-definite has no real Cholesky factor at all, so there is nothing
+further to check.
+
+### Eigendecomposition and related factorizations
+
+#### Symmetric eigendecomposition
+
+The one case where the eigenvalues are guaranteed real and the
+eigenvectors guaranteed to form an orthonormal basis, which every consumer
+this engine's own physics has needed so far (an inertia tensor, a
+covariance matrix) happens to be.
+
+The **cyclic Jacobi** method gets there by repeated plane rotations, each
+chosen to zero exactly one off-diagonal entry `a(p, q)`:
+
+```
+theta = (a_qq - a_pp) / (2 a_pq)
+t = sign(theta) / (|theta| + sqrt(theta^2 + 1))
+c = 1 / sqrt(t^2 + 1), s = t c
+```
+
+applied as a rotation in the `(p, q)` plane to both the matrix and an
+accumulator that starts as the identity. Zeroing `(p, q)` generally
+disturbs entries a previous rotation already zeroed, but the total
+off-diagonal energy strictly decreases every rotation, so cycling through
+every `(p, q)` pair above the diagonal, sweep after sweep, converges to a
+diagonal matrix: the diagonal is the eigenvalues, and the accumulator is the
+eigenvectors, one per column.
+
+The `t` formula is the numerically stable form (Golub & Van Loan), not the
+textbook `theta = 0.5 atan2(2 a_pq, a_qq - a_pp)`: the textbook form divides
+by `a_qq - a_pp`, which is exactly zero whenever the two diagonal entries
+already agree, precisely the case a real matrix hits often. `math_eigen.cpp`
+checks the result three independent ways: against a diagonal matrix's own
+entries, against a matrix with closed-form eigenvalues, and by
+reconstructing `V diag(lambda) Vᵀ` and comparing it to the original.
+
+#### QR decomposition
+
+Householder reflections, one per column: for column `k`, a reflection is
+chosen that zeros every entry below the diagonal in that column without
+disturbing the columns already zeroed, the same "reduce one column,
+preserve the rest" shape `luDecompose`'s elimination has, but orthogonal
+(and so unconditionally stable) rather than merely invertible. The
+reflection targets `-sign(a_kk) * ||column||` rather than `+||column||`,
+for the same cancellation-avoidance reason `quadraticRealRoots` picks its
+own sign: subtracting two nearly equal numbers when `a_kk` is already
+close to the column norm would lose precision right where the reflection
+vector is built. `qrDecompose` works for any `a` with at least as many
+rows as columns; `math_eigen.cpp` checks `q` is orthogonal, `r` is upper
+triangular, and `q * r` reconstructs `a`, on both a square and a
+non-square input.
+
+#### General eigenvalues via the real Schur form
+
+A general (non-symmetric) matrix does not always have real eigenvalues or
+orthogonal eigenvectors, so it cannot always be brought to a fully
+triangular form by a real orthogonal similarity transform: a
+complex-conjugate eigenvalue pair has no real eigenvector to triangularize
+around. The **real Schur form** is what a real orthogonal transform can
+always reach instead: quasi-upper-triangular, meaning upper triangular
+except for isolated 2x2 blocks straddling the diagonal, each block holding
+one complex-conjugate pair's own two-dimensional invariant subspace.
+
+`realSchur` gets there in two stages. First, **Hessenberg reduction**:
+the same Householder-reflection idea as `qrDecompose`, but applied on both
+sides at once (`a <- qᵀ a q`, a similarity transform, so the eigenvalues
+are unchanged) to zero everything below the first subdiagonal. This is a
+one-time O(n^3) cost that pays for itself immediately, since the second
+stage then runs in O(n^2) per iteration on a Hessenberg matrix instead of
+O(n^3) on a dense one.
+
+Second, the **shifted QR algorithm with deflation**: each iteration on the
+still-active leading block factors `(a - shift I) = q r` and recombines it
+as `r q + shift I`, a similarity transform that drives subdiagonal entries
+toward zero from the bottom right upward (the shift is Wilkinson's choice,
+computed from the trailing 2x2 block's own eigenvalues). Once a subdiagonal
+entry is negligible relative to its neighboring diagonal entries, it is
+deflated to exactly zero and the active block shrinks. A block that
+shrinks to size 2 without deflating further is left as-is: a real 2x2 with
+genuinely complex eigenvalues can never be reduced further by a real
+orthogonal similarity, so `eigenvaluesFromSchur` reads it directly instead
+of iterating on it — a 1x1 block is a real eigenvalue on its own diagonal
+entry, a 2x2 block is solved via the quadratic formula on its own trace
+and determinant.
+
+`generalEigenvalues` is `eigenvaluesFromSchur(realSchur(a).t)`.
+Eigenvectors are deliberately not part of this round: a numerically solid
+eigenvector for a complex eigenvalue needs a complex linear solve (inverse
+iteration against a complex-shifted system), and neither
+`Math/LinearSolve.hpp` nor `Math/Complex.hpp` has a complex counterpart to
+build that on yet. `math_eigen.cpp` checks a companion matrix (whose
+eigenvalues are its characteristic polynomial's roots by construction)
+against known real roots, a scaled rotation matrix against its known
+complex-conjugate pair, and a symmetric matrix against
+`jacobiEigenSymmetric`'s own answer for the same input.
+
+#### Singular value decomposition
+
+Computed by **one-sided Jacobi** (Hestenes 1958): the same plane-rotation
+idea as `jacobiEigenSymmetric`, aimed at a different target. Instead of
+zeroing a symmetric matrix's off-diagonal entry, each rotation orthogonalizes
+a pair of columns `p, q` of a working copy of `a`:
+
+```
+zeta = (beta - alpha) / (2 gamma)   [alpha, beta: column norms^2; gamma: their dot product]
+t = sign(zeta) / (|zeta| + sqrt(1 + zeta^2))
+c = 1 / sqrt(1 + t^2), s = c t
+```
+
+the identical stable-tangent form `jacobiEigenSymmetric` uses, applied to
+a different pair of quantities. At convergence the working copy's columns
+are exactly `u` scaled by the singular values, so the singular values fall
+out as the converged column norms (sorted descending) and `u` as those
+columns renormalized; a second matrix accumulates the same rotations
+column-for-column into `v`, exactly mirroring how `jacobiEigenSymmetric`
+accumulates its own rotations into eigenvectors. Requires `a.rows() >=
+a.cols()`; a caller with fewer rows than columns transposes first and swaps
+`u`/`v` back afterward. `math_eigen.cpp` checks the reconstruction `u
+diag(s) vᵀ = a`, orthonormality of `u` and `v`, and the defining relationship
+to the symmetric case: `sigma_i = sqrt(lambda_i)` where `lambda_i` are
+`jacobiEigenSymmetric(aᵀ a)`'s own eigenvalues.
+
+### Special functions
+
+`erf`, `erfc`, `gamma` and `logGamma` are thin wrappers over `<cmath>`'s own
+`std::erf`, `std::erfc`, `std::tgamma` and `std::lgamma` — those have been in
+the standard library since C++11 and need no reimplementation, only the same
+ADL-dispatched wrapper pattern (`sqrtOf`, `absOf`) `Math/Scalar.hpp` already
+uses, so a future `Numeric` type could extend them the same way.
+
+`legendreP` does not have that shortcut: the associated Legendre
+polynomials are part of C++17's special mathematical functions
+(`std::assoc_legendre`), which libc++ — the standard library this project
+builds against on macOS — does not implement. Computed here instead by the
+standard upward recurrence: the closed form for `P_m^m`,
+
+```
+P_m^m(x) = (-1)^m (2m-1)!! (1-x^2)^(m/2)
+```
+
+built up one factor of the double factorial at a time rather than computed
+as a separate intermediate (which risks overflowing before the `(1-x^2)^
+(m/2)` factor brings the product back down for large `m`), followed by the
+three-term recurrence
+
+```
+(n-m) P_n^m(x) = x(2n-1) P_{n-1}^m(x) - (n+m-1) P_{n-2}^m(x)
+```
+
+up to the requested `n`. `math_specialfunctions.cpp` checks the low-order
+terms (`P_0`, `P_1`, `P_2`, `P_1^1`, `P_2^1`, `P_2^2`) against their closed
+forms directly, since those are also the terms most consumers actually use.
+
+**Bessel functions** (`besselJ0`/`besselJ1`/`besselJ` for the first kind,
+`besselY0`/`besselY1`/`besselY` for the second) have the same
+no-standard-library-shortcut problem as `legendreP` (`std::cyl_bessel_j`
+and `std::cyl_neumann` are C++17 special math functions libc++ does not
+implement), solved by the classic Abramowitz & Stegun 9.4 rational
+approximations for orders 0 and 1 (one polynomial fit for `|x| < 8`, an
+asymptotic amplitude/phase fit beyond it — the small-`x` branch of `Y0`/`Y1`
+carries an explicit `ln(x) J0(x)`/`ln(x) J1(x)` term, since `Y_n` has a
+logarithmic singularity at the origin no polynomial alone reproduces), then
+recurrence for every higher order. The two families recur in opposite
+stable directions: `J`'s three-term recurrence is unstable running upward
+(errors amplify) but stable running downward, so `besselJ` for order 2 and
+above uses **Miller's algorithm** — seed an arbitrary value at an order
+well above the one requested, recur down to order 0, then rescale the
+whole sequence at the end via the sum rule `J_0(x) + 2 sum_{k>=1} J_{2k}(x)
+= 1`, since downward recurrence gets every ratio between consecutive
+orders right immediately but not the overall scale. `Y`'s recurrence is
+stable in the opposite direction, so `besselY` just recurs upward from
+`besselY0`/`besselY1` directly. `math_specialfunctions.cpp` checks `J0`/`J1`
+at the origin and at their known first zeros, the three-term recurrence
+independently for both families (at an `x` on each side of the
+downward/upward branch threshold `besselJ` itself switches on), and the
+Wronskian identity `J_n(x) Y_{n+1}(x) - J_{n+1}(x) Y_n(x) = -2/(pi x)`
+linking the two families together.
+
+### Polynomial roots
+
+Closed forms exist in radicals up to degree 4 and no further — the
+Abel-Ruffini theorem is why there is no general formula for degree 5, and
+so no `quinticRealRoots` to reach for. `realRoots` uses the closed form
+directly through degree 4, and above that finds one real root numerically
+at a time and divides it out, reducing the degree by one, until degree 4 is
+reached and the closed form finishes the job.
+
+**Quadratic** uses the numerically stable form rather than the textbook
+formula applied literally: `(-b +- sqrt(disc)) / 2a` cancels badly for
+whichever root has the same sign as `b`. Computing one root as
+`q / a` (`q` chosen with the sign that avoids the cancellation) and the
+other from Vieta's formula, `c / q`, keeps both roots accurate.
+`math_polynomial.cpp` includes a case (`a=1, b=1e8, c=1`) chosen so the
+naive formula would lose most of its precision on the smaller root, and
+checks the returned roots by substitution rather than against a literal, to
+confirm the stable form actually earns its keep there.
+
+**Cubic** depresses to `t^3 + p t + q = 0` and branches on the sign of
+`(q/2)^2 + (p/3)^3`. Positive means one real root, reached by Cardano's
+formula with real cube roots throughout. Negative means three distinct real
+roots — the "casus irreducibilis", where Cardano's formula technically
+still works but only by passing through a complex intermediate value that
+happens to have zero imaginary part at the end, which is worse to compute
+with than the trigonometric substitution `t = 2 sqrt(-p/3) cos(theta)`, whose
+`cos(3 theta) = 3q / (2 p sqrt(-p/3))` stays real the entire way.
+
+**Quartic** depresses to `t^4 + p t^2 + q t + r = 0`. A vanishing `q` is the
+biquadratic special case, a quadratic in `t^2`. Otherwise it factors into
+two real quadratics, `(t^2 + st + u)(t^2 - st + v)`; matching coefficients
+against `p`, `q`, `r` shows `s^2` must be a root of the resolvent cubic
+`z^3 + 2p z^2 + (p^2 - 4r) z - q^2 = 0`. A real quartic's complex roots
+always come in conjugate pairs, so it always factors into two real
+quadratics, which means this cubic always has a real, nonnegative root; once
+`s = sqrt(z)` is in hand, `u` and `v` fall out algebraically and each
+quadratic is solved by the stable quadratic form above.
+
+**Above degree 4**, `detail::findOneRealRootBySampling` samples
+`[-bound, bound]` (`bound` from Cauchy's bound, `1 + max_i |c_i / c_n|`, safe
+for any root) looking for a sign change, brackets it with bisection, and
+polishes with Newton-Raphson; `detail::deflate` then divides the found root
+out by synthetic division, one degree lower, and the loop repeats. This
+stops (returning whatever roots it already found) if a sampling pass turns
+up no sign change, which happens for a real root the grid straddles without
+crossing (a double root) or simply fewer real roots than the degree allows.
+`math_polynomial.cpp` verifies this path two ways: the closed forms and the
+deflation path agree on the same cubic given through both routes, and a
+degree-5 polynomial's roots (found only by deflation) satisfy the *original*
+un-deflated polynomial, not just the reduced one at the point each was
+found.
+
+### Euclidean geometry
+
+`Math/Geometry/` holds shapes and operations with no physical meaning —
+nothing here has a mass, a material, or an owner, the same separation
+`Math/Intersection.hpp` (now folded into this directory alongside its new
+siblings) always drew, just with more company now.
+
+**Ray-triangle** uses the Möller-Trumbore algorithm: it never computes the
+triangle's plane explicitly, instead solving directly for the barycentric
+coordinates `u`, `v` (and the ray parameter `t`) that express the hit point
+as `(1-u-v) a + u b + v c`. A hit is inside the triangle exactly when
+`u >= 0`, `v >= 0` and `u + v <= 1`, so those three comparisons are the
+entire inside/outside test, with no separate point-in-triangle check
+needed afterward.
+
+**Ray-AABB** uses the slab method: an axis-aligned box is the intersection
+of three axis-aligned slabs (the region between a pair of parallel planes),
+so intersecting the ray against each pair in turn and narrowing
+`[tMin, tMax]` every time finds the overall entry and exit parameters
+directly, with no need to test individual faces.
+
+**Closest-point-on-triangle** (Ericson, *Real-Time Collision Detection*)
+classifies the query point against the triangle's Voronoi regions: three
+vertex regions, three edge regions, and the face region, in that order,
+each ruled out by a couple of dot products before falling through to the
+next. Whichever region the point lands in fixes the answer immediately —
+a vertex, a point along an edge, or a barycentric combination of all three
+vertices for the face region — without needing the general (and more
+expensive) closest-point-on-a-plane-then-clamp approach.
+
+**2D convex hull** uses Andrew's monotone chain: sort every point by `x`
+(then `y`), then build the lower and upper chains of the hull in one linear
+pass each, popping the most recently kept point whenever the next point
+would make a clockwise turn. Every popped point is provably inside the
+hull of its neighbors, so nothing discarded ever needs revisiting — the
+whole algorithm is `O(n log n)`, dominated by the initial sort.
+
+**3D convex hull** uses the incremental algorithm: start from a tetrahedron
+built from four well-separated points (found by farthest-pair, then
+farthest-from-that-line, then farthest-from-that-plane, so the starting
+volume is never degenerate unless every point actually is coplanar), then
+add every remaining point in turn. Adding a point removes every face it can
+see past (a face whose outward side the point is on) and patches the
+resulting hole with new faces connecting the point to the *horizon*, the
+boundary between removed and kept faces. The horizon is found without
+maintaining a face-adjacency graph at all: collect every visible face's
+three directed edges, and an edge survives as a horizon edge exactly when
+its reverse does not also appear in that collection (an edge shared by two
+visible faces cancels out; one on the boundary does not). Reusing each
+horizon edge's own direction for its new face keeps every face's outward
+orientation correct automatically, the same property the initial
+tetrahedron's four faces get by checking directly against the one
+tetrahedron vertex each excludes. `math_geometry_convexhull.cpp` checks a
+cube's hull three ways: exactly 12 triangles, an interior point contributing
+no vertex to any of them, and every face's normal pointing away from the
+hull's own centroid.
+
+**Oriented bounding boxes** (`OBB3`) get their overlap tests from the
+**Separating Axis Theorem** (SAT): two convex shapes are disjoint if and
+only if some axis exists onto which their projections do not overlap, and
+for two boxes the only candidate axes that can ever be the one that
+separates them are each box's own three face normals, plus the nine
+pairwise cross products of one box's axes with the other's — fifteen axes
+in total (Gottschalk, Lin & Manocha 1996). The six face-normal axes alone
+catch every *face-to-face* separation; the nine cross-product axes are
+what catch a separation that is genuinely *edge-to-edge*, the case two
+boxes can overlap on every face normal and still not actually touch.
+`intersects(OBB3, AABB3)` reuses the same routine by building the AABB's
+equivalent degenerate OBB (axis-aligned, so its own three face normals are
+already among the standard basis) rather than re-deriving SAT for a case
+it already covers. Ray-OBB and closest-point-on-OBB both work by
+transforming into the box's own local frame (a pure change of basis, since
+`axes` is orthonormal) and reusing the AABB versions of the same
+operations there. `math_geometry_intersection.cpp` includes a
+purpose-built case — two thin rods with generically skew long axes — where
+the true minimal separating direction is a cross-product axis and every
+face-normal axis alone would wrongly report overlap, the case a naive
+six-axis test would get wrong.
+
+### Spatial partitioning
+
+Two different strategies for the same "what's near this?" question, over
+objects with their own extent (each given as an `AABB3`): `Bvh3` splits
+the *objects* (object partitioning), `Octree3` splits the *space* they
+live in (space partitioning). `KdTree3`, below, is the third structure,
+for dimensionless points rather than extended objects.
+
+**`KdTree3`** splits points by their median along an axis that cycles `x`,
+`y`, `z` with tree depth, so every level halves the remaining search space
+along whichever axis still discriminates. `radiusQuery` descends the near
+side of each splitting plane unconditionally and the far side only if the
+plane itself is within the query radius — the minimum distance any far-side
+point could possibly be, regardless of where exactly it sits, so this never
+misses a real neighbor while still pruning most of the tree. `nearestNeighbors`
+prunes the same way against a shrinking bound: once a bounded max-heap holds
+`k` candidates, its own worst distance becomes the radius, so it tightens as
+better candidates are found. `Physics/Fluids/SPH.cpp`'s neighbor search is
+the reference consumer: the cubic spline kernel has compact support at
+`2h`, so a radius query at that distance finds exactly the particles that
+contribute anything, replacing what was a brute-force all-pairs loop.
+
+**`Bvh3`** builds top-down, splitting each range of objects along whichever
+axis its combined bounding box is longest on, at the median object center
+along that axis — not the surface-area heuristic a production renderer
+would use to minimize expected query cost, but enough to give every query
+the `O(log n)` depth a balanced tree provides over testing every object.
+`overlapQuery` and `rayQuery` both descend only into children whose own
+bounds the query region or ray actually touches
+(`Math/Geometry/Intersection.hpp`'s `intersects`/`intersect` do the actual
+test), which is the entire pruning strategy: a box that misses a node's
+bounds cannot possibly overlap anything inside it.
+
+**`Octree3`** instead fixes a `worldBounds` region up front and splits it
+into eight equal octants at its center, recursively, stopping once a
+node's own object count is small enough or a maximum depth is reached. An
+object is handed down to a single child only if its box fits entirely
+inside that child's octant; a box straddling the split (spanning both
+halves on some axis) stays at the node doing the splitting, rather than
+being duplicated into every octant it touches or forcing an ambiguous
+choice of one. Because a cell's own bounds are then a fixed geometric
+region rather than a tight fit around whatever objects it holds (unlike a
+`Bvh3` node, whose bounds are always exactly the union of its objects'
+boxes), a query still has to test each candidate object's own box, not
+just trust that overlapping the cell means overlapping the object inside
+it — the cell bounds are only good enough to prune whole subtrees, the
+same role `Bvh3`'s tighter bounds play. Fixed cells (rather than
+object-derived ones) are the reason to reach for an octree over a BVH:
+the space partitioning stays meaningful even as objects move or get
+added, which an object-partitioned tree cannot promise without a full
+rebuild.
+
+All three structures are validated against brute force directly, not just
+against small hand-picked cases: `math_spatialpartition_kdtree.cpp`,
+`math_spatialpartition_bvh.cpp` and `math_spatialpartition_octree.cpp`
+each build a random cloud of points or boxes and check that the
+structure's answer matches an all-pairs search over the same data, which
+is the property that actually matters (the optimization changes nothing
+about which answer is correct).
+
+### The Fast Fourier Transform
+
+The discrete Fourier transform by definition costs `O(n^2)`: every output
+bin is a sum over every input sample. The iterative radix-2 Cooley-Tukey
+algorithm gets the same answer in `O(n log n)` by exploiting that an
+`n`-point DFT decomposes exactly into two `n/2`-point DFTs (over the even-
+and odd-indexed samples) plus `O(n)` combining work, recursively, down to
+one-point transforms (which are trivial: the identity).
+
+The *iterative* form used here runs that decomposition bottom-up instead of
+by recursive call: `detail::bitReversalPermute` reorders the input so that
+index `i` holds what belongs at `i`'s bit-reversal, which is exactly the
+order the bottom level's trivial one-point "transforms" need to already be
+in for the first real butterfly stage (combining pairs into two-point
+results) to combine the correct pairs. Each stage after that doubles the
+group size — pairs, then groups of four, then eight, and so on up to `n` —
+which is why `data.size()` must be a power of two.
+
+Forward and inverse share one routine, differing only in the sign of the
+twiddle factors' angle (the DFT and its inverse are the same sum with the
+sign of the exponent flipped) and a final `1/n` scale the inverse applies
+and the forward transform does not, the usual convention for which
+direction carries the normalization. `math_fft.cpp` checks the transform
+four independent ways: a constant signal's energy lands entirely in bin
+zero, a pure sinusoid's energy lands entirely in its own frequency bin (and
+its mirror), a round trip through `fft` then `ifft` recovers the original
+signal, and — the check least dependent on anything about this
+implementation's own internal structure — the result matches the `O(n^2)`
+direct sum over the DFT's textbook definition on a small case.
+
+**`fft3D`/`ifft3D`** add no new transform algorithm: a 3D DFT factors
+exactly into three passes of the existing 1D transform, one per axis (the
+row-column algorithm), since each 1D pass along one axis only mixes
+points that already share both other coordinates, and running the three
+passes in any order reaches the same result. Each pass extracts a line
+(strided for `x` and `y`, already contiguous for `z`) into a scratch
+buffer, transforms it with the existing `fftImpl`, and writes it back.
+Normalization falls out for free: each pass's own `1/n` on the inverse
+multiplies together across all three passes into exactly the
+`1/(nx ny nz)` a direct 3D inverse definition would apply once.
+`math_fft.cpp` checks the 3D transform the same independent ways as the
+1D one (constant signal, round trip on random data) plus one more specific
+to being separable: with the two extra axes both of size 1, `fft3D` must
+agree exactly with plain `fft` along the one real axis, since there is
+nowhere else for a genuinely 3D transform to mix into.
+
+### Randomness
+
+Every function here takes an `RandomEngine&` explicitly rather than reading
+a hidden global generator, so a caller who seeds one engine and threads it
+through gets the same sequence on every run — bit-for-bit reproducibility
+that a global generator cannot offer, since its state depends on every
+other call anywhere in the program, not just this caller's own history.
+`RandomEngine` is fixed to `std::mt19937_64`: one engine choice for the
+whole project, so a seed alone reproduces a run rather than a seed and also
+which engine type produced it.
+
+`normalCdf` is the one place outside `Math/SpecialFunctions.hpp` itself
+that `erf` earns its keep: `CDF(x) = (1 + erf((x - mean) / (stddev
+sqrt(2)))) / 2` is the standard identity relating the two.
+
+`monteCarloIntegrate` converges as `1/sqrt(samples)` regardless of
+dimension, worse than `Math/Calculus.hpp`'s deterministic rules for a smooth
+one-dimensional integrand (Gauss-Legendre reaches machine precision in a
+handful of evaluations, not thousands) — its actual advantage, a
+high-dimensional integral where a deterministic rule's cost grows
+exponentially with dimension while Monte Carlo's does not grow with
+dimension at all, is not exercised by this module's one-dimensional
+signature, but is the reason to reach for it once a real consumer needs
+more than one dimension.
+
+### Optimization
+
+Two families, for two situations, both minimizing a scalar field `f: V ->
+T` over `V` = `Vector2`/`3`/`4`.
+
+**`gradientDescent`** needs `f` to be differentiable: it estimates the
+gradient with `numericalGradient` (the same finite-difference machinery
+`Math/Calculus.hpp` already has, not reimplemented here) and steps opposite
+it. A fixed step size either overshoots a steep region or crawls through a
+shallow one — `backtrackingLineSearch` picks the step adaptively each
+iteration instead, shrinking a starting guess until it satisfies the Armijo
+sufficient-decrease condition,
+
+```
+f(x + step * direction) <= f(x) + c1 * step * (gradient . direction)
+```
+
+which only accepts a step that actually decreases `f` by a fraction of what
+the (linear) gradient prediction promises, ruling out both an overshoot
+that overall increases `f` and a step so large it exploits how the linear
+prediction breaks down.
+
+**`nelderMead`** needs nothing but values of `f` at points: no derivative,
+estimated or exact, anywhere in it. It carries `n + 1` points (`n` the
+dimension of `V`) and each iteration replaces the worst one by reflecting,
+expanding or contracting it through the centroid of the rest, falling back
+to shrinking the whole simplex toward the best point only when none of
+those improve on the worst. This is the one to reach for once `f` is noisy,
+discontinuous, or otherwise not something a finite difference could
+estimate a useful gradient from — `math_optimization.cpp` includes exactly
+that case, minimizing a sum of absolute values (not differentiable at its
+own minimum), which `gradientDescent` has no good answer for and
+`nelderMead` does not need one for.
 
 ### Numerical notes
 

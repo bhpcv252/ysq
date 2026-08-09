@@ -51,7 +51,7 @@ inline constexpr std::array<double, 5> kSecondDerivativeCoefficients{
 /// what a fourth-order-accurate scheme needs to stay one order past its own
 /// truncation error: epsilon/(64 h) * sum_m coefficient[m] * f(x + (m-3) h).
 inline constexpr std::array<double, 7> kKreissOligerCoefficients{1.0,  -6.0, 15.0, -20.0,
-                                                                  15.0, -6.0, 1.0};
+                                                                 15.0, -6.0, 1.0};
 
 /// Displaces (i, j, k) by `amount` cells along `axis` alone.
 constexpr void axisOffset(Axis axis, std::ptrdiff_t amount, std::ptrdiff_t& di,
@@ -96,8 +96,9 @@ template <Numeric T>
 /// The fourth-order second partial derivative of `grid` along `axis`, at
 /// cell (i, j, k). Same ghost-cell requirement as `firstDerivative`.
 template <Numeric T>
-[[nodiscard]] T secondDerivative(const Grid3D<T>& grid, std::ptrdiff_t i, std::ptrdiff_t j,
-                                 std::ptrdiff_t k, Axis axis, double spacing) {
+[[nodiscard]] T secondDerivative(const Grid3D<T>& grid, std::ptrdiff_t i,
+                                 std::ptrdiff_t j, std::ptrdiff_t k, Axis axis,
+                                 double spacing) {
     T sum{};
     for (std::ptrdiff_t m = -2; m <= 2; ++m) {
         std::ptrdiff_t di = 0;

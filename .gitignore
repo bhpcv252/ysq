@@ -2,6 +2,10 @@
 build*/
 cmake-build-*/
 
+# Local reproduction of release.yml's install/package steps
+stage/
+artifacts/
+
 # CMake / tooling artifacts
 CMakeUserPresets.json
 compile_commands.json

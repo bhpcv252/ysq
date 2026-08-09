@@ -1,6 +1,6 @@
 #include <Physics/Optics/Illumination.hpp>
 
-#include <Math/Intersection.hpp>
+#include <Math/Geometry/Intersection.hpp>
 #include <Math/ODE.hpp>
 #include <Math/Scalar.hpp>
 #include <Math/Vector4.hpp>
@@ -278,8 +278,9 @@ IlluminationResult illuminate(const Vec3& sourceCenter, double sourceRadius,
     return result;
 }
 
-double discOcclusionFraction(const Vec3& point, const Vec3& sourceCenter, double sourceRadius,
-                             const Vec3& occluderCenter, double occluderRadius) {
+double discOcclusionFraction(const Vec3& point, const Vec3& sourceCenter,
+                             double sourceRadius, const Vec3& occluderCenter,
+                             double occluderRadius) {
     const Vec3 toSource = sourceCenter - point;
     const Vec3 toOccluder = occluderCenter - point;
     const double distanceToSource = length(toSource);
@@ -299,8 +300,8 @@ double discOcclusionFraction(const Vec3& point, const Vec3& sourceCenter, double
     const double sourceAngularRadius = std::atan(sourceRadius / distanceToSource);
     const double occluderAngularRadius = std::atan(occluderRadius / distanceToOccluder);
 
-    const double cosSeparation =
-        std::clamp(dot(toSource, toOccluder) / (distanceToSource * distanceToOccluder), -1.0, 1.0);
+    const double cosSeparation = std::clamp(
+        dot(toSource, toOccluder) / (distanceToSource * distanceToOccluder), -1.0, 1.0);
     const double separation = std::acos(cosSeparation);
 
     if (separation >= sourceAngularRadius + occluderAngularRadius) {
@@ -312,9 +313,9 @@ double discOcclusionFraction(const Vec3& point, const Vec3& sourceCenter, double
         // covering only the fraction of the source's own area its disc's
         // area is -- pi cancels in the ratio).
         return occluderAngularRadius >= sourceAngularRadius
-                  ? 0.0
-                  : 1.0 - (occluderAngularRadius * occluderAngularRadius) /
-                              (sourceAngularRadius * sourceAngularRadius);
+                   ? 0.0
+                   : 1.0 - (occluderAngularRadius * occluderAngularRadius) /
+                               (sourceAngularRadius * sourceAngularRadius);
     }
 
     // Partial eclipse: the standard closed-form area of intersection of
@@ -323,10 +324,13 @@ double discOcclusionFraction(const Vec3& point, const Vec3& sourceCenter, double
     const double d = separation;
     const double r1 = sourceAngularRadius;
     const double r2 = occluderAngularRadius;
-    const double part1 = r1 * r1 * std::acos((d * d + r1 * r1 - r2 * r2) / (2.0 * d * r1));
-    const double part2 = r2 * r2 * std::acos((d * d + r2 * r2 - r1 * r1) / (2.0 * d * r2));
-    const double part3 = 0.5 * std::sqrt(std::max(
-                                   0.0, (-d + r1 + r2) * (d + r1 - r2) * (d - r1 + r2) * (d + r1 + r2)));
+    const double part1 =
+        r1 * r1 * std::acos((d * d + r1 * r1 - r2 * r2) / (2.0 * d * r1));
+    const double part2 =
+        r2 * r2 * std::acos((d * d + r2 * r2 - r1 * r1) / (2.0 * d * r2));
+    const double part3 =
+        0.5 * std::sqrt(std::max(0.0, (-d + r1 + r2) * (d + r1 - r2) * (d - r1 + r2) *
+                                          (d + r1 + r2)));
     const double overlapArea = part1 + part2 - part3;
     const double sourceArea = kPi<double> * r1 * r1;
     return std::clamp(1.0 - overlapArea / sourceArea, 0.0, 1.0);

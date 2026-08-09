@@ -59,9 +59,10 @@ struct KeplerParticle {
 /// is no published radius for an unnamed, procedurally-placed body, the
 /// same honest-estimate convention `SolarSystem/data/solar_system_bodies.csv`'s
 /// own header comment already documents for its small, unmeasured moons.
-[[nodiscard]] std::vector<KeplerParticle> generateKeplerPopulation(
-    int parentIndex, double parentGm, double minSemiMajorAxis, double maxSemiMajorAxis,
-    double maxEccentricity, double maxInclination, int count, std::uint64_t seed,
-    double realRadiusMeters, const Vec3f& color);
+[[nodiscard]] std::vector<KeplerParticle>
+generateKeplerPopulation(int parentIndex, double parentGm, double minSemiMajorAxis,
+                         double maxSemiMajorAxis, double maxEccentricity,
+                         double maxInclination, int count, std::uint64_t seed,
+                         double realRadiusMeters, const Vec3f& color);
 
 }  // namespace ysq::applications

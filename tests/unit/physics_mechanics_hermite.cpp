@@ -25,8 +25,8 @@ using ysq::Vec3;
 /// math_integrators.cpp's own order tests use, applied here to the
 /// predictor-corrector cycle standalone, before any multi-body scheduling
 /// is involved.
-std::pair<Vec3, Vec3> keplerAccelerationAndJerk(const Vec3& position, const Vec3& velocity,
-                                                double gm) {
+std::pair<Vec3, Vec3> keplerAccelerationAndJerk(const Vec3& position,
+                                                const Vec3& velocity, double gm) {
     const double r2 = lengthSquared(position);
     const double r = std::sqrt(r2);
     const double r3 = r2 * r;
@@ -55,9 +55,9 @@ double circularOrbitErrorAtStepCount(double gm, double r0, std::size_t steps) {
             ysq::hermitePredict(position, velocity, acceleration, jerk, dt);
         const auto [newAcceleration, newJerk] =
             keplerAccelerationAndJerk(predictedPosition, predictedVelocity, gm);
-        const auto [correctedPosition, correctedVelocity] = ysq::hermiteCorrect(
-            acceleration, jerk, newAcceleration, newJerk, dt, predictedPosition,
-            predictedVelocity);
+        const auto [correctedPosition, correctedVelocity] =
+            ysq::hermiteCorrect(acceleration, jerk, newAcceleration, newJerk, dt,
+                                predictedPosition, predictedVelocity);
         position = correctedPosition;
         velocity = correctedVelocity;
         acceleration = newAcceleration;
@@ -93,10 +93,10 @@ TEST(PhysicsMechanicsHermite, TimestepShrinksWhereJerkIsLargeRelativeToAccelerat
 
     // Same acceleration magnitude, very different jerk: the criterion must
     // respond to jerk, not to acceleration alone.
-    const double calmDt =
-        ysq::hermiteTimestep(Vec3{1.0, 0.0, 0.0}, Vec3{0.01, 0.0, 0.0}, eta, baseInterval);
-    const double sharpDt =
-        ysq::hermiteTimestep(Vec3{1.0, 0.0, 0.0}, Vec3{10.0, 0.0, 0.0}, eta, baseInterval);
+    const double calmDt = ysq::hermiteTimestep(Vec3{1.0, 0.0, 0.0}, Vec3{0.01, 0.0, 0.0},
+                                               eta, baseInterval);
+    const double sharpDt = ysq::hermiteTimestep(Vec3{1.0, 0.0, 0.0}, Vec3{10.0, 0.0, 0.0},
+                                                eta, baseInterval);
 
     EXPECT_LT(sharpDt, calmDt);
     EXPECT_LE(calmDt, baseInterval);
@@ -115,8 +115,8 @@ TEST(PhysicsMechanicsHermite, TimestepIsAPowerOfTwoFractionOfTheBaseInterval) {
 }
 
 TEST(PhysicsMechanicsHermite, TimestepFallsBackToBaseIntervalWhenJerkIsZero) {
-    const double dt = ysq::hermiteTimestep(Vec3{1.0, 0.0, 0.0}, Vec3{0.0, 0.0, 0.0}, 0.01,
-                                           50.0);
+    const double dt =
+        ysq::hermiteTimestep(Vec3{1.0, 0.0, 0.0}, Vec3{0.0, 0.0, 0.0}, 0.01, 50.0);
     EXPECT_DOUBLE_EQ(dt, 50.0);
 }
 
@@ -144,8 +144,8 @@ TEST(PhysicsMechanicsHermite, CurrentTimeAdvancesEvenWhenNoBodyIsDueYet) {
     ysq::NBodyState accelerations{acceleration};
     ysq::NBodyState jerks{jerk};
 
-    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations, jerks,
-                                               0.0, eta, baseInterval);
+    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations,
+                                               jerks, 0.0, eta, baseInterval);
 
     const auto constantJerkField = [&](std::size_t, const ysq::NBodyState&,
                                        const ysq::NBodyState&) {

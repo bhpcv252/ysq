@@ -581,9 +581,10 @@ state is a debugging concern and its formatter lives with test support.
 ## `Math/Grid.hpp`
 
 A uniform one-dimensional grid of cell values with ghost cells, the shared
-storage `Physics/Electromagnetism`'s FDTD rung, `Physics/Fluids`' Eulerian
-rung, and `Physics/Thermodynamics`' heat-equation rung all build on.
-**Scope: one dimension**; a 3D solver is future work for each of those.
+storage every 1D PDE rung (`Physics/Electromagnetism`'s FDTD, `Physics/Acoustics`,
+`Physics/Fluids`' Eulerian, `Physics/Thermodynamics`' heat equation) builds
+on. Each of those also has a full 3D sibling built on `Grid3D` below
+(`MaxwellField3D`, `AcousticField3D`, `EulerianFluid3D`, `HeatEquation3D`).
 
 ```cpp
 template <Numeric T> class Grid1D {
@@ -608,6 +609,112 @@ ysq::Grid1D<double> field(100, 0.01);
 field.applyPeriodicBoundary();
 const double leftNeighbor = field[-1];  // reaches into the ghost region
 ```
+
+## `Math/Grid3D.hpp`
+
+The 3D sibling: same role (storage, uniform spacing, ghost cells on all six
+faces), one more dimension. Uniform spacing only — the same axis-uniformity
+scope `Grid1D` has, just extended to three axes rather than allowing a
+different spacing per axis. First built for `Physics/Spacetime`'s BSSN
+evolution, and now the shared storage under every 3D PDE rung listed above.
+
+```cpp
+template <Numeric T> class Grid3D {
+public:
+    Grid3D();  // trivial 1x1x1 placeholder, for default-constructing a stepper's scratch state
+    Grid3D(std::size_t cellCountX, std::size_t cellCountY, std::size_t cellCountZ,
+          double spacing, std::size_t ghostCells = 1);
+
+    std::size_t cellCountX/cellCountY/cellCountZ() const noexcept;
+    std::size_t ghostCells() const noexcept;
+    double spacing() const noexcept;
+
+    T& operator()(std::ptrdiff_t i, std::ptrdiff_t j, std::ptrdiff_t k) noexcept;
+    // (0,0,0) is the first interior cell on every axis; the same ghost-region
+    // convention as Grid1D::operator[], per axis
+
+    void applyPeriodicBoundary();
+    // += -= *=, + - * (cell-by-cell, ghost regions included): satisfies OdeState,
+    // so a bundle of grid fields can be handed to a Math/Integrators stepper directly
+};
+```
+
+```cpp
+ysq::Grid3D<double> field(64, 64, 64, 0.01);
+field.applyPeriodicBoundary();
+const double neighbor = field(-1, 0, 0);  // reaches into the x ghost region
+```
+
+## `Math/FiniteDifference.hpp`
+
+Fourth-order finite-difference stencils on a `Grid3D`, and the numerical
+dissipation a hyperbolic evolution on one needs to stay stable. Built for
+BSSN's accuracy needs; the 3D PDE rungs in `Physics` (Maxwell, acoustic,
+heat equation, Eulerian, Schrödinger) do **not** use this — each stays at
+its own 1D sibling's order (2nd, mostly), a scope extension rather than
+also an accuracy upgrade.
+
+```cpp
+enum class Axis { X, Y, Z };
+
+template <Numeric T>
+T firstDerivative(const Grid3D<T>& grid, std::ptrdiff_t i, std::ptrdiff_t j,
+                  std::ptrdiff_t k, Axis axis, double spacing);
+template <Numeric T>
+T secondDerivative(const Grid3D<T>& grid, std::ptrdiff_t i, std::ptrdiff_t j,
+                   std::ptrdiff_t k, Axis axis, double spacing);
+template <Numeric T>
+T mixedSecondDerivative(const Grid3D<T>& grid, std::ptrdiff_t i, std::ptrdiff_t j,
+                        std::ptrdiff_t k, Axis axisA, Axis axisB,
+                        double spacingA, double spacingB);
+
+template <Numeric T>
+T kreissOligerDissipation(const Grid3D<T>& grid, std::ptrdiff_t i, std::ptrdiff_t j,
+                          std::ptrdiff_t k, Axis axis, double spacing, double sigma);
+template <Numeric T>
+T kreissOligerDissipation3D(const Grid3D<T>& grid, std::ptrdiff_t i, std::ptrdiff_t j,
+                            std::ptrdiff_t k, double spacing, double sigma);
+// sum of kreissOligerDissipation over all three axes
+```
+
+| Function | Description |
+| --- | --- |
+| `firstDerivative`/`secondDerivative` | The standard centered fourth-order (five-point) stencil along one axis. Reads two cells past `(i,j,k)` on `axis`, so `grid`'s ghost-cell count there must be at least 2. |
+| `mixedSecondDerivative` | The tensor product of two first-derivative stencils, one per axis (`axisA != axisB`, asserted). Use `secondDerivative` when both axes match. |
+| `kreissOligerDissipation`/`3D` | Damps the grid's own Nyquist-frequency mode (the standard failure mode of a centered, non-dissipative stencil) without corrupting a smooth solution. `sigma` is the dimensionless strength, typically 0.1–0.5. Reads three cells past `(i,j,k)` on its axis, so ghost cells there must be at least 3. |
+
+## `Math/Multigrid.hpp`
+
+A general nonlinear (FAS — Full Approximation Scheme) geometric multigrid
+V-cycle solver, on a `Grid3D`. Built for `Physics/Spacetime`'s puncture
+initial-data solve (an elliptic equation that needs solving once per
+initial condition, not every timestep); domain-neutral, not specific to
+that equation.
+
+```cpp
+struct MultigridSettings {
+    int preSmoothSteps, postSmoothSteps, maxLevels;
+    double convergenceTolerance;
+    int maxVCycles;
+};
+
+struct MultigridResult {
+    int vCyclesUsed;
+    double finalResidual;
+    bool converged;
+};
+
+template <class Operator, class Relaxer, class BoundaryFn>
+MultigridResult solveFAS(Grid3D<double>& u, double spacing, Operator&& applyOperator,
+                         Relaxer&& relaxPoint, BoundaryFn&& applyBoundary,
+                         const MultigridSettings& settings);
+```
+
+`applyOperator(field, i, j, k, h)` evaluates the (possibly nonlinear) PDE
+operator at one point; `relaxPoint(field, i, j, k, h, target)` does one
+Gauss-Seidel-style update of that point toward `target`; `applyBoundary(field)`
+enforces whatever boundary condition the equation needs. `u` is both the
+initial guess and, on return, the solution.
 
 ---
 Notice something missing or wrong on this page?

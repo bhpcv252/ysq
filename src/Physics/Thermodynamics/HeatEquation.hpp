@@ -16,13 +16,13 @@ namespace ysq {
 ///
 ///     T_i^(n+1) = T_i^n + alpha dt/dx^2 (T_(i+1)^n - 2 T_i^n + T_(i-1)^n)
 ///
-/// **Scope.** One spatial dimension, per Math/Grid.hpp; a 3D solver, needed
-/// for a genuinely shaped heat source or boundary, is future work. FTCS is
-/// explicit and conditionally stable rather than an implicit scheme (Crank-
-/// Nicolson, say), which trades an unconditionally stable, more expensive
-/// implicit solve for this scheme's simplicity and its very direct
-/// validation against the exact spreading Gaussian solution; see
-/// src/Physics/README.md.
+/// **Scope.** One spatial dimension, per Math/Grid.hpp; the 3D solver, for
+/// a genuinely shaped heat source or boundary, is
+/// `Thermodynamics/HeatEquation3D.hpp`. FTCS is explicit and conditionally
+/// stable rather than an implicit scheme (Crank-Nicolson, say), which
+/// trades an unconditionally stable, more expensive implicit solve for
+/// this scheme's simplicity and its very direct validation against the
+/// exact spreading Gaussian solution; see src/Physics/README.md.
 ///
 /// Periodic boundaries, the same choice Maxwell and Eulerian make: total
 /// heat, `sum T dx`, is exactly conserved, and a domain large enough

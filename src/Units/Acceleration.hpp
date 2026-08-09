@@ -11,6 +11,10 @@ namespace dim {
 using Acceleration = Div<Velocity, Time>;
 using Jerk = Div<Acceleration, Time>;
 
+/// Angular velocity per time: the same relationship `Acceleration` has to
+/// `Velocity` above, one rotational step up.
+using AngularAcceleration = Div<Frequency, Time>;
+
 }  // namespace dim
 
 using Acceleration = Quantity<dim::Acceleration>;
@@ -21,9 +25,13 @@ using Acceleration4 = Quantity<dim::Acceleration, Vec4>;
 using Jerk = Quantity<dim::Jerk>;
 using Jerk3 = Quantity<dim::Jerk, Vec3>;
 
+using AngularAcceleration = Quantity<dim::AngularAcceleration>;
+using AngularAcceleration3 = Quantity<dim::AngularAcceleration, Vec3>;
+
 namespace units {
 
 inline constexpr Acceleration metrePerSecondSquared{1.0};
+inline constexpr AngularAcceleration radianPerSecondSquared{1.0};
 
 /// Standard gravity: the conventional acceleration used to define the
 /// kilogram-force and to quote g-loads. Exact by convention (CGPM 1901), and

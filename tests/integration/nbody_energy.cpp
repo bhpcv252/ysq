@@ -232,8 +232,8 @@ TEST(NBodyEnergy, IndividualTimestepSchedulerKeepsEnergyBounded) {
     // 1e4 s, per randomCluster's own comment), so the Aarseth criterion is
     // what actually sets each body's own step, not this ceiling.
     constexpr double baseInterval = 1.0e6;
-    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations, jerks,
-                                               0.0, eta, baseInterval);
+    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations,
+                                               jerks, 0.0, eta, baseInterval);
 
     const double initialEnergy = totalEnergy(masses, positions, velocities, softening);
 
@@ -268,7 +268,8 @@ TEST(NBodyEnergy, IndividualTimestepSchedulerKeepsEnergyBounded) {
            "bounded over many orbits";
 }
 
-TEST(NBodyEnergy, IndividualTimestepSchedulerMatchesRk4GroundTruthAcrossVeryDifferentTimescales) {
+TEST(NBodyEnergy,
+     IndividualTimestepSchedulerMatchesRk4GroundTruthAcrossVeryDifferentTimescales) {
     // A star with one distant, slow-orbiting body and one close,
     // fast-orbiting body -- the same shape of problem (timescales three
     // orders of magnitude apart) that motivated giving each body its own
@@ -330,8 +331,8 @@ TEST(NBodyEnergy, IndividualTimestepSchedulerMatchesRk4GroundTruthAcrossVeryDiff
         jerks[i] = jerk;
     }
 
-    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations, jerks,
-                                               0.0, 0.01, fastPeriod);
+    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations,
+                                               jerks, 0.0, 0.01, fastPeriod);
     scheduler.advanceTo(jerkField, totalTime, 2000000);
 
     for (std::size_t i = 0; i < bodies.size(); ++i) {
@@ -373,13 +374,14 @@ TEST(NBodyEnergy, PredictedStateStaysBoundedWhenTheSchedulerFallsBehind) {
 
     constexpr double eta = 0.01;
     constexpr double baseInterval = 1.0e6;
-    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations, jerks,
-                                               0.0, eta, baseInterval);
+    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations,
+                                               jerks, 0.0, eta, baseInterval);
 
     const double initialEnergy = totalEnergy(masses, positions, velocities, softening);
 
     double simulationTime = 0.0;
-    constexpr double requestedPerFrame = 5.0e6;  // far more than a tiny maxUpdates can reach
+    constexpr double requestedPerFrame =
+        5.0e6;  // far more than a tiny maxUpdates can reach
     constexpr int tinyMaxUpdates = 5;
     constexpr int frames = 500;
 
@@ -392,8 +394,7 @@ TEST(NBodyEnergy, PredictedStateStaysBoundedWhenTheSchedulerFallsBehind) {
         NBodyState sampledPositions(bodies.size());
         NBodyState sampledVelocities(bodies.size());
         for (std::size_t i = 0; i < bodies.size(); ++i) {
-            const auto [position, velocity] =
-                scheduler.predictedState(i, simulationTime);
+            const auto [position, velocity] = scheduler.predictedState(i, simulationTime);
             ASSERT_TRUE(std::isfinite(length(position)))
                 << "frame " << frame << " body " << i;
             ASSERT_TRUE(std::isfinite(length(velocity)))

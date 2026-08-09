@@ -9,15 +9,15 @@
 
 namespace {
 
-using ysq::KeplerStateVector;
 using ysq::keplerMeanMotion;
 using ysq::keplerOrbitalPeriod;
+using ysq::KeplerStateVector;
 using ysq::OrbitalElements;
 using ysq::OrbitalElementsAtEpoch;
+using ysq::radians;
 using ysq::stateVectorAtTime;
 using ysq::stateVectorFromElements;
 using ysq::trueAnomalyFromMeanAnomaly;
-using ysq::radians;
 
 constexpr double kGm = 1.0;  // unit gravitational parameter; only shapes matter here
 
@@ -45,7 +45,7 @@ TEST(PhysicsGravityKepler, ZeroInclinationKeepsTheOrbitExactlyInTheReferencePlan
     for (double nu = 0.0; nu < ysq::kTau<double>; nu += 0.3) {
         for (double node = 0.0; node < ysq::kTau<double>; node += 0.9) {
             for (double periapsisArg = 0.0; periapsisArg < ysq::kTau<double>;
-                periapsisArg += 0.9) {
+                 periapsisArg += 0.9) {
                 const OrbitalElements elements{1.0, 0.3, 0.0, node, periapsisArg, nu};
                 const KeplerStateVector state = stateVectorFromElements(elements, kGm);
                 EXPECT_NEAR(state.position.z, 0.0, 1e-10);
@@ -59,7 +59,8 @@ TEST(PhysicsGravityKepler, PeriapsisAndApoapsisDistancesMatchTheEccentricFormula
     const double a = 3.0;
     const double e = 0.4;
 
-    const OrbitalElements atPeriapsis{a, e, radians(20.0), radians(50.0), radians(10.0), 0.0};
+    const OrbitalElements atPeriapsis{a,  e, radians(20.0), radians(50.0), radians(10.0),
+                                      0.0};
     const KeplerStateVector periapsisState = stateVectorFromElements(atPeriapsis, kGm);
     EXPECT_NEAR(length(periapsisState.position), a * (1.0 - e), 1e-9);
 
@@ -78,7 +79,8 @@ TEST(PhysicsGravityKepler, VisVivaHoldsAtEveryPointOnTheOrbit) {
     const double e = 0.6;
 
     for (double nu = 0.0; nu < ysq::kTau<double>; nu += 0.4) {
-        const OrbitalElements elements{a, e, radians(15.0), radians(70.0), radians(200.0), nu};
+        const OrbitalElements elements{a, e, radians(15.0), radians(70.0), radians(200.0),
+                                       nu};
         const KeplerStateVector state = stateVectorFromElements(elements, gm);
 
         const double r = length(state.position);
@@ -97,7 +99,8 @@ TEST(PhysicsGravityKepler, SpecificAngularMomentumMagnitudeIsConstantAroundTheOr
     const double expected = std::sqrt(gm * a * (1.0 - e * e));
 
     for (double nu = 0.0; nu < ysq::kTau<double>; nu += 0.5) {
-        const OrbitalElements elements{a, e, radians(33.0), radians(80.0), radians(120.0), nu};
+        const OrbitalElements elements{a, e, radians(33.0), radians(80.0), radians(120.0),
+                                       nu};
         const KeplerStateVector state = stateVectorFromElements(elements, gm);
         const double h = length(cross(state.position, state.velocity));
         EXPECT_NEAR(h, expected, 1e-9) << "at true anomaly " << nu;
@@ -114,8 +117,8 @@ TEST(PhysicsGravityKepler, InclinationIsExactlyTheAngleBetweenAngularMomentumAnd
     const double e = 0.2;
 
     for (double inclinationDeg : {0.0, 15.0, 45.0, 90.0, 135.0, 179.0}) {
-        const OrbitalElements elements{a, e, radians(inclinationDeg), radians(40.0),
-                                       radians(65.0), radians(25.0)};
+        const OrbitalElements elements{
+            a, e, radians(inclinationDeg), radians(40.0), radians(65.0), radians(25.0)};
         const KeplerStateVector state = stateVectorFromElements(elements, kGm);
         const ysq::Vec3 h = cross(state.position, state.velocity);
         const double cosAngle = h.z / length(h);
@@ -130,7 +133,8 @@ TEST(PhysicsGravityKepler, MeanAnomalyZeroAndPiMapToThemselvesAtAnyEccentricity)
     // closed-form check independent of the solver's own iteration.
     for (double e : {0.0, 0.3, 0.7, 0.95}) {
         EXPECT_NEAR(trueAnomalyFromMeanAnomaly(0.0, e), 0.0, 1e-12) << "at e=" << e;
-        EXPECT_NEAR(trueAnomalyFromMeanAnomaly(ysq::kPi<double>, e), ysq::kPi<double>, 1e-10)
+        EXPECT_NEAR(trueAnomalyFromMeanAnomaly(ysq::kPi<double>, e), ysq::kPi<double>,
+                    1e-10)
             << "at e=" << e;
     }
 }
@@ -171,7 +175,8 @@ TEST(PhysicsGravityKepler, MeanMotionMatchesTheTextbookFormula) {
 TEST(PhysicsGravityKepler, OrbitalPeriodIsTauOverMeanMotion) {
     const double gm = 4.0;
     const double a = 3.0;
-    EXPECT_NEAR(keplerOrbitalPeriod(gm, a), ysq::kTau<double> / keplerMeanMotion(gm, a), 1e-12);
+    EXPECT_NEAR(keplerOrbitalPeriod(gm, a), ysq::kTau<double> / keplerMeanMotion(gm, a),
+                1e-12);
 }
 
 TEST(PhysicsGravityKepler, OrbitalPeriodMatchesEarthsRealYearAroundTheSun) {
@@ -183,7 +188,7 @@ TEST(PhysicsGravityKepler, OrbitalPeriodMatchesEarthsRealYearAroundTheSun) {
     const double secondsPerJulianYear = 365.25 * 86400.0;
 
     EXPECT_NEAR(keplerOrbitalPeriod(gmSun, oneAu), secondsPerJulianYear,
-               secondsPerJulianYear * 1e-3);
+                secondsPerJulianYear * 1e-3);
 }
 
 TEST(PhysicsGravityKepler, StateVectorAtTimeZeroElapsedMatchesStateVectorFromElements) {
@@ -227,11 +232,12 @@ TEST(PhysicsGravityKepler, StateVectorAtTimeReturnsToItsStartAfterOneFullPeriod)
     const double a = 3.0;
     const double period = keplerOrbitalPeriod(gm, a);
 
-    const OrbitalElementsAtEpoch elements{a, 0.5, radians(15.0), radians(80.0),
-                                          radians(200.0), radians(30.0), 0.0};
+    const OrbitalElementsAtEpoch elements{
+        a, 0.5, radians(15.0), radians(80.0), radians(200.0), radians(30.0), 0.0};
     const KeplerStateVector atStart = stateVectorAtTime(elements, gm, 0.0);
     const KeplerStateVector afterOnePeriod = stateVectorAtTime(elements, gm, period);
-    const KeplerStateVector afterManyPeriods = stateVectorAtTime(elements, gm, period * 137.0);
+    const KeplerStateVector afterManyPeriods =
+        stateVectorAtTime(elements, gm, period * 137.0);
 
     EXPECT_NEAR(length(afterOnePeriod.position - atStart.position), 0.0, a * 1e-9);
     EXPECT_NEAR(length(afterManyPeriods.position - atStart.position), 0.0, a * 1e-6)
@@ -248,7 +254,8 @@ TEST(PhysicsGravityKepler, StateVectorAtTimeAppliesPrecessionToTheArgumentOfPeri
     const double a = 3.0;
     const double e = 0.5;
     const double period = keplerOrbitalPeriod(gm, a);
-    const double precessionRatePerSecond = 0.01;  // rad/s, deliberately large for a clean signal
+    const double precessionRatePerSecond =
+        0.01;  // rad/s, deliberately large for a clean signal
 
     const OrbitalElementsAtEpoch elements{a,
                                           e,

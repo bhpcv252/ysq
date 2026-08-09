@@ -35,6 +35,12 @@ under "Go deeper."
   computational vocabulary, and how automatic differentiation works
 - [Numerical integration](math/integrators.md): ODEs, steppers, and why
   symplectic methods matter for a long-running simulation
+- [Numerical methods](math/numerics.md): root-finding, linear solving,
+  eigendecomposition, special functions, polynomial roots, randomness,
+  optimization, and the FFT
+- [Euclidean geometry and spatial partitioning](math/geometry.md): shapes,
+  intersection tests, convex hulls, and the two structures for "what's
+  near this?" queries
 - [Units and dimensional analysis](units.md): how a dimension mismatch
   becomes a compile error instead of a lost spacecraft
 - [Platform](platform.md): the window, the graphics context, and input
@@ -52,13 +58,23 @@ under "Go deeper."
 - [Spacetime](physics/spacetime.md): metrics, geodesics, and the four
   spacetimes YSQ can put something in
 - [Electromagnetism](physics/electromagnetism.md): Coulomb and Biot-Savart
-  fields, the Lorentz force, a Maxwell solver that actually propagates
+  fields, the Lorentz force, a Maxwell solver that actually propagates,
+  in 1D and full 3D
+- [Acoustics](physics/acoustics.md): the linear acoustic wave equation,
+  Maxwell's own FDTD scheme reused rather than re-derived
 - [Fluids](physics/fluids.md): particles that carry the fluid (SPH) versus
-  a fixed grid it flows through (Eulerian)
+  a fixed grid it flows through (Eulerian), in 1D and 3D
+- [Continuum mechanics](physics/continuum.md): Hooke's law generalized to a
+  discretized elastic chain
 - [Thermodynamics](physics/thermodynamics.md): the ideal gas law, black-body
-  radiation, and the heat equation
+  radiation, statistical mechanics, radiative transfer, and the heat
+  equation, in 1D and 3D
 - [Optics](physics/optics.md): light propagation, lensing, and frequency
-  shift as one computation
+  shift as one computation, plus radiation pressure, diffraction, and
+  aberration
+- [Quantum mechanics](physics/quantummechanics.md): the time-independent
+  Schrödinger equation as an eigenvalue problem, and time-dependent
+  evolution by split-step Fourier, in 1D and 3D
 
 ## Rendering and UI
 

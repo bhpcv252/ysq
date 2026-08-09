@@ -1,12 +1,14 @@
 #include <Applications/SolarSystem/Scenario.hpp>
 
 #include <Core/Csv.hpp>
+#include <Core/ExecutablePath.hpp>
 #include <Math/Quaternion.hpp>
 #include <Math/Scalar.hpp>
 #include <Math/Vector3.hpp>
 #include <Units/Length.hpp>
 #include <Units/Unit.hpp>
 
+#include <filesystem>
 #include <format>
 #include <utility>
 
@@ -14,10 +16,28 @@ namespace ysq::solar_system {
 
 namespace {
 
-/// Baked in at build time (see CMakeLists.txt): an absolute path is robust
-/// to whatever directory the built executable is actually run from, unlike
-/// a path relative to the current working directory.
-constexpr const char* kDataFilePath = YSQ_SOLAR_SYSTEM_DATA_DIR "/solar_system_bodies.csv";
+/// Only reached on a local, uninstalled build (see CMakeLists.txt): a
+/// packaged release ships its own copy right next to the executable
+/// instead, which resolveDataFilePath() below finds first.
+constexpr const char* kFallbackDataFilePath =
+    YSQ_SOLAR_SYSTEM_DATA_DIR "/solar_system_bodies.csv";
+
+/// Looks for the catalog next to whichever executable is actually running
+/// (the app itself in a packaged release; a test binary in the build tree)
+/// via Core::executableDirectory, so a relocated copy of the app finds its
+/// own data regardless of what directory it was unzipped into. Falls back
+/// to the compile-time source path only when no such shipped copy exists --
+/// the ordinary case for a local build or a test linking this library
+/// directly, neither of which is ever installed.
+[[nodiscard]] std::filesystem::path resolveDataFilePath() {
+    if (const std::optional<std::filesystem::path> exeDir = executableDirectory()) {
+        std::filesystem::path shipped = *exeDir / "data" / "solar_system_bodies.csv";
+        if (std::filesystem::exists(shipped)) {
+            return shipped;
+        }
+    }
+    return kFallbackDataFilePath;
+}
 
 /// The J2000 mean obliquity, 23.4392911 degrees: the fixed rotation about
 /// the shared vernal-equinox axis that carries the planets' own
@@ -32,18 +52,20 @@ constexpr const char* kDataFilePath = YSQ_SOLAR_SYSTEM_DATA_DIR "/solar_system_b
 }  // namespace
 
 std::optional<Scenario> makeScenario(std::string* error) {
+    const std::filesystem::path dataFilePath = resolveDataFilePath();
     CsvError csvError;
-    const std::optional<Csv> table = Csv::load(kDataFilePath, &csvError);
+    const std::optional<Csv> table = Csv::load(dataFilePath, &csvError);
     if (!table) {
         if (error != nullptr) {
-            *error = std::format("{}: line {}: {}", kDataFilePath, csvError.line,
+            *error = std::format("{}: line {}: {}", dataFilePath.string(), csvError.line,
                                  csvError.message);
         }
         return std::nullopt;
     }
 
-    std::optional<std::vector<applications::CatalogBody>> bodies = applications::loadBodyCatalog(
-        *table, eclipticToEquatorialRotation(), applications::kJ2000JulianDate, error);
+    std::optional<std::vector<applications::CatalogBody>> bodies =
+        applications::loadBodyCatalog(*table, eclipticToEquatorialRotation(),
+                                      applications::kJ2000JulianDate, error);
     if (!bodies) {
         return std::nullopt;
     }
@@ -75,8 +97,9 @@ Vec3f toRenderPosition(const Length3& position) {
     const Vec3 meters = position.value();
     const double scale =
         static_cast<double>(kRenderUnitsPerAu) / units::astronomicalUnit.value();
-    return Vec3f{static_cast<float>(meters.x * scale), static_cast<float>(meters.y * scale),
-                static_cast<float>(meters.z * scale)};
+    return Vec3f{static_cast<float>(meters.x * scale),
+                 static_cast<float>(meters.y * scale),
+                 static_cast<float>(meters.z * scale)};
 }
 
 float toRenderRadius(Length radius) {

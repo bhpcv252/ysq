@@ -32,4 +32,16 @@ if(YSQ_BUILD_GRAPHICS)
         ysq::Renderer
         ysq::UI
         ysq::warnings)
+
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # A downloaded binary needs to run on whatever libstdc++ version the
+        # user's own distro ships, not just the one this was built against.
+        target_link_options(lunar-eclipse PRIVATE -static-libgcc -static-libstdc++)
+    endif()
+
+    # One app per top-level install directory: release packaging zips each
+    # directory as that app's own downloadable archive, and the whole
+    # install prefix together as the combined "every app" archive. See
+    # src/Applications/README.md's convention section.
+    install(TARGETS lunar-eclipse RUNTIME DESTINATION LunarEclipse)
 endif()

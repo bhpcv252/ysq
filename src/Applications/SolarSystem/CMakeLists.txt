@@ -17,11 +17,12 @@ target_link_libraries(ysq_solar_system_scenario
     PUBLIC ysq::Physics ysq::ApplicationsHelper
     PRIVATE ysq::Core ysq::warnings)
 
-# Scenario.cpp locates data/solar_system_bodies.csv by absolute source
-# path, baked in at build time: robust to whatever directory the built
-# executable is actually run from, unlike a path relative to the current
-# working directory. See src/Applications/Helper/README.md's BodyCatalog
-# section for the loader this feeds.
+# Scenario.cpp looks for data/solar_system_bodies.csv next to its own
+# running executable first (Core::executableDirectory), which is where a
+# packaged release ships it (see this file's install(DIRECTORY ...) below);
+# this compile-time source path is only the fallback for a local, uninstalled
+# build (a plain `cmake --build`, or any test linking this library directly),
+# where no such copy exists next to whatever executable is actually running.
 target_compile_definitions(ysq_solar_system_scenario PRIVATE
     YSQ_SOLAR_SYSTEM_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
 
@@ -39,4 +40,19 @@ if(YSQ_BUILD_GRAPHICS)
         ysq::Renderer
         ysq::UI
         ysq::warnings)
+
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # A downloaded binary needs to run on whatever libstdc++ version the
+        # user's own distro ships, not just the one this was built against.
+        target_link_options(solar-system PRIVATE -static-libgcc -static-libstdc++)
+    endif()
+
+    # One app per top-level install directory: release packaging zips each
+    # directory as that app's own downloadable archive, and the whole
+    # install prefix together as the combined "every app" archive. See
+    # src/Applications/README.md's convention section.
+    install(TARGETS solar-system RUNTIME DESTINATION SolarSystem)
+    # Ships data/ right next to the installed executable, exactly where
+    # Scenario.cpp's own executable-relative lookup expects to find it.
+    install(DIRECTORY data/ DESTINATION SolarSystem/data)
 endif()

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Math/Matrix3.hpp>
+#include <Math/Quaternion.hpp>
 #include <Physics/Body.hpp>
 #include <Units/Force.hpp>
 #include <Units/Length.hpp>
@@ -50,5 +52,46 @@ namespace ysq {
 /// that body, and nothing here decides which bodies that applies to, only
 /// what a body that opts in needs.
 void stepRigidBody(Body& body, std::span<const Body> perturbers, double dt);
+
+/// A body's own principal moments of inertia, and the attitude that
+/// diagonalizes them: `Body::principalMomentsOfInertia` and
+/// `Body::orientation`'s J2/polar axis both assume the inertia tensor is
+/// already diagonal in the body frame, which only holds if that frame's
+/// axes happen to be the body's own principal axes. An arbitrarily shaped
+/// body's inertia tensor, computed directly from its mass distribution
+/// (an irregular asteroid, a spacecraft with attached instruments), is not
+/// diagonal in whatever frame it was computed in, so this closes that gap.
+struct PrincipalInertia {
+    /// The three eigenvalues of the inertia tensor: the moments of inertia
+    /// about the principal axes, ascending, matching
+    /// `Math/Eigen.hpp`'s `jacobiEigenSymmetric` convention.
+    MomentOfInertia3 moments;
+    /// Rotates a vector from the principal-axis frame `moments` is
+    /// expressed in into the frame `rawInertiaTensor` was itself expressed
+    /// in -- assign this (or compose it with an existing attitude) to
+    /// `Body::orientation` to make that body's own frame the principal one,
+    /// matching what `Body::j2` and `RigidBody.hpp`'s own torque
+    /// computation both assume.
+    Quat orientation;
+};
+
+/// Diagonalizes a symmetric inertia tensor by its eigendecomposition
+/// (`Math/Eigen.hpp`'s `jacobiEigenSymmetric`): the eigenvalues are the
+/// principal moments and the eigenvectors, read off as the rotation's
+/// columns, are the principal axes expressed in whatever frame
+/// `rawInertiaTensor` was computed in. Only the lower triangle of
+/// `rawInertiaTensor` is read, the same convention
+/// `Math/LinearSolve.hpp`'s `choleskyDecompose` uses, so a caller only
+/// ever needs to have computed (or measured) one triangle of the six
+/// independent products and moments of inertia.
+///
+/// An eigenvector is only defined up to sign, so the eigenvectors Jacobi
+/// happens to return do not automatically form a proper rotation (a
+/// reflection, determinant -1, is just as valid an orthonormal basis as a
+/// rotation, determinant +1, is): the last axis is negated whenever the
+/// determinant comes out negative, which flips a reflection into a
+/// rotation without disturbing either principal axis it did not touch.
+[[nodiscard]] PrincipalInertia
+diagonalizeInertia(const Matrix3<double>& rawInertiaTensor);
 
 }  // namespace ysq

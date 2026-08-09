@@ -96,7 +96,8 @@ inline Grid3D<double> restrictGrid(const Grid3D<double>& fine) {
 }
 
 /// Adds each coarse cell's correction to the 8 fine cells it came from.
-inline void prolongateAndAdd(Grid3D<double>& fine, const Grid3D<double>& coarseCorrection) {
+inline void prolongateAndAdd(Grid3D<double>& fine,
+                             const Grid3D<double>& coarseCorrection) {
     const auto nx = static_cast<std::ptrdiff_t>(coarseCorrection.cellCountX());
     const auto ny = static_cast<std::ptrdiff_t>(coarseCorrection.cellCountY());
     const auto nz = static_cast<std::ptrdiff_t>(coarseCorrection.cellCountZ());
@@ -119,7 +120,7 @@ inline void prolongateAndAdd(Grid3D<double>& fine, const Grid3D<double>& coarseC
 
 template <class Operator, class Relax, class Boundary>
 void smooth(Grid3D<double>& u, const Grid3D<double>& target, double spacing, int sweeps,
-           Operator applyOperator, Relax relaxPoint, Boundary applyBoundary) {
+            Operator applyOperator, Relax relaxPoint, Boundary applyBoundary) {
     (void)applyOperator;
     const auto nx = static_cast<std::ptrdiff_t>(u.cellCountX());
     const auto ny = static_cast<std::ptrdiff_t>(u.cellCountY());
@@ -139,8 +140,8 @@ void smooth(Grid3D<double>& u, const Grid3D<double>& target, double spacing, int
 
 template <class Operator, class Relax, class Boundary>
 void vCycle(Grid3D<double>& u, const Grid3D<double>& target, double spacing,
-           Operator applyOperator, Relax relaxPoint, Boundary applyBoundary,
-           const MultigridSettings& settings) {
+            Operator applyOperator, Relax relaxPoint, Boundary applyBoundary,
+            const MultigridSettings& settings) {
     const std::size_t nx = u.cellCountX();
     const std::size_t ny = u.cellCountY();
     const std::size_t nz = u.cellCountZ();
@@ -153,13 +154,13 @@ void vCycle(Grid3D<double>& u, const Grid3D<double>& target, double spacing,
         // The coarsest level: many relaxation sweeps stand in for an exact
         // solve, the standard cheap substitute when the problem is small
         // enough that this converges well past what the finer levels need.
-        smooth(u, target, spacing, settings.preSmoothingSweeps * 20, applyOperator, relaxPoint,
-              applyBoundary);
+        smooth(u, target, spacing, settings.preSmoothingSweeps * 20, applyOperator,
+               relaxPoint, applyBoundary);
         return;
     }
 
     smooth(u, target, spacing, settings.preSmoothingSweeps, applyOperator, relaxPoint,
-          applyBoundary);
+           applyBoundary);
 
     const auto nxi = static_cast<std::ptrdiff_t>(nx);
     const auto nyi = static_cast<std::ptrdiff_t>(ny);
@@ -188,22 +189,23 @@ void vCycle(Grid3D<double>& u, const Grid3D<double>& target, double spacing,
     // FAS: the coarse level solves L(uCoarse) = L(restrict(u)) + defectCoarse,
     // not L(uCoarse) = 0 -- the correction that makes multigrid correct for
     // a genuinely nonlinear L rather than only a linear one.
-    Grid3D<double> targetCoarse(uCoarse.cellCountX(), uCoarse.cellCountY(), uCoarse.cellCountZ(),
-                               coarseSpacing, uCoarse.ghostCells());
+    Grid3D<double> targetCoarse(uCoarse.cellCountX(), uCoarse.cellCountY(),
+                                uCoarse.cellCountZ(), coarseSpacing,
+                                uCoarse.ghostCells());
     for (std::ptrdiff_t i = 0; i < cnx; ++i) {
         for (std::ptrdiff_t j = 0; j < cny; ++j) {
             for (std::ptrdiff_t k = 0; k < cnz; ++k) {
-                targetCoarse(i, j, k) =
-                    applyOperator(uCoarse, i, j, k, coarseSpacing) + defectCoarse(i, j, k);
+                targetCoarse(i, j, k) = applyOperator(uCoarse, i, j, k, coarseSpacing) +
+                                        defectCoarse(i, j, k);
             }
         }
     }
 
     vCycle(uCoarse, targetCoarse, coarseSpacing, applyOperator, relaxPoint, applyBoundary,
-          settings);
+           settings);
 
-    Grid3D<double> correction(uCoarse.cellCountX(), uCoarse.cellCountY(), uCoarse.cellCountZ(),
-                             coarseSpacing, uCoarse.ghostCells());
+    Grid3D<double> correction(uCoarse.cellCountX(), uCoarse.cellCountY(),
+                              uCoarse.cellCountZ(), coarseSpacing, uCoarse.ghostCells());
     for (std::ptrdiff_t i = 0; i < cnx; ++i) {
         for (std::ptrdiff_t j = 0; j < cny; ++j) {
             for (std::ptrdiff_t k = 0; k < cnz; ++k) {
@@ -216,7 +218,7 @@ void vCycle(Grid3D<double>& u, const Grid3D<double>& target, double spacing,
     applyBoundary(u);
 
     smooth(u, target, spacing, settings.postSmoothingSweeps, applyOperator, relaxPoint,
-          applyBoundary);
+           applyBoundary);
 }
 
 }  // namespace detail
@@ -226,12 +228,11 @@ void vCycle(Grid3D<double>& u, const Grid3D<double>& target, double spacing,
 /// residual. `u`'s own dimensions and ghost-cell count are used at every
 /// coarser level too (only the finest level's are the caller's concern).
 template <class Operator, class Relax, class Boundary>
-[[nodiscard]] MultigridResult solveFAS(Grid3D<double>& u, double spacing,
-                                       Operator applyOperator, Relax relaxPoint,
-                                       Boundary applyBoundary,
-                                       const MultigridSettings& settings = {}) {
-    const Grid3D<double> zeroTarget(u.cellCountX(), u.cellCountY(), u.cellCountZ(), spacing,
-                                    u.ghostCells());
+[[nodiscard]] MultigridResult
+solveFAS(Grid3D<double>& u, double spacing, Operator applyOperator, Relax relaxPoint,
+         Boundary applyBoundary, const MultigridSettings& settings = {}) {
+    const Grid3D<double> zeroTarget(u.cellCountX(), u.cellCountY(), u.cellCountZ(),
+                                    spacing, u.ghostCells());
 
     const auto nx = static_cast<std::ptrdiff_t>(u.cellCountX());
     const auto ny = static_cast<std::ptrdiff_t>(u.cellCountY());
@@ -247,8 +248,8 @@ template <class Operator, class Relax, class Boundary>
         for (std::ptrdiff_t i = 0; i < nx; ++i) {
             for (std::ptrdiff_t j = 0; j < ny; ++j) {
                 for (std::ptrdiff_t k = 0; k < nz; ++k) {
-                    maxResidual =
-                        std::max(maxResidual, std::abs(applyOperator(u, i, j, k, spacing)));
+                    maxResidual = std::max(maxResidual,
+                                           std::abs(applyOperator(u, i, j, k, spacing)));
                 }
             }
         }

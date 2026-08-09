@@ -18,7 +18,8 @@ TEST(Grid3D, InteriorIndexingRoundTrips) {
     for (std::ptrdiff_t i = 0; i < 3; ++i) {
         for (std::ptrdiff_t j = 0; j < 4; ++j) {
             for (std::ptrdiff_t k = 0; k < 5; ++k) {
-                EXPECT_DOUBLE_EQ(grid(i, j, k), static_cast<double>(100 * i + 10 * j + k));
+                EXPECT_DOUBLE_EQ(grid(i, j, k),
+                                 static_cast<double>(100 * i + 10 * j + k));
             }
         }
     }

@@ -36,6 +36,8 @@ amount of accuracy for `N log N` instead of `N^2`.
 | `Gravity/BarnesHut.hpp` | The same physics, `O(N log N)`, via an octree |
 | `Gravity/PostNewtonian.hpp` | The 1PN correction (the first step toward general relativity) and its `RelativisticNBodySystem` N-body extension |
 | `Body::j2`, `Body::radius` | Oblateness: a body's own shape, read by every function above |
+| `Gravity/SphericalHarmonics.hpp` | The general oblateness field for a body J2 alone can't describe: arbitrary-degree `C_nm`/`S_nm` coefficients |
+| `Gravity/Kepler.hpp` | Classical orbital elements: a closed-form Cartesian state, for seeding or cheaply re-evaluating an orbit without stepping a real integrator |
 
 **Softening** adds one parameter, `epsilon`, to the force law:
 
@@ -84,6 +86,24 @@ and Euler's rotation equation to spin the body under it, useful for
 anything from a satellite's precessing orbit to why Earth's own axis slowly
 precesses. See [docs/physics/mechanics.md](mechanics.md).
 
+**J2 is only ever one term.** A body whose shape needs more than "bulging
+at the equator" to describe, north-south asymmetry, a tumbling asteroid's
+genuinely lumpy field, needs the general form: `SphericalHarmonics.hpp`
+takes an arbitrary-degree table of coefficients rather than the single `j2`
+number, with `C_2,0 = -J2` and everything else zero reproducing the J2
+case exactly.
+
+**Kepler's closed form** is a different kind of tool from the rest of this
+page: not a force to integrate, but the standard way to turn a textbook
+description of an orbit ("semi-major axis, eccentricity, inclination...")
+into an actual Cartesian position and velocity, or to re-evaluate an
+unperturbed ellipse at any later time at constant cost. It's how a
+scenario seeds a real integrator's initial state from published orbital
+elements, and (via `precessionRatePerSecond`) how one *shows* a real
+relativistic effect like perihelion advance without stepping
+`postNewtonianCorrection` at all, when a full integration isn't what a
+scenario needs.
+
 ## Using it
 
 `NewtonianField` and `BarnesHutTree` both implement the same
@@ -123,11 +143,21 @@ into `NBodyState` in the first place, and
 [docs/tutorials/03-choosing-a-gravity-model.md](../tutorials/03-choosing-a-gravity-model.md)
 for a worked example moving between rungs.
 
+Seeding that same initial state from published orbital elements:
+
+```cpp
+#include <Physics/Gravity/Kepler.hpp>
+
+const ysq::KeplerStateVector initial = ysq::stateVectorFromElements(elements, gm);
+// initial.position / initial.velocity, relative to the central body
+```
+
 ## Go deeper
 
 [docs/api/physics/gravity.md](../api/physics/gravity.md) has every
 signature: `newtonianForce`/`Acceleration`/`Accelerations`, `NewtonianField`,
-`BarnesHutTree`, `postNewtonianCorrection`, and `RelativisticNBodySystem`.
+`BarnesHutTree`, `postNewtonianCorrection`, `RelativisticNBodySystem`,
+`SphericalHarmonicsField`, and every `Kepler.hpp` function.
 
 [src/Physics/README.md](../../src/Physics/README.md) has the full
 derivations: the exact 1PN acceleration formula and the perihelion

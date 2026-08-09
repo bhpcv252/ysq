@@ -48,9 +48,10 @@ bool fail(std::string* error, std::string message) {
 /// its name -- the same "tell the caller exactly where" `Csv`'s own parse
 /// errors already do.
 bool parseRow(const Csv::Row& row, double targetEpochJulianDate, RawRow& out,
-             std::string* error) {
+              std::string* error) {
     if (!row.has("name")) {
-        return fail(error, std::format("row {}: missing column 'name'", row.lineNumber()));
+        return fail(error,
+                    std::format("row {}: missing column 'name'", row.lineNumber()));
     }
     out.name = row.get<std::string>("name", "");
     if (out.name.empty()) {
@@ -84,28 +85,32 @@ bool parseRow(const Csv::Row& row, double targetEpochJulianDate, RawRow& out,
                       static_cast<float>(*colorB)};
 
     const bool isRoot = out.parent.empty();
-    const std::optional<double> semiMajorAxisKm = row.tryGet<double>("semi_major_axis_km");
+    const std::optional<double> semiMajorAxisKm =
+        row.tryGet<double>("semi_major_axis_km");
 
     if (isRoot && semiMajorAxisKm.has_value()) {
-        return fail(error, std::format(
-                               "row {} ('{}'): a root body (empty parent) must not have "
-                               "orbital elements",
-                               row.lineNumber(), out.name));
+        return fail(error,
+                    std::format("row {} ('{}'): a root body (empty parent) must not have "
+                                "orbital elements",
+                                row.lineNumber(), out.name));
     }
     if (!isRoot && !semiMajorAxisKm.has_value()) {
-        return fail(error,
-                    std::format("row {} ('{}'): a non-root body must have orbital elements",
-                               row.lineNumber(), out.name));
+        return fail(
+            error,
+            std::format("row {} ('{}'): a non-root body must have orbital elements",
+                        row.lineNumber(), out.name));
     }
 
     if (semiMajorAxisKm) {
         const std::optional<double> eccentricity = row.tryGet<double>("eccentricity");
-        const std::optional<double> inclinationDeg = row.tryGet<double>("inclination_deg");
+        const std::optional<double> inclinationDeg =
+            row.tryGet<double>("inclination_deg");
         const std::optional<double> nodeDeg =
             row.tryGet<double>("longitude_of_ascending_node_deg");
         const std::optional<double> argPeriapsisDeg =
             row.tryGet<double>("argument_of_periapsis_deg");
-        const std::optional<double> meanAnomalyDeg = row.tryGet<double>("mean_anomaly_deg");
+        const std::optional<double> meanAnomalyDeg =
+            row.tryGet<double>("mean_anomaly_deg");
         if (!eccentricity || !inclinationDeg || !nodeDeg || !argPeriapsisDeg ||
             !meanAnomalyDeg) {
             return fail(error, std::format("row {} ('{}'): incomplete orbital elements",
@@ -119,15 +124,15 @@ bool parseRow(const Csv::Row& row, double targetEpochJulianDate, RawRow& out,
         out.longitudeOfAscendingNode = radians(*nodeDeg);
         out.argumentOfPeriapsis = radians(*argPeriapsisDeg);
         out.meanAnomalyAtRowEpoch = radians(*meanAnomalyDeg);
-        out.rowEpochJulianDate =
-            row.get<double>("epoch_jd", targetEpochJulianDate);
+        out.rowEpochJulianDate = row.get<double>("epoch_jd", targetEpochJulianDate);
 
         const std::optional<double> poleRaDeg = row.tryGet<double>("pole_ra_deg");
         const std::optional<double> poleDecDeg = row.tryGet<double>("pole_dec_deg");
         if (poleRaDeg.has_value() != poleDecDeg.has_value()) {
-            return fail(error, std::format("row {} ('{}'): pole_ra_deg and pole_dec_deg must "
-                                           "be given together",
-                                           row.lineNumber(), out.name));
+            return fail(error,
+                        std::format("row {} ('{}'): pole_ra_deg and pole_dec_deg must "
+                                    "be given together",
+                                    row.lineNumber(), out.name));
         }
         if (poleRaDeg) {
             out.hasPole = true;
@@ -140,10 +145,9 @@ bool parseRow(const Csv::Row& row, double targetEpochJulianDate, RawRow& out,
 
 }  // namespace
 
-std::optional<std::vector<CatalogBody>> loadBodyCatalog(const Csv& table,
-                                                         const Quat& referenceFrameRotation,
-                                                         double targetEpochJulianDate,
-                                                         std::string* error) {
+std::optional<std::vector<CatalogBody>>
+loadBodyCatalog(const Csv& table, const Quat& referenceFrameRotation,
+                double targetEpochJulianDate, std::string* error) {
     std::vector<RawRow> rows(table.rowCount());
     for (std::size_t i = 0; i < table.rowCount(); ++i) {
         if (!parseRow(table.row(i), targetEpochJulianDate, rows[i], error)) {
@@ -174,7 +178,7 @@ std::optional<std::vector<CatalogBody>> loadBodyCatalog(const Csv& table,
     for (const RawRow& raw : rows) {
         if (!raw.parent.empty() && !indexByName.contains(raw.parent)) {
             fail(error,
-                std::format("body '{}' has unknown parent '{}'", raw.name, raw.parent));
+                 std::format("body '{}' has unknown parent '{}'", raw.name, raw.parent));
             return std::nullopt;
         }
     }
@@ -304,7 +308,7 @@ loadKeplerBodyCatalog(const Csv& table, const Quat& referenceFrameRotation,
     for (const RawRow& raw : rows) {
         if (!raw.parent.empty() && !indexByName.contains(raw.parent)) {
             fail(error,
-                std::format("body '{}' has unknown parent '{}'", raw.name, raw.parent));
+                 std::format("body '{}' has unknown parent '{}'", raw.name, raw.parent));
             return std::nullopt;
         }
     }
@@ -324,7 +328,8 @@ loadKeplerBodyCatalog(const Csv& table, const Quat& referenceFrameRotation,
             current = indexByName.at(rows[current].parent);
             ++steps;
             if (steps > rows.size()) {
-                fail(error, std::format("body '{}' is part of a parent cycle", rows[i].name));
+                fail(error,
+                     std::format("body '{}' is part of a parent cycle", rows[i].name));
                 return std::nullopt;
             }
         }
@@ -368,7 +373,8 @@ loadKeplerBodyCatalog(const Csv& table, const Quat& referenceFrameRotation,
         elements.inclination = raw.inclination;
         elements.longitudeOfAscendingNode = raw.longitudeOfAscendingNode;
         elements.argumentOfPeriapsis = raw.argumentOfPeriapsis;
-        elements.meanAnomalyAtEpoch = raw.meanAnomalyAtRowEpoch + meanMotion * elapsedSeconds;
+        elements.meanAnomalyAtEpoch =
+            raw.meanAnomalyAtRowEpoch + meanMotion * elapsedSeconds;
         body.elements = elements;
 
         body.frameRotation = raw.hasPole ? raw.poleFrame : referenceFrameRotation;

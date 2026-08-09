@@ -6,6 +6,13 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
         "directory instead, e.g.: cmake -B build")
 endif()
 
+# Must be set before project(): lets a build opt into a static MSVC runtime
+# via -DCMAKE_MSVC_RUNTIME_LIBRARY (release packaging does, for a downloaded
+# .exe that needs no separately installed VC++ Redistributable). Inert
+# everywhere else: with the variable left unset, the default stays exactly
+# today's dynamic runtime.
+cmake_policy(SET CMP0091 NEW)
+
 project(YSQ
     VERSION 0.1.0
     DESCRIPTION "Yotta Spacetime Quantities: a C++ engine for simulating and visualizing physical systems"

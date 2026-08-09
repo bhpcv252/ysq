@@ -1,3 +1,4 @@
+#include <Math/Matrix3.hpp>
 #include <Math/Quaternion.hpp>
 #include <Math/Scalar.hpp>
 #include <Math/Vector3.hpp>
@@ -167,6 +168,106 @@ TEST(PhysicsRigidBody, GravityGradientTorqueMatchesTheClosedFormOffAxis) {
     EXPECT_NEAR(torque.value().y, expectedY, std::abs(expectedY) * 1e-6);
     EXPECT_NEAR(torque.value().x, 0.0, std::abs(expectedY) * 1e-6 + 1e-30);
     EXPECT_NEAR(torque.value().z, 0.0, std::abs(expectedY) * 1e-6 + 1e-30);
+}
+
+// --- diagonalizeInertia -------------------------------------------------
+
+TEST(PhysicsRigidBody, DiagonalizeInertiaOfAnAlreadyDiagonalTensorReturnsItsOwnEntries) {
+    ysq::Matrix3<double> tensor{};
+    tensor(0, 0) = 1.0;
+    tensor(1, 1) = 2.0;
+    tensor(2, 2) = 3.0;
+
+    const ysq::PrincipalInertia principal = ysq::diagonalizeInertia(tensor);
+
+    EXPECT_NEAR(principal.moments.value().x, 1.0, 1e-9);
+    EXPECT_NEAR(principal.moments.value().y, 2.0, 1e-9);
+    EXPECT_NEAR(principal.moments.value().z, 3.0, 1e-9);
+}
+
+TEST(PhysicsRigidBody, DiagonalizeInertiaReturnsAProperRotationNotAReflection) {
+    ysq::Matrix3<double> tensor{};
+    tensor(0, 0) = 4.0;
+    tensor(0, 1) = 1.0;
+    tensor(1, 0) = 1.0;
+    tensor(1, 1) = 3.0;
+    tensor(0, 2) = 0.5;
+    tensor(2, 0) = 0.5;
+    tensor(2, 2) = 2.0;
+
+    const ysq::PrincipalInertia principal = ysq::diagonalizeInertia(tensor);
+    const ysq::Matrix3<double> rotation = ysq::toMatrix3(principal.orientation);
+
+    EXPECT_NEAR(ysq::determinant(rotation), 1.0, 1e-9);
+}
+
+TEST(PhysicsRigidBody, DiagonalizeInertiaReconstructsTheOriginalTensor) {
+    // R diag(moments) R^T must reproduce the original tensor: the defining
+    // property of a diagonalization, not merely a property of the
+    // particular eigensolver used.
+    ysq::Matrix3<double> tensor{};
+    tensor(0, 0) = 5.0;
+    tensor(0, 1) = 1.5;
+    tensor(1, 0) = 1.5;
+    tensor(1, 1) = 4.0;
+    tensor(0, 2) = -0.7;
+    tensor(2, 0) = -0.7;
+    tensor(1, 2) = 0.3;
+    tensor(2, 1) = 0.3;
+    tensor(2, 2) = 6.0;
+
+    const ysq::PrincipalInertia principal = ysq::diagonalizeInertia(tensor);
+    const ysq::Matrix3<double> rotation = ysq::toMatrix3(principal.orientation);
+
+    ysq::Matrix3<double> diagonal{};
+    diagonal(0, 0) = principal.moments.value().x;
+    diagonal(1, 1) = principal.moments.value().y;
+    diagonal(2, 2) = principal.moments.value().z;
+
+    const ysq::Matrix3<double> reconstructed =
+        rotation * diagonal * ysq::transpose(rotation);
+
+    for (std::size_t row = 0; row < 3; ++row) {
+        for (std::size_t col = 0; col < 3; ++col) {
+            EXPECT_NEAR(reconstructed(row, col), tensor(row, col), 1e-9);
+        }
+    }
+}
+
+TEST(PhysicsRigidBody, DiagonalizeInertiaOnlyReadsTheLowerTriangle) {
+    ysq::Matrix3<double> tensor{};
+    tensor(0, 0) = 5.0;
+    tensor(1, 0) = 1.5;
+    tensor(1, 1) = 4.0;
+    tensor(2, 0) = -0.7;
+    tensor(2, 1) = 0.3;
+    tensor(2, 2) = 6.0;
+    // Garbage in the upper triangle: a caller that only ever computed one
+    // triangle should not need to have zeroed or mirrored the other.
+    tensor(0, 1) = 999.0;
+    tensor(0, 2) = -999.0;
+    tensor(1, 2) = 999.0;
+
+    ysq::Matrix3<double> symmetric{};
+    symmetric(0, 0) = 5.0;
+    symmetric(0, 1) = 1.5;
+    symmetric(1, 0) = 1.5;
+    symmetric(1, 1) = 4.0;
+    symmetric(0, 2) = -0.7;
+    symmetric(2, 0) = -0.7;
+    symmetric(1, 2) = 0.3;
+    symmetric(2, 1) = 0.3;
+    symmetric(2, 2) = 6.0;
+
+    const ysq::PrincipalInertia fromGarbageUpper = ysq::diagonalizeInertia(tensor);
+    const ysq::PrincipalInertia fromSymmetric = ysq::diagonalizeInertia(symmetric);
+
+    EXPECT_NEAR(fromGarbageUpper.moments.value().x, fromSymmetric.moments.value().x,
+                1e-9);
+    EXPECT_NEAR(fromGarbageUpper.moments.value().y, fromSymmetric.moments.value().y,
+                1e-9);
+    EXPECT_NEAR(fromGarbageUpper.moments.value().z, fromSymmetric.moments.value().z,
+                1e-9);
 }
 
 }  // namespace
