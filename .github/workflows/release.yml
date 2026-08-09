@@ -29,10 +29,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Pinned rather than *-latest: an older glibc baseline is broadly
-          # forward-compatible with newer user distros, the safer direction
-          # for a binary built once and downloaded onto an unknown machine.
-          - os: ubuntu-22.04
+          # Not pinned to an older LTS for a lower glibc baseline: this
+          # project requires <format> (C++20), which needs GCC 13+, not
+          # available on ubuntu-22.04 without a third-party PPA. ubuntu-latest
+          # ships a GCC new enough by default, matching what ci.yml already
+          # relies on.
+          - os: ubuntu-latest
             label: linux
           # Apple Silicon only; macos-latest already resolves to this, but
           # pinning it keeps that an explicit choice rather than whatever
