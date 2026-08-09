@@ -112,53 +112,47 @@ std::optional<unsigned long long> parseUnsigned(std::string_view text) {
     return value;
 }
 
-// std::from_chars rather than a stream or strtod: it is locale-independent, so
-// the file format cannot start depending on the host's LC_NUMERIC, and it round
-// trips what std::format writes exactly, including denormals and infinities.
+// Not std::from_chars: Apple's libc++ (through at least Xcode 15.4) has no
+// floating-point overload, only integer ones, and -- unlike a plain missing
+// overload -- the call still compiles because a bool-taking overload exists
+// and is deleted rather than absent, so a double argument silently binds to
+// it via the usual arithmetic-to-bool conversion. Calling a deleted function
+// selected this way is a hard error, not a substitution failure, so it
+// cannot be feature-tested away with `requires` or any other SFINAE trick;
+// the only portable option is to never make this exact call for a double.
 //
-// Not every standard library has caught up: Apple's libc++ (through at least
-// Xcode 15.4) implements std::from_chars for integers but not yet for
-// floating-point types, so the call below would not compile there. Where
-// that overload genuinely does not exist, strtod is the fallback -- with its
-// only locale sensitivity (the decimal-point character) neutralized by
-// substituting the process's own one, rather than the '.' std::format always
-// writes. strtod's own grammar already accepts "inf"/"-inf"/"nan" the same
-// way std::format writes them, so this round-trips identically to
-// std::from_chars for every value this codebase's own std::format output can
-// produce, non-finite and denormal included.
+// strtod is the portable replacement, with its only locale sensitivity (the
+// decimal-point character) neutralized by substituting the process's own
+// one for the '.' std::format always writes. strtod's own grammar already
+// accepts "inf"/"-inf"/"nan" the same way std::format writes them, so this
+// round-trips identically to std::from_chars for every value this
+// codebase's own std::format output can produce, non-finite and denormal
+// included (verified against a battery of such values, under multiple
+// locales, before being adopted here).
 std::optional<double> parseDouble(std::string_view text) {
-    double value = 0.0;
-    const char* const end = text.data() + text.size();
-    if constexpr (requires { std::from_chars(text.data(), end, value); }) {
-        const std::from_chars_result result = std::from_chars(text.data(), end, value);
-        if (result.ec != std::errc{} || result.ptr != end) {
-            return std::nullopt;
-        }
-        return value;
-    } else {
-        // from_chars neither accepts an empty range nor skips leading
-        // whitespace; strtod does both, so both are rejected by hand here to
-        // keep the two code paths behaviorally identical.
-        if (text.empty() || isSpace(text.front())) {
-            return std::nullopt;
-        }
-        std::string localized(text);
-        const char decimalPoint = *std::localeconv()->decimal_point;
-        if (decimalPoint != '.') {
-            for (char& c : localized) {
-                if (c == '.') {
-                    c = decimalPoint;
-                }
+    // strtod neither rejects an empty string nor skips leading whitespace
+    // the way std::from_chars would, so both are rejected by hand here to
+    // match the stricter, more predictable behavior a config/CSV field
+    // parser should have.
+    if (text.empty() || isSpace(text.front())) {
+        return std::nullopt;
+    }
+    std::string localized(text);
+    const char decimalPoint = *std::localeconv()->decimal_point;
+    if (decimalPoint != '.') {
+        for (char& c : localized) {
+            if (c == '.') {
+                c = decimalPoint;
             }
         }
-        const char* const start = localized.c_str();
-        char* parseEnd = nullptr;
-        value = std::strtod(start, &parseEnd);
-        if (parseEnd != start + localized.size()) {
-            return std::nullopt;
-        }
-        return value;
     }
+    const char* const start = localized.c_str();
+    char* parseEnd = nullptr;
+    const double value = std::strtod(start, &parseEnd);
+    if (parseEnd != start + localized.size()) {
+        return std::nullopt;
+    }
+    return value;
 }
 
 std::string formatSigned(long long value) {
