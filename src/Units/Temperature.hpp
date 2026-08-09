@@ -1,6 +1,9 @@
 #pragma once
 
 #include <Units/Energy.hpp>
+#include <Units/Length.hpp>
+#include <Units/Mass.hpp>
+#include <Units/Time.hpp>
 #include <Units/Unit.hpp>
 
 namespace ysq {
@@ -8,6 +11,24 @@ namespace ysq {
 namespace dim {
 
 using HeatCapacity = Div<Energy, Temperature>;
+
+/// Power per unit length per unit temperature: Fourier's law of heat
+/// conduction, `q = -k grad(T)`, needs this so the heat flux `q` comes out
+/// in power per area.
+using ThermalConductivity = Div<Power, Mul<Length, Temperature>>;
+
+/// Area per time: the same dimension as `Units/Fluids.hpp`'s
+/// `KinematicViscosity` (thermal diffusivity and momentum diffusivity are
+/// the same kind of quantity, one governing how heat spreads and the other
+/// how momentum does), declared independently here rather than depending on
+/// that module for a `using` alias, the same relationship `HeatCapacity` and
+/// `Entropy` already have below.
+using ThermalDiffusivity = Div<Area, Time>;
+
+/// Heat capacity per unit mass: the intensive form, a property of a
+/// material independent of how much of it there is, unlike `HeatCapacity`
+/// itself.
+using SpecificHeatCapacity = Div<HeatCapacity, Mass>;
 
 }  // namespace dim
 
@@ -19,10 +40,22 @@ using Temperature = Quantity<dim::Temperature>;
 using HeatCapacity = Quantity<dim::HeatCapacity>;
 using Entropy = Quantity<dim::HeatCapacity>;
 
+using ThermalConductivity = Quantity<dim::ThermalConductivity>;
+using ThermalDiffusivity = Quantity<dim::ThermalDiffusivity>;
+using SpecificHeatCapacity = Quantity<dim::SpecificHeatCapacity>;
+
 namespace units {
 
 inline constexpr Temperature kelvin{1.0};
 inline constexpr HeatCapacity joulePerKelvin{1.0};
+inline constexpr ThermalConductivity wattPerMetreKelvin{1.0};
+inline constexpr SpecificHeatCapacity joulePerKilogramKelvin{1.0};
+
+/// No unit constant of its own: `ThermalDiffusivity` shares its dimension
+/// with `Units/Fluids.hpp`'s `KinematicViscosity` (see that type's own
+/// comment above), so `units::squareMetrePerSecond` there already names it
+/// -- the same one-name-for-one-dimension relationship `joulePerKelvin`
+/// above already has for both `HeatCapacity` and `Entropy`.
 
 }  // namespace units
 

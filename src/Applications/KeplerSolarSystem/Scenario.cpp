@@ -2,6 +2,7 @@
 
 #include <Applications/Helper/KeplerPopulation.hpp>
 #include <Core/Csv.hpp>
+#include <Core/ExecutablePath.hpp>
 #include <Math/Quaternion.hpp>
 #include <Math/Scalar.hpp>
 #include <Math/Vector3.hpp>
@@ -13,19 +14,37 @@
 
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <format>
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 
 namespace ysq::kepler_solar_system {
 
 namespace {
 
-/// Baked in at build time (see CMakeLists.txt): an absolute path is robust
-/// to whatever directory the built executable is actually run from, unlike
-/// a path relative to the current working directory.
-constexpr const char* kDataFilePath =
+/// Only reached on a local, uninstalled build (see CMakeLists.txt): a
+/// packaged release ships its own copy right next to the executable
+/// instead, which resolveDataFilePath() below finds first.
+constexpr const char* kFallbackDataFilePath =
     YSQ_KEPLER_SOLAR_SYSTEM_DATA_DIR "/solar_system_bodies.csv";
+
+/// Looks for the catalog next to whichever executable is actually running
+/// (the app itself in a packaged release; a test binary in the build tree)
+/// via Core::executableDirectory, so a relocated copy of the app finds its
+/// own data regardless of what directory it was unzipped into. Falls back
+/// to the compile-time source path only when no such shipped copy exists --
+/// the ordinary case for a local build or a test linking this library
+/// directly, neither of which is ever installed.
+[[nodiscard]] std::filesystem::path resolveDataFilePath() {
+    if (const std::optional<std::filesystem::path> exeDir = executableDirectory()) {
+        std::filesystem::path shipped = *exeDir / "data" / "solar_system_bodies.csv";
+        if (std::filesystem::exists(shipped)) {
+            return shipped;
+        }
+    }
+    return kFallbackDataFilePath;
+}
 
 /// The J2000 mean obliquity, 23.4392911 degrees: the fixed rotation about
 /// the shared vernal-equinox axis that carries the planets' own
@@ -154,11 +173,12 @@ constexpr double kKuiperRealRadiusMeters = 50000.0;
 }  // namespace
 
 std::optional<Scenario> makeScenario(std::string* error) {
+    const std::filesystem::path dataFilePath = resolveDataFilePath();
     CsvError csvError;
-    const std::optional<Csv> table = Csv::load(kDataFilePath, &csvError);
+    const std::optional<Csv> table = Csv::load(dataFilePath, &csvError);
     if (!table) {
         if (error != nullptr) {
-            *error = std::format("{}: line {}: {}", kDataFilePath, csvError.line,
+            *error = std::format("{}: line {}: {}", dataFilePath.string(), csvError.line,
                                  csvError.message);
         }
         return std::nullopt;
@@ -195,21 +215,23 @@ std::optional<Scenario> makeScenario(std::string* error) {
         const double e = body.elements->eccentricity;
         const double meanMotion = keplerMeanMotion(gmSun, a);
         const double precessionPerOrbit = perihelionPrecessionPerOrbit(gmSun, a, e);
-        body.elements->precessionRatePerSecond = precessionPerOrbit * meanMotion / kTau<double>;
+        body.elements->precessionRatePerSecond =
+            precessionPerOrbit * meanMotion / kTau<double>;
     }
 
     const double auMeters = units::astronomicalUnit.value();
 
     scenario.asteroidBelt = applications::generateKeplerPopulation(
-        /*parentIndex=*/0, gmSun, kAsteroidBeltMinAu * auMeters, kAsteroidBeltMaxAu * auMeters,
-        kAsteroidBeltMaxEccentricity, radians(kAsteroidBeltMaxInclinationDeg),
-        kAsteroidBeltCount, kAsteroidBeltSeed, kAsteroidRealRadiusMeters,
-        Vec3f{0.55f, 0.5f, 0.42f});
+        /*parentIndex=*/0, gmSun, kAsteroidBeltMinAu * auMeters,
+        kAsteroidBeltMaxAu * auMeters, kAsteroidBeltMaxEccentricity,
+        radians(kAsteroidBeltMaxInclinationDeg), kAsteroidBeltCount, kAsteroidBeltSeed,
+        kAsteroidRealRadiusMeters, Vec3f{0.55f, 0.5f, 0.42f});
 
     scenario.kuiperBelt = applications::generateKeplerPopulation(
-        /*parentIndex=*/0, gmSun, kKuiperBeltMinAu * auMeters, kKuiperBeltMaxAu * auMeters,
-        kKuiperBeltMaxEccentricity, radians(kKuiperBeltMaxInclinationDeg), kKuiperBeltCount,
-        kKuiperBeltSeed, kKuiperRealRadiusMeters, Vec3f{0.6f, 0.65f, 0.72f});
+        /*parentIndex=*/0, gmSun, kKuiperBeltMinAu * auMeters,
+        kKuiperBeltMaxAu * auMeters, kKuiperBeltMaxEccentricity,
+        radians(kKuiperBeltMaxInclinationDeg), kKuiperBeltCount, kKuiperBeltSeed,
+        kKuiperRealRadiusMeters, Vec3f{0.6f, 0.65f, 0.72f});
 
     // Each ring orbits its own planet, not the Sun: a real particle's own
     // gravitational parameter is that planet's, so its own period (and
@@ -224,7 +246,8 @@ std::optional<Scenario> makeScenario(std::string* error) {
     for (std::size_t ringIndex = 0; ringIndex < kRingsKm.size(); ++ringIndex) {
         const RingKm& ring = kRingsKm[ringIndex];
         const std::size_t parentIndex = indexByName.at(ring.parent);
-        const double parentGm = constants::G.value() * scenario.bodies[parentIndex].massKg;
+        const double parentGm =
+            constants::G.value() * scenario.bodies[parentIndex].massKg;
 
         const double innerMeters = ring.innerKm * 1000.0;
         const double outerMeters = ring.outerKm * 1000.0;
@@ -246,8 +269,8 @@ Vec3f toRenderPosition(const Vec3& metersPosition) {
     const double scale =
         static_cast<double>(kRenderUnitsPerAu) / units::astronomicalUnit.value();
     return Vec3f{static_cast<float>(metersPosition.x * scale),
-                static_cast<float>(metersPosition.y * scale),
-                static_cast<float>(metersPosition.z * scale)};
+                 static_cast<float>(metersPosition.y * scale),
+                 static_cast<float>(metersPosition.z * scale)};
 }
 
 float toRenderRadius(double metersRadius) {

@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <string_view>
 #include <vector>
 
 /// KeplerSolarSystem's own scenario, propagated headless, checked against
@@ -32,7 +33,7 @@ namespace {
 using namespace ysq::kepler_solar_system;
 
 const ysq::applications::KeplerCatalogBody& find(const Scenario& scenario,
-                                                  const std::string& name) {
+                                                 std::string_view name) {
     for (const auto& body : scenario.bodies) {
         if (body.name == name) {
             return body;
@@ -50,8 +51,8 @@ TEST(KeplerSolarSystemE2E, EveryRealBodyStaysWithinItsOwnPerihelionAphelionBound
 
     // Planets, dwarf planets, and a couple of real moons: every kind of
     // parent-child relationship this catalog has.
-    const std::vector<std::string> sample{"Mercury", "Earth",  "Jupiter", "Neptune",
-                                          "Pluto",   "Eris",   "Moon",    "Io"};
+    const std::vector<std::string> sample{"Mercury", "Earth", "Jupiter", "Neptune",
+                                          "Pluto",   "Eris",  "Moon",    "Io"};
 
     // Simulated times spanning from "now" out to roughly 50,000 real years
     // forward and backward -- the kind of jump 1 year/sec sustained for
@@ -102,7 +103,8 @@ TEST(KeplerSolarSystemE2E, AMoonWithNoPrecessionReturnsExactlyToItsStartAfterOne
     EXPECT_NEAR(length(after50Periods.position - start.position), 0.0, a * 1e-4);
 }
 
-TEST(KeplerSolarSystemE2E, MercuryPerihelionPrecessesByTheRealAnalyticRateOverManyOrbits) {
+TEST(KeplerSolarSystemE2E,
+     MercuryPerihelionPrecessesByTheRealAnalyticRateOverManyOrbits) {
     const std::optional<Scenario> scenario = makeScenario();
     ASSERT_TRUE(scenario.has_value());
 
@@ -118,14 +120,17 @@ TEST(KeplerSolarSystemE2E, MercuryPerihelionPrecessesByTheRealAnalyticRateOverMa
     // exactly 0 there), so both samples below are genuinely at periapsis,
     // not at whatever true anomaly Mercury happens to start the scenario
     // at.
-    double meanAnomalyAtEpoch = std::fmod(mercury.elements->meanAnomalyAtEpoch, ysq::kTau<double>);
+    double meanAnomalyAtEpoch =
+        std::fmod(mercury.elements->meanAnomalyAtEpoch, ysq::kTau<double>);
     if (meanAnomalyAtEpoch < 0.0) {
         meanAnomalyAtEpoch += ysq::kTau<double>;
     }
-    const double firstPeriapsisTime = (ysq::kTau<double> - meanAnomalyAtEpoch) / meanMotion;
+    const double firstPeriapsisTime =
+        (ysq::kTau<double> - meanAnomalyAtEpoch) / meanMotion;
 
     constexpr int kOrbits = 50;
-    const double laterPeriapsisTime = firstPeriapsisTime + static_cast<double>(kOrbits) * period;
+    const double laterPeriapsisTime =
+        firstPeriapsisTime + static_cast<double>(kOrbits) * period;
 
     const ysq::KeplerStateVector firstPeriapsis =
         ysq::stateVectorAtTime(*mercury.elements, gmSun, firstPeriapsisTime);
@@ -147,11 +152,12 @@ TEST(KeplerSolarSystemE2E, MercuryPerihelionPrecessesByTheRealAnalyticRateOverMa
         static_cast<double>(kOrbits) * ysq::perihelionPrecessionPerOrbit(gmSun, a, e);
 
     EXPECT_NEAR(measuredAngle, expectedAngle, expectedAngle * 0.01)
-        << "measured " << measuredAngle << " rad over " << kOrbits
-        << " orbits, expected " << expectedAngle;
+        << "measured " << measuredAngle << " rad over " << kOrbits << " orbits, expected "
+        << expectedAngle;
 }
 
-TEST(KeplerSolarSystemE2E, AnEnormousSimulatedTimeJumpStillProducesAFiniteResultInstantly) {
+TEST(KeplerSolarSystemE2E,
+     AnEnormousSimulatedTimeJumpStillProducesAFiniteResultInstantly) {
     // The actual regression test for why this app exists: Applications::
     // SolarSystem's individual-timestep n-body scheduler would spend real
     // wall-clock time catching up to a jump this size, proportional to how
@@ -170,8 +176,8 @@ TEST(KeplerSolarSystemE2E, AnEnormousSimulatedTimeJumpStillProducesAFiniteResult
         if (!body.elements.has_value()) {
             continue;
         }
-        const ysq::KeplerStateVector state = ysq::stateVectorAtTime(
-            *body.elements, body.parentGm, kHugeSimulatedTime);
+        const ysq::KeplerStateVector state =
+            ysq::stateVectorAtTime(*body.elements, body.parentGm, kHugeSimulatedTime);
         ASSERT_TRUE(std::isfinite(length(state.position))) << body.name;
         ASSERT_TRUE(std::isfinite(length(state.velocity))) << body.name;
     }

@@ -37,8 +37,11 @@ hand.
 | `Units/Length.hpp`, `Mass.hpp`, `Time.hpp`, `Velocity.hpp`, `Acceleration.hpp` | The basics |
 | `Units/Force.hpp` | Force, momentum, angular momentum, torque, pressure |
 | `Units/Energy.hpp` | Energy, power, action |
-| `Units/Temperature.hpp` | Temperature, heat capacity, entropy |
-| `Units/Electromagnetism.hpp` | Electric field, magnetic flux density |
+| `Units/Temperature.hpp` | Temperature, heat capacity, entropy, thermal conductivity, thermal diffusivity, specific heat capacity |
+| `Units/Electromagnetism.hpp` | Electric field, magnetic flux density, electric potential, capacitance, resistance, conductance, magnetic flux, inductance |
+| `Units/Fluids.hpp` | Dynamic and kinematic viscosity, surface tension |
+| `Units/Chemistry.hpp` | Amount of substance, concentration, molar mass |
+| `Units/Elasticity.hpp` | Stress and strain (aliases of `Pressure` and a dimensionless ratio, named for readability) |
 | `Units/Luminosity.hpp` | Radiometry and photometry |
 | `Units/Format.hpp` | `std::formatter` for every `Quantity`, printing honest base-unit powers rather than a guessed symbol |
 

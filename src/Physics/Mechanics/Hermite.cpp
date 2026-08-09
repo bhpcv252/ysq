@@ -7,7 +7,8 @@
 namespace ysq {
 
 std::pair<Vec3, Vec3> hermitePredict(const Vec3& position, const Vec3& velocity,
-                                     const Vec3& acceleration, const Vec3& jerk, double dt) {
+                                     const Vec3& acceleration, const Vec3& jerk,
+                                     double dt) {
     const double dt2 = dt * dt;
     const double dt3 = dt2 * dt;
     const Vec3 predictedPosition =
@@ -31,7 +32,8 @@ std::pair<Vec3, Vec3> hermiteCorrect(const Vec3& oldAcceleration, const Vec3& ol
     const Vec3 accelerationDelta = oldAcceleration - newAcceleration;
     const Vec3 snap =
         (accelerationDelta * -6.0 - (oldJerk * 4.0 + newJerk * 2.0) * dt) / dt2;
-    const Vec3 crackle = (accelerationDelta * 12.0 + (oldJerk + newJerk) * (6.0 * dt)) / dt3;
+    const Vec3 crackle =
+        (accelerationDelta * 12.0 + (oldJerk + newJerk) * (6.0 * dt)) / dt3;
 
     const Vec3 correctedPosition =
         predictedPosition + snap * (dt4 / 24.0) + crackle * (dt5 / 120.0);
@@ -65,12 +67,9 @@ double hermiteTimestep(const Vec3& acceleration, const Vec3& jerk, double eta,
     return dt;
 }
 
-IndividualTimestepScheduler::IndividualTimestepScheduler(NBodyState positions,
-                                                         NBodyState velocities,
-                                                         NBodyState accelerations,
-                                                         NBodyState jerks,
-                                                         double initialTime, double eta,
-                                                         double baseInterval)
+IndividualTimestepScheduler::IndividualTimestepScheduler(
+    NBodyState positions, NBodyState velocities, NBodyState accelerations,
+    NBodyState jerks, double initialTime, double eta, double baseInterval)
     : m_position(std::move(positions)),
       m_velocity(std::move(velocities)),
       m_acceleration(std::move(accelerations)),
@@ -86,7 +85,8 @@ IndividualTimestepScheduler::IndividualTimestepScheduler(NBodyState positions,
     m_lastUpdateTime.assign(n, initialTime);
     m_timestep.resize(n);
     for (std::size_t i = 0; i < n; ++i) {
-        m_timestep[i] = hermiteTimestep(m_acceleration[i], m_jerk[i], m_eta, m_baseInterval);
+        m_timestep[i] =
+            hermiteTimestep(m_acceleration[i], m_jerk[i], m_eta, m_baseInterval);
     }
 }
 
@@ -104,10 +104,10 @@ std::pair<std::size_t, double> IndividualTimestepScheduler::nextMover() const {
 }
 
 std::pair<Vec3, Vec3> IndividualTimestepScheduler::predictedState(std::size_t bodyIndex,
-                                                                   double atTime) const {
+                                                                  double atTime) const {
     return hermitePredict(m_position[bodyIndex], m_velocity[bodyIndex],
-                         m_acceleration[bodyIndex], m_jerk[bodyIndex],
-                         atTime - m_lastUpdateTime[bodyIndex]);
+                          m_acceleration[bodyIndex], m_jerk[bodyIndex],
+                          atTime - m_lastUpdateTime[bodyIndex]);
 }
 
 }  // namespace ysq

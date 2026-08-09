@@ -24,8 +24,12 @@
 /// self-contained rather than quietly relying on a sibling.
 
 #include <Units/Acceleration.hpp>
+#include <Units/Chemistry.hpp>
 #include <Units/Constants.hpp>
+#include <Units/Elasticity.hpp>
+#include <Units/Electromagnetism.hpp>
 #include <Units/Energy.hpp>
+#include <Units/Fluids.hpp>
 #include <Units/Force.hpp>
 #include <Units/Format.hpp>
 #include <Units/Length.hpp>
@@ -235,6 +239,15 @@ double exerciseTheCatalogue() {
     acc += units::kelvin.value() + units::joulePerKelvin.value();
     acc += units::solarLuminosity.value();
     acc += units::candela.value() + units::lumen.value() + units::lux.value();
+    acc += units::radianPerSecondSquared.value();
+    acc += units::voltPerMetre.value() + units::tesla.value() + units::gauss.value();
+    acc += units::volt.value() + units::farad.value() + units::ohm.value();
+    acc += units::siemens.value() + units::weber.value() + units::henry.value();
+    acc += units::pascalSecond.value() + units::squareMetrePerSecond.value();
+    acc += units::newtonPerMetre.value();
+    acc += units::wattPerMetreKelvin.value() + units::joulePerKilogramKelvin.value();
+    acc += units::mole.value() + units::molePerCubicMetre.value();
+    acc += units::kilogramPerMole.value();
 
     acc += constants::caesiumHyperfineFrequency.value();
     acc += constants::speedOfLight.value() + constants::planckConstant.value();
@@ -265,6 +278,21 @@ double exerciseTheCatalogue() {
     acc += LuminousFlux{1.0}.value() + Illuminance{1.0}.value();
     acc += ElectricCharge{1.0}.value() + GravitationalParameter{1.0}.value();
     acc += LuminousEfficacy{1.0}.value();
+    acc += AngularAcceleration{1.0}.value();
+    acc += ElectricField{1.0}.value() + MagneticFluxDensity{1.0}.value();
+    acc += ElectricPotential{1.0}.value() + Capacitance{1.0}.value();
+    acc += Resistance{1.0}.value() + Conductance{1.0}.value();
+    acc += MagneticFlux{1.0}.value() + Inductance{1.0}.value();
+    acc += DynamicViscosity{1.0}.value() + KinematicViscosity{1.0}.value();
+    acc += SurfaceTension{1.0}.value();
+    acc += ThermalConductivity{1.0}.value() + ThermalDiffusivity{1.0}.value();
+    acc += SpecificHeatCapacity{1.0}.value();
+    acc += AmountOfSubstance{1.0}.value() + Concentration{1.0}.value();
+    acc += MolarMass{1.0}.value();
+    acc += Stress{1.0}.value() + Strain{1.0}.value();
+    acc += AngularAcceleration3{Vec3::unitX()}.value().x;
+    acc += ElectricField3{Vec3::unitX()}.value().x;
+    acc += MagneticFluxDensity3{Vec3::unitX()}.value().x;
     acc += Length2{Vec2::unitX()}.value().x + Length3{Vec3::unitX()}.value().x;
     acc += Length4{Vec4::unitX()}.value().x;
     acc += Velocity2{Vec2::unitX()}.value().x + Velocity3{Vec3::unitX()}.value().x;

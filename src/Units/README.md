@@ -20,12 +20,15 @@ equation is a compile error rather than a wrong trajectory.
 | `Units/Mass.hpp`           | Mass and the three densities                                   |
 | `Units/Time.hpp`           | Time, frequency, angular velocity                              |
 | `Units/Velocity.hpp`       | Speed and velocity                                             |
-| `Units/Acceleration.hpp`   | Acceleration and jerk                                          |
+| `Units/Acceleration.hpp`   | Acceleration, jerk, angular acceleration                       |
 | `Units/Force.hpp`          | Force, momentum, angular momentum, torque, pressure            |
 | `Units/Energy.hpp`         | Energy, power, action, specific energy                         |
-| `Units/Temperature.hpp`    | Temperature, heat capacity, entropy                            |
+| `Units/Temperature.hpp`    | Temperature, heat capacity, entropy, thermal conductivity/diffusivity, specific heat capacity |
 | `Units/Luminosity.hpp`     | Radiometry and photometry                                      |
-| `Units/Electromagnetism.hpp` | Electric field, magnetic flux density                        |
+| `Units/Electromagnetism.hpp` | Electric field, magnetic flux density, potential, capacitance, resistance, conductance, magnetic flux, inductance |
+| `Units/Fluids.hpp`         | Dynamic/kinematic viscosity, surface tension                   |
+| `Units/Chemistry.hpp`      | Amount of substance, concentration, molar mass                 |
+| `Units/Elasticity.hpp`     | Stress and strain (aliases of pressure and dimensionless)      |
 | `Units/Format.hpp`         | `std::formatter` for every quantity                            |
 
 Conversion factors, their sources and their exactness are in
@@ -225,6 +228,8 @@ becoming a surprise.
 | Entropy and heat capacity         | `M L^2 T^-2 Th^-1` |
 | Radiance and irradiance           | steradian is dimensionless |
 | Luminous flux and luminous intensity | likewise        |
+| Thermal diffusivity and kinematic viscosity | `L^2 T^-1` |
+| Stress and pressure               | `M L^-1 T^-2`      |
 
 Separating them needs **quantity kinds**: a tag alongside the dimension. That
 is deliberately not in this module. A kind does not compose under

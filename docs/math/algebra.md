@@ -60,7 +60,9 @@ Christoffel symbols; see [docs/physics/spacetime.md](../physics/spacetime.md).
 | `CoordinateSystems.hpp` | Spherical, cylindrical, and polar conversions, with their local bases |
 | `Scalar.hpp` | The `Numeric` concept every type above is templated on, plus `clamp`/`approxEqual`/constants |
 | `Format.hpp` | `std::formatter` for every type above, so they drop into `Core`'s logger and `std::format` |
-| `Grid.hpp` | A uniform 1D grid with ghost cells, the shared storage `Physics`' PDE rungs (fluids, electromagnetism, thermodynamics) build on |
+| `Grid.hpp` / `Grid3D.hpp` | A uniform 1D or 3D grid with ghost cells, the shared storage every `Physics` PDE rung (electromagnetism, acoustics, fluids, thermodynamics) builds on, each in both dimensionalities |
+| `FiniteDifference.hpp` | Fourth-order finite-difference stencils and Kreiss-Oliger dissipation on a `Grid3D`, built for `Physics/Spacetime`'s BSSN evolution |
+| `Multigrid.hpp` | A general nonlinear (FAS) geometric multigrid V-cycle solver on a `Grid3D`, built for `Physics/Spacetime`'s puncture initial-data solve |
 
 Every one of these is templated on its scalar type (`Vector3<double>` versus
 `Vector3<float>`, aliased `Vec3`/`Vec3f`), and that's not just about
@@ -102,6 +104,13 @@ const double slope =
 this file: the shared vector/matrix free-function table, every named
 constructor, and the exact failure behavior of `tryNormalized`/`tryInverse`/
 `solve`.
+
+Two sibling pages cover the rest of `Math`: [Numerical
+methods](numerics.md) (root-finding, linear solving, eigendecomposition,
+special functions, polynomial roots, randomness, optimization, the FFT)
+and [Euclidean geometry and spatial
+partitioning](geometry.md) (shapes, intersection tests, convex hulls,
+k-d trees, BVHs, octrees).
 
 [src/Math/README.md](../../src/Math/README.md) has the full interface for
 every type above, the conventions worth knowing before they cost you a

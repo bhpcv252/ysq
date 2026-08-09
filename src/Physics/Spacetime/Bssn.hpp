@@ -39,13 +39,13 @@ struct BssnState {
     using value_type = double;
 
     Grid3D<double> phi;
-    SymmetricSpatialTensorFields conformalMetric;   // gammaTilde_ij
-    Grid3D<double> traceExtrinsicCurvature;         // K
+    SymmetricSpatialTensorFields conformalMetric;                       // gammaTilde_ij
+    Grid3D<double> traceExtrinsicCurvature;                             // K
     SymmetricSpatialTensorFields conformalTracelessExtrinsicCurvature;  // AtildeIJ
-    SpatialVectorFields conformalConnection;        // GammaTilde^i
-    Grid3D<double> lapse;                           // alpha
-    SpatialVectorFields shift;                      // beta^i
-    SpatialVectorFields shiftAuxiliary;              // B^i, the Gamma-driver's own variable
+    SpatialVectorFields conformalConnection;                            // GammaTilde^i
+    Grid3D<double> lapse;                                               // alpha
+    SpatialVectorFields shift;                                          // beta^i
+    SpatialVectorFields shiftAuxiliary;  // B^i, the Gamma-driver's own variable
 
     /// See `Grid3D`'s own default constructor: `Rk4Stepper<BssnState>`
     /// default-constructs its scratch members before ever assigning a real
@@ -53,12 +53,13 @@ struct BssnState {
     BssnState() = default;
 
     BssnState(std::size_t cellCountX, std::size_t cellCountY, std::size_t cellCountZ,
-             double spacing, std::size_t ghostCells)
+              double spacing, std::size_t ghostCells)
         : phi(cellCountX, cellCountY, cellCountZ, spacing, ghostCells),
           conformalMetric(cellCountX, cellCountY, cellCountZ, spacing, ghostCells),
-          traceExtrinsicCurvature(cellCountX, cellCountY, cellCountZ, spacing, ghostCells),
-          conformalTracelessExtrinsicCurvature(cellCountX, cellCountY, cellCountZ, spacing,
-                                               ghostCells),
+          traceExtrinsicCurvature(cellCountX, cellCountY, cellCountZ, spacing,
+                                  ghostCells),
+          conformalTracelessExtrinsicCurvature(cellCountX, cellCountY, cellCountZ,
+                                               spacing, ghostCells),
           conformalConnection(cellCountX, cellCountY, cellCountZ, spacing, ghostCells),
           lapse(cellCountX, cellCountY, cellCountZ, spacing, ghostCells),
           shift(cellCountX, cellCountY, cellCountZ, spacing, ghostCells),
@@ -72,7 +73,8 @@ struct BssnState {
         phi += other.phi;
         conformalMetric += other.conformalMetric;
         traceExtrinsicCurvature += other.traceExtrinsicCurvature;
-        conformalTracelessExtrinsicCurvature += other.conformalTracelessExtrinsicCurvature;
+        conformalTracelessExtrinsicCurvature +=
+            other.conformalTracelessExtrinsicCurvature;
         conformalConnection += other.conformalConnection;
         lapse += other.lapse;
         shift += other.shift;
@@ -84,7 +86,8 @@ struct BssnState {
         phi -= other.phi;
         conformalMetric -= other.conformalMetric;
         traceExtrinsicCurvature -= other.traceExtrinsicCurvature;
-        conformalTracelessExtrinsicCurvature -= other.conformalTracelessExtrinsicCurvature;
+        conformalTracelessExtrinsicCurvature -=
+            other.conformalTracelessExtrinsicCurvature;
         conformalConnection -= other.conformalConnection;
         lapse -= other.lapse;
         shift -= other.shift;
@@ -157,12 +160,12 @@ struct BssnParameters {
 /// numerically converged one. `Physics/README.md`'s BSSN section has the
 /// derivation.
 [[nodiscard]] double hamiltonianConstraint(const BssnState& state, std::ptrdiff_t i,
-                                          std::ptrdiff_t j, std::ptrdiff_t k);
+                                           std::ptrdiff_t j, std::ptrdiff_t k);
 
 /// The momentum constraint's violation at one cell, one component per call
 /// (`component` 0/1/2 for x/y/z); same role as `hamiltonianConstraint`.
 [[nodiscard]] double momentumConstraint(const BssnState& state, std::ptrdiff_t i,
-                                       std::ptrdiff_t j, std::ptrdiff_t k,
-                                       int component);
+                                        std::ptrdiff_t j, std::ptrdiff_t k,
+                                        int component);
 
 }  // namespace ysq

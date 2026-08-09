@@ -77,7 +77,8 @@ TEST(OpticsIllumination, DeepInAnAtmosphericOccludersShadowSomeReddenedLightGets
     EXPECT_GT(result.transmission.x, result.transmission.z);
 }
 
-TEST(OpticsIllumination, DiscOcclusionFractionIsFullyLitWhenTheOccluderDoesNotOverlapTheSource) {
+TEST(OpticsIllumination,
+     DiscOcclusionFractionIsFullyLitWhenTheOccluderDoesNotOverlapTheSource) {
     const Vec3 point{0.0, 0.0, 0.0};
     const Vec3 sourceCenter{100.0, 0.0, 0.0};
     const double sourceRadius = 10.0;
@@ -86,20 +87,22 @@ TEST(OpticsIllumination, DiscOcclusionFractionIsFullyLitWhenTheOccluderDoesNotOv
     const Vec3 occluderCenter{10.0, 5.0, 0.0};
     const double occluderRadius = 0.3;
 
-    EXPECT_NEAR(ysq::discOcclusionFraction(point, sourceCenter, sourceRadius, occluderCenter,
-                                    occluderRadius),
-               1.0, 1e-9);
+    EXPECT_NEAR(ysq::discOcclusionFraction(point, sourceCenter, sourceRadius,
+                                           occluderCenter, occluderRadius),
+                1.0, 1e-9);
 }
 
-TEST(OpticsIllumination, DiscOcclusionFractionIsFullyLitWhenTheOccluderIsFartherThanTheSource) {
+TEST(OpticsIllumination,
+     DiscOcclusionFractionIsFullyLitWhenTheOccluderIsFartherThanTheSource) {
     const Vec3 point{0.0, 0.0, 0.0};
     const Vec3 sourceCenter{10.0, 0.0, 0.0};
     // Directly behind the source, from point's own perspective: cannot be
     // sitting between them.
     const Vec3 occluderCenter{100.0, 0.0, 0.0};
 
-    EXPECT_NEAR(ysq::discOcclusionFraction(point, sourceCenter, 10.0, occluderCenter, 50.0), 1.0,
-               1e-9);
+    EXPECT_NEAR(
+        ysq::discOcclusionFraction(point, sourceCenter, 10.0, occluderCenter, 50.0), 1.0,
+        1e-9);
 }
 
 TEST(OpticsIllumination, DiscOcclusionFractionIsZeroForATotalEclipse) {
@@ -110,9 +113,9 @@ TEST(OpticsIllumination, DiscOcclusionFractionIsZeroForATotalEclipse) {
     const Vec3 occluderCenter{10.0, 0.0, 0.0};
     const double occluderRadius = 2.0;
 
-    EXPECT_NEAR(ysq::discOcclusionFraction(point, sourceCenter, sourceRadius, occluderCenter,
-                                    occluderRadius),
-               0.0, 1e-9);
+    EXPECT_NEAR(ysq::discOcclusionFraction(point, sourceCenter, sourceRadius,
+                                           occluderCenter, occluderRadius),
+                0.0, 1e-9);
 }
 
 TEST(OpticsIllumination, DiscOcclusionFractionMatchesTheClosedFormForAnAnnularEclipse) {
@@ -130,15 +133,15 @@ TEST(OpticsIllumination, DiscOcclusionFractionMatchesTheClosedFormForAnAnnularEc
     const double expected =
         1.0 - (alphaOccluder * alphaOccluder) / (alphaSource * alphaSource);
 
-    EXPECT_NEAR(ysq::discOcclusionFraction(point, sourceCenter, sourceRadius, occluderCenter,
-                                    occluderRadius),
-               expected, 1e-9);
+    EXPECT_NEAR(ysq::discOcclusionFraction(point, sourceCenter, sourceRadius,
+                                           occluderCenter, occluderRadius),
+                expected, 1e-9);
     // Same case computed independently ahead of time, so this pins the
     // actual number down, not just internal self-consistency with the
     // formula it is supposed to be checking.
-    EXPECT_NEAR(ysq::discOcclusionFraction(point, sourceCenter, sourceRadius, occluderCenter,
-                                    occluderRadius),
-               0.7487536309827298, 1e-9);
+    EXPECT_NEAR(ysq::discOcclusionFraction(point, sourceCenter, sourceRadius,
+                                           occluderCenter, occluderRadius),
+                0.7487536309827298, 1e-9);
 }
 
 TEST(OpticsIllumination, DiscOcclusionFractionMatchesAnIndependentlyComputedPartialCase) {
@@ -152,7 +155,7 @@ TEST(OpticsIllumination, DiscOcclusionFractionMatchesAnIndependentlyComputedPart
     const double occluderRadius = 1.0000000000000002;
 
     const double result = ysq::discOcclusionFraction(point, sourceCenter, sourceRadius,
-                                               occluderCenter, occluderRadius);
+                                                     occluderCenter, occluderRadius);
     EXPECT_GT(result, 0.0);
     EXPECT_LT(result, 1.0);
     EXPECT_NEAR(result, 0.6122809621777536, 1e-9);
@@ -164,15 +167,15 @@ TEST(OpticsIllumination, DiscOcclusionFractionIsNearZeroForARealTotalLunarEclips
     // Earth's real umbra is wide enough there (about 9200 km across
     // against the Moon's own ~3474 km) to cover the Moon entirely, a real
     // total lunar eclipse, not a contrived number.
-    const Vec3 point{-3.844e8, 0.0, 0.0};       // the Moon
+    const Vec3 point{-3.844e8, 0.0, 0.0};         // the Moon
     const Vec3 sourceCenter{1.496e11, 0.0, 0.0};  // the Sun
     const double sourceRadius = 6.957e8;
     const Vec3 occluderCenter{0.0, 0.0, 0.0};  // the Earth
     const double occluderRadius = 6.371e6;
 
-    EXPECT_NEAR(
-        ysq::discOcclusionFraction(point, sourceCenter, sourceRadius, occluderCenter, occluderRadius),
-        0.0, 1e-6);
+    EXPECT_NEAR(ysq::discOcclusionFraction(point, sourceCenter, sourceRadius,
+                                           occluderCenter, occluderRadius),
+                0.0, 1e-6);
 }
 
 }  // namespace

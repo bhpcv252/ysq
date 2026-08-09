@@ -9,16 +9,17 @@ nothing in the engine.
 
 ## Contents
 
-| Header             | Purpose                                                  |
-| ------------------ | -------------------------------------------------------- |
-| `Core/Version.hpp` | Engine version, generated from the CMake project version |
-| `Core/Logger.hpp`  | Logging facade over spdlog                               |
-| `Core/Timer.hpp`   | Wall-clock stopwatch                                     |
-| `Core/Clock.hpp`   | Simulation time: fixed steps, time scale, pause          |
-| `Core/UUID.hpp`    | RFC 4122 version 4 identifiers                           |
-| `Core/Event.hpp`   | Type-keyed event bus                                     |
-| `Core/Config.hpp`  | Key/value configuration with an INI text form            |
-| `Core/Csv.hpp`     | Typed CSV table loading                                   |
+| Header                    | Purpose                                                  |
+| ------------------------- | -------------------------------------------------------- |
+| `Core/Version.hpp`        | Engine version, generated from the CMake project version |
+| `Core/Logger.hpp`         | Logging facade over spdlog                               |
+| `Core/Timer.hpp`          | Wall-clock stopwatch                                     |
+| `Core/Clock.hpp`          | Simulation time: fixed steps, time scale, pause          |
+| `Core/UUID.hpp`           | RFC 4122 version 4 identifiers                           |
+| `Core/Event.hpp`          | Type-keyed event bus                                     |
+| `Core/Config.hpp`         | Key/value configuration with an INI text form            |
+| `Core/Csv.hpp`            | Typed CSV table loading                                  |
+| `Core/ExecutablePath.hpp` | The running process's own executable path and directory  |
 
 Nothing here is thread-safe unless it says so. `Logger` is; the rest assume a
 single owning thread, which for `Clock` and `EventBus` is the simulation loop.
@@ -274,3 +275,25 @@ The text form is RFC 4180 with two documented extensions:
 `load()` refuses a file larger than `kDefaultMaxFileBytes` (64 MiB, overridable
 per call), the same guard `Config::load` uses and for the same reason: this is
 the one other place `Core` reads a file it did not write.
+
+## ExecutablePath
+
+Where the currently running process actually lives on disk -- a general
+OS-process fact, not a graphics one, so it lives here rather than in
+`Platform` and works in a headless build too.
+
+```cpp
+const std::optional<std::filesystem::path> exe = ysq::executablePath();
+const std::optional<std::filesystem::path> dir = ysq::executableDirectory();
+```
+
+`std::nullopt` only if the underlying OS call itself fails, which does not
+happen in ordinary use. Implemented per platform: `/proc/self/exe` on
+Linux, `_NSGetExecutablePath` on macOS, `GetModuleFileNameW` on Windows,
+each resolved to an absolute, symlink-free path.
+
+This is what lets an application find data shipped alongside its own
+executable regardless of what directory it was unzipped into, rather than
+a path baked in at build time that only ever resolves on the machine that
+built it. See `src/Applications/README.md`'s convention section for how
+`SolarSystem` and `KeplerSolarSystem` use it.

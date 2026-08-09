@@ -10,13 +10,20 @@ description of reality.
 
 - Relativistic spacetime core: Minkowski, Schwarzschild, Kerr, and FLRW metrics
   with a geodesic solver
-- Gravity as a hierarchy of models: Newtonian, post-Newtonian, and GR on fixed
-  background metrics
-- Electromagnetism, fluid dynamics, thermodynamics
+- Gravity as a hierarchy of models: Newtonian (with general spherical-harmonics
+  oblateness), post-Newtonian, Barnes-Hut, and GR on fixed background metrics
+- Electromagnetism, acoustics, fluid dynamics (SPH and Eulerian), continuum
+  mechanics, thermodynamics, and quantum mechanics (time-independent and
+  time-dependent Schrödinger equation) — the wave/diffusion/eigenvalue rungs
+  (Maxwell, acoustic, heat equation, Eulerian, Schrödinger) each solved in
+  both 1D and full 3D
 - Optics on curved spacetime: light propagation, gravitational lensing, and
-  frequency shift (Doppler, gravitational, cosmological)
+  frequency shift (Doppler, gravitational, cosmological), plus flat-space
+  radiation pressure, diffraction, and relativistic aberration
 - Custom math library: vectors, matrices, quaternions, tensors, ODE integrators
-  (including symplectic)
+  (including symplectic), general/symmetric eigendecomposition and SVD,
+  special functions, closed-form polynomial roots, Euclidean geometry, spatial
+  partitioning (k-d tree, BVH, octree), and FFT (1D and 3D)
 - Strongly-typed, dimensioned quantities (scalar or vector)
 - Real-time OpenGL rendering: instanced meshes, multi-light Blinn-Phong,
   immediate-mode debug drawing with billboard and fixed-orientation text
@@ -158,6 +165,24 @@ Each program under `Applications/` builds to its own executable in `build/bin/`:
 
 Available: `solar-system`, `lunar-eclipse`, `kepler-solar-system`.
 
+## Downloads
+
+No build tools needed: prebuilt binaries for every application, on Linux,
+macOS (Apple Silicon) and Windows, are published from the tip of `main` to
+the [`latest` release](https://github.com/bhpcv252/ysq/releases/tag/latest)
+— one zip per app per platform, plus one zip per platform bundling every
+app together. It's rebuilt on every push to `main`, so it always reflects
+the current tip, not a fixed version; see "Continuous delivery" below.
+
+These binaries are unsigned — code signing needs a paid certificate this
+project doesn't have — so the OS will warn on first run:
+
+- **Windows** shows a SmartScreen warning ("Windows protected your PC").
+  Click "More info", then "Run anyway".
+- **macOS** Gatekeeper refuses to open the app from a double-click the
+  first time. Right-click it and choose "Open" instead (needed once), or
+  run `xattr -d com.apple.quarantine <path>` after unzipping.
+
 ## Testing
 
 Tests live under `tests/` and run through CTest. Not built by default; enable
@@ -204,6 +229,19 @@ which skips where no context can exist. A test that skips on all six jobs
 tests nothing, so the Linux graphics-on job installs OSMesa and configures
 with `YSQ_REQUIRE_HEADLESS_GL=ON`, turning that skip into a failure on the one
 runner where a context is guaranteed to be available.
+
+## Continuous delivery
+
+`.github/workflows/release.yml` builds a real, windowed Release build on
+Linux, macOS and Windows on every push to `main`, installs each
+application into its own directory (`stage/<App>/`, via each app's own
+`install()` rule; see `src/Applications/README.md`'s convention section),
+and zips them: one archive per app per platform, plus one combined archive
+per platform with every app together. A publish step then replaces a
+single rolling `latest` release's assets with the new build. Nothing here
+names a fixed list of applications — a new one under `Applications/` is
+picked up automatically the next time this runs, as long as it follows the
+same `install()` convention.
 
 ## Warnings
 
@@ -301,14 +339,18 @@ ysq/
 │   │   └── Vulkan/                   Built only when the Vulkan SDK is found
 │   │
 │   ├── Physics/                     Mechanics, Spacetime, Gravity, Electromagnetism,
-│   │   │                            Fluids, Thermodynamics, Optics: organized by theory
+│   │   │                            Acoustics, Fluids, Continuum, Thermodynamics,
+│   │   │                            Optics, QuantumMechanics: organized by theory
 │   │   ├── Mechanics/
 │   │   ├── Spacetime/
 │   │   ├── Gravity/
 │   │   ├── Electromagnetism/
+│   │   ├── Acoustics/
 │   │   ├── Fluids/
+│   │   ├── Continuum/
 │   │   ├── Thermodynamics/
-│   │   └── Optics/
+│   │   ├── Optics/
+│   │   └── QuantumMechanics/
 │   │
 │   ├── Renderer/                    Camera, shaders, meshes, textures, rasterizer, ray tracer
 │   │   └── shaders/                  *.vert, *.frag, embedded at configure time
@@ -335,11 +377,11 @@ ysq/
 | Module         | Contents                                                                                                                                                                                                                                             |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Core`         | Logging (spdlog behind a facade), timing (simulation and wall-clock), UUIDs, events, configuration, CSV data loading                                                                                                                                                                                   |
-| `Math`         | Vectors, matrices, quaternions, complex/dual numbers, tensors, statistics, interpolation, calculus, ODE interface and integrators (Euler, RK4, adaptive, symplectic)                                                                                 |
-| `Units`        | Dimensioned quantities (scalar or vector) built from the SI's seven base dimensions: length, mass, time, velocity, acceleration, force, energy, temperature, electromagnetism, luminosity, and the constants that define the SI. Built on `Math` |
+| `Math`         | Vectors, matrices, quaternions, complex/dual numbers, tensors, statistics, interpolation, calculus, ODE interface and integrators (Euler, RK4, adaptive, symplectic), root-finding, general linear solving, symmetric and general eigendecomposition, SVD/QR, special functions (error, gamma, Legendre, Bessel), closed-form polynomial roots, randomness, gradient-based optimization, Euclidean geometry (intersection, closest-point, convex hull, oriented bounding boxes), spatial partitioning (k-d tree, BVH, octree), and FFT (1D and 3D) |
+| `Units`        | Dimensioned quantities (scalar or vector) built from the SI's seven base dimensions: length, mass, time, velocity, acceleration, force, energy, temperature, electromagnetism, fluids, chemistry, elasticity, luminosity, and the constants that define the SI. Built on `Math` |
 | `Platform`     | Window, GL context, and input, wrapping GLFW                                                                                                                                                                                                         |
 | `Compute`      | Backend `Physics` dispatches to: a CPU reference implementation plus GPU acceleration (OpenGL compute shaders, CUDA, Vulkan)                                                                                                                         |
-| `Physics`      | Mechanics; relativistic spacetime (Minkowski, Schwarzschild, Kerr, FLRW) with a geodesic solver; gravity (Newtonian, post-Newtonian, Barnes-Hut summation); electromagnetism; fluids; thermodynamics; optics (propagation, lensing, frequency shift) |
+| `Physics`      | Mechanics (incl. springs, drag, collision, friction, constraints, rigid-body inertia); relativistic spacetime (Minkowski, Schwarzschild, Kerr, FLRW) with a geodesic solver; gravity (Newtonian with spherical-harmonics oblateness, post-Newtonian, Barnes-Hut summation); electromagnetism (quasi-static fields plus a 1D/3D Maxwell FDTD solver); acoustics (1D/3D linear wave equation); fluids (SPH, and Eulerian in 1D/3D); continuum mechanics (elastic chains); thermodynamics (ideal gas, black-body, statistical mechanics, radiative transfer, 1D/3D heat equation); optics (propagation, lensing, frequency shift, radiation pressure, diffraction, aberration); quantum mechanics (1D/3D time-independent and time-dependent Schrödinger equation) |
 | `Renderer`     | Camera and controllers, shaders, instanced meshes, textures, immediate-mode debug drawing and text labels, and both a forward rasterizer and a fragment-shader ray tracer                                                                          |
 | `UI`           | Dear ImGui panels bound to plain references, Dear ImPlot charts, a stats overlay                                                                                                                                                                    |
 | `Applications` | Runnable simulation programs built on the engine                                                                                                                                                                                                     |

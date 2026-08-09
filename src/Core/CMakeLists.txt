@@ -5,6 +5,7 @@ add_library(ysq_core STATIC
     Config.cpp
     Csv.cpp
     Event.cpp
+    ExecutablePath.cpp
     Logger.cpp
     UUID.cpp
     Version.cpp
@@ -12,6 +13,7 @@ add_library(ysq_core STATIC
     Config.hpp
     Csv.hpp
     Event.hpp
+    ExecutablePath.hpp
     Logger.hpp
     Timer.hpp
     UUID.hpp

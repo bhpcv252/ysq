@@ -57,10 +57,11 @@ struct PunctureInitialDataResult {
     bool converged = false;
 };
 
-[[nodiscard]] PunctureInitialDataResult solvePunctureInitialData(
-    const std::vector<PunctureSpec>& punctures, std::size_t cellCountX,
-    std::size_t cellCountY, std::size_t cellCountZ, double spacing,
-    std::size_t ghostCells, const MultigridSettings& settings = {});
+[[nodiscard]] PunctureInitialDataResult
+solvePunctureInitialData(const std::vector<PunctureSpec>& punctures,
+                         std::size_t cellCountX, std::size_t cellCountY,
+                         std::size_t cellCountZ, double spacing, std::size_t ghostCells,
+                         const MultigridSettings& settings = {});
 
 /// The Newtonian circular-orbit estimate for the tangential ADM momentum
 /// magnitude of each puncture in a two-body binary at coordinate separation
@@ -76,6 +77,7 @@ struct PunctureInitialDataResult {
 /// opposite in sign to the other's -- how that's laid out in a specific
 /// scenario (which axis is the separation, which is tangential) is scenario
 /// construction, not this function's concern.
-[[nodiscard]] double newtonianCircularMomentum(double mass1, double mass2, double separation);
+[[nodiscard]] double newtonianCircularMomentum(double mass1, double mass2,
+                                               double separation);
 
 }  // namespace ysq

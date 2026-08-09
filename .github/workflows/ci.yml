@@ -85,6 +85,7 @@ jobs:
         run: >
           cmake -B build
           -DCMAKE_BUILD_TYPE=RelWithDebInfo
+          -DYSQ_BUILD_TESTS=ON
           -DYSQ_BUILD_GRAPHICS=${{ matrix.graphics }}
           -DYSQ_WARNINGS_AS_ERRORS=ON
           -DYSQ_REQUIRE_HEADLESS_GL=${{ (runner.os == 'Linux' && matrix.graphics == 'ON') && 'ON' || 'OFF' }}

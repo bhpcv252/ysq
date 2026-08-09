@@ -1,6 +1,8 @@
 #include <Physics/Mechanics/RigidBody.hpp>
 
+#include <Math/Eigen.hpp>
 #include <Math/Integrators/RK4.hpp>
+#include <Math/LinearSolve.hpp>
 #include <Math/ODE.hpp>
 #include <Math/Quaternion.hpp>
 #include <Math/Vector3.hpp>
@@ -169,6 +171,34 @@ void stepRigidBody(Body& body, std::span<const Body> perturbers, double dt) {
 
     body.orientation = normalized(next.orientation);
     body.angularMomentum = AngularMomentum3{next.angularMomentum};
+}
+
+PrincipalInertia diagonalizeInertia(const Matrix3<double>& rawInertiaTensor) {
+    MatrixN<double> tensor(3, 3);
+    for (std::size_t row = 0; row < 3; ++row) {
+        for (std::size_t col = 0; col < 3; ++col) {
+            tensor(row, col) = rawInertiaTensor(row, col);
+        }
+    }
+
+    const EigenDecomposition<double> decomposition = jacobiEigenSymmetric(tensor);
+
+    Matrix3<double> rotation{};
+    for (std::size_t row = 0; row < 3; ++row) {
+        for (std::size_t col = 0; col < 3; ++col) {
+            rotation(row, col) = decomposition.eigenvectors(row, col);
+        }
+    }
+    if (determinant(rotation) < 0.0) {
+        for (std::size_t row = 0; row < 3; ++row) {
+            rotation(row, 2) = -rotation(row, 2);
+        }
+    }
+
+    const MomentOfInertia3 moments{Vec3{decomposition.eigenvalues[0],
+                                        decomposition.eigenvalues[1],
+                                        decomposition.eigenvalues[2]}};
+    return PrincipalInertia{moments, Quat::fromRotationMatrix(rotation)};
 }
 
 }  // namespace ysq

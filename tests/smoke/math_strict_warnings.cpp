@@ -21,8 +21,14 @@
 #include <Math/Complex.hpp>
 #include <Math/CoordinateSystems.hpp>
 #include <Math/Dual.hpp>
+#include <Math/Eigen.hpp>
+#include <Math/FFT.hpp>
 #include <Math/FiniteDifference.hpp>
 #include <Math/Format.hpp>
+#include <Math/Geometry/ConvexHull.hpp>
+#include <Math/Geometry/Intersection.hpp>
+#include <Math/Geometry/Primitives.hpp>
+#include <Math/Geometry/Queries.hpp>
 #include <Math/Grid.hpp>
 #include <Math/Grid3D.hpp>
 #include <Math/Integrators/Adaptive.hpp>
@@ -30,14 +36,22 @@
 #include <Math/Integrators/RK4.hpp>
 #include <Math/Integrators/Symplectic.hpp>
 #include <Math/Interpolation.hpp>
-#include <Math/Intersection.hpp>
+#include <Math/LinearSolve.hpp>
 #include <Math/Matrix2.hpp>
 #include <Math/Matrix3.hpp>
 #include <Math/Matrix4.hpp>
 #include <Math/Multigrid.hpp>
 #include <Math/ODE.hpp>
+#include <Math/Optimization.hpp>
+#include <Math/Polynomial.hpp>
 #include <Math/Quaternion.hpp>
+#include <Math/Random.hpp>
+#include <Math/RootFinding.hpp>
 #include <Math/Scalar.hpp>
+#include <Math/SpatialPartition/Bvh.hpp>
+#include <Math/SpatialPartition/KdTree.hpp>
+#include <Math/SpatialPartition/Octree.hpp>
+#include <Math/SpecialFunctions.hpp>
 #include <Math/Statistics.hpp>
 #include <Math/Tensor.hpp>
 #include <Math/Vector2.hpp>
@@ -53,6 +67,7 @@
 #include <span>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 template struct ysq::Vector2<float>;
 template struct ysq::Vector2<double>;
@@ -79,6 +94,12 @@ template class ysq::Grid1D<float>;
 template class ysq::Grid1D<double>;
 template class ysq::Grid3D<float>;
 template class ysq::Grid3D<double>;
+template class ysq::VectorN<float>;
+template class ysq::VectorN<double>;
+template class ysq::MatrixN<float>;
+template class ysq::MatrixN<double>;
+template class ysq::Polynomial<float>;
+template class ysq::Polynomial<double>;
 
 // The composition this whole design exists for: a vector over a dual scalar.
 // If Dual ever stops satisfying Numeric, this is where it stops compiling.
@@ -530,6 +551,110 @@ T exerciseNumerics() {
     acc += ysq::gaussLegendre<4>(square, T{0}, T{1});
     acc += ysq::gaussLegendre<5>(square, T{0}, T{1});
 
+    const auto shifted = [](T x) { return x * x - T{2}; };
+    const auto shiftedPrime = [](T x) { return T{2} * x; };
+    acc += ysq::newtonRaphson(shifted, shiftedPrime, T{1});
+    acc += ysq::newtonRaphson(shifted, T{1});
+    acc += ysq::secant(shifted, T{1}, T{2});
+    acc += ysq::bisection(shifted, T{0}, T{2});
+
+    ysq::VectorN<T> vn(3, T{1});
+    ysq::VectorN<T> vn2{T{1}, T{2}, T{3}};
+    vn += vn2;
+    vn -= vn2;
+    vn *= T{2};
+    acc += (vn + vn2)[0] + (vn - vn2)[0] + (vn2 * T{2})[0] + (T{2} * vn2)[0];
+    acc += ysq::dot(vn, vn2) + ysq::norm(vn2);
+
+    ysq::MatrixN<T> mn(3, 3, T{0});
+    mn(0, 0) = T{4};
+    mn(0, 1) = T{1};
+    mn(1, 0) = T{1};
+    mn(1, 1) = T{3};
+    mn(2, 2) = T{2};
+    acc += ysq::transpose(mn)(1, 0);
+    acc += (mn * vn2)[0];
+    acc += (mn * ysq::MatrixN<T>::identity(3))(0, 0);
+
+    const auto lu = ysq::luDecompose(mn);
+    if (lu) {
+        acc += ysq::luSolve(*lu, vn2)[0];
+    }
+    acc += ysq::solve(mn, vn2).value_or(vn2)[0];
+
+    ysq::MatrixN<T> spd(2, 2, T{0});
+    spd(0, 0) = T{4};
+    spd(0, 1) = T{1};
+    spd(1, 0) = T{1};
+    spd(1, 1) = T{3};
+    const ysq::VectorN<T> rhs{T{1}, T{2}};
+    const auto cholesky = ysq::choleskyDecompose(spd);
+    if (cholesky) {
+        acc += (*cholesky)(0, 0);
+    }
+    acc += ysq::choleskySolve(spd, rhs).value_or(rhs)[0];
+
+    const auto eigen = ysq::jacobiEigenSymmetric(spd);
+    acc += eigen.eigenvalues[0] + eigen.eigenvectors(0, 0);
+
+    const auto qr = ysq::qrDecompose(mn);
+    acc += qr.q(0, 0) + qr.r(0, 0);
+
+    const auto schur = ysq::realSchur(mn);
+    acc += schur.q(0, 0) + schur.t(0, 0);
+    for (const ysq::Complex<T>& value : ysq::eigenvaluesFromSchur(schur.t)) {
+        acc += value.re + value.im;
+    }
+    for (const ysq::Complex<T>& value : ysq::generalEigenvalues(mn)) {
+        acc += value.re + value.im;
+    }
+
+    ysq::MatrixN<T> tall(3, 2, T{0});
+    tall(0, 0) = T{1};
+    tall(1, 1) = T{1};
+    tall(2, 0) = T{1};
+    tall(2, 1) = T{1};
+    const auto svdResult = ysq::svd(tall);
+    acc += svdResult.u(0, 0) + svdResult.singularValues[0] + svdResult.v(0, 0);
+
+    acc += ysq::erf(T{0.5}) + ysq::erfc(T{0.5});
+    acc += ysq::gamma(T{2.5}) + ysq::logGamma(T{2.5});
+    acc += ysq::legendreP(2U, 1U, T{0.5}) + ysq::legendreP(2U, T{0.5});
+    acc += ysq::besselJ0(T{0.5}) + ysq::besselJ1(T{0.5}) + ysq::besselJ(2U, T{0.5});
+    acc += ysq::besselY0(T{0.5}) + ysq::besselY1(T{0.5}) + ysq::besselY(2U, T{0.5});
+
+    const ysq::Polynomial<T> poly{T{-6}, T{11}, T{-6}, T{1}};
+    acc += poly(T{2}) + poly.derivative()(T{2});
+    acc += static_cast<T>(poly.coefficients().size()) + static_cast<T>(poly.degree());
+    acc += ysq::linearRealRoot(T{2}, T{-4}).value_or(T{0});
+    for (T root : ysq::quadraticRealRoots(T{1}, T{-3}, T{2})) {
+        acc += root;
+    }
+    for (T root : ysq::cubicRealRoots(T{1}, T{-6}, T{11}, T{-6})) {
+        acc += root;
+    }
+    for (T root : ysq::quarticRealRoots(T{1}, T{-10}, T{35}, T{-50}, T{24})) {
+        acc += root;
+    }
+    for (T root : ysq::realRoots(poly)) {
+        acc += root;
+    }
+
+    ysq::RandomEngine engine = ysq::makeRandomEngine(42);
+    acc += ysq::uniformReal(engine, T{0}, T{1});
+    acc += static_cast<T>(ysq::uniformInt(engine, 0, 10));
+    acc += ysq::normal(engine, T{0}, T{1});
+    acc += static_cast<T>(ysq::poisson(engine, 3.0));
+    acc += ysq::normalCdf(T{0.5});
+    acc += ysq::monteCarloIntegrate(square, T{0}, T{1}, 8, engine);
+
+    const auto scalarField = [](const V3& v) { return dot(v, v); };
+    const V3 startPoint{T{1}, T{1}, T{1}};
+    acc += ysq::backtrackingLineSearch(scalarField, startPoint, -startPoint,
+                                       startPoint * T{2});
+    acc += ysq::gradientDescent(scalarField, startPoint).x;
+    acc += ysq::nelderMead(scalarField, startPoint).x;
+
     const ysq::Spherical<T> sphere{T{2}, T{1}, T{-1}};
     const ysq::Cylindrical<T> cylinder{T{2}, T{1}, T{3}};
     const ysq::Polar<T> polar{T{2}, T{1}};
@@ -559,6 +684,7 @@ T exerciseNumerics() {
 
 template <class T>
 T exerciseIntersection() {
+    using V2 = ysq::Vector2<T>;
     using V3 = ysq::Vector3<T>;
 
     T acc{};
@@ -571,6 +697,118 @@ T exerciseIntersection() {
         ysq::segmentIntersectsSphere(V3{T{-5}, T{0}, T{0}}, V3{T{5}, T{0}, T{0}}, sphere)
             ? T{1}
             : T{0};
+
+    const ysq::Plane3<T> plane{V3{T{0}, T{1}, T{0}}, T{0}};
+    acc += ysq::intersect(ray, plane).value_or(T{0});
+    acc += ysq::intersects(plane, sphere) ? T{1} : T{0};
+
+    const ysq::Triangle3<T> triangle{V3{T{0}, T{0}, T{0}}, V3{T{4}, T{0}, T{0}},
+                                     V3{T{0}, T{4}, T{0}}};
+    acc += ysq::intersect(ray, triangle).value_or(T{0});
+    acc += ysq::closestPoint(triangle, V3{T{1}, T{1}, T{1}}).x;
+
+    const ysq::AABB3<T> box{V3{T{-1}, T{-1}, T{-1}}, V3{T{1}, T{1}, T{1}}};
+    acc += ysq::intersect(ray, box).value_or(T{0});
+    acc += ysq::intersects(box, box) ? T{1} : T{0};
+    acc += ysq::closestPoint(box, V3{T{5}, T{0}, T{0}}).x;
+
+    const ysq::OBB3<T> obb{
+        V3::zero(), {V3::unitX(), V3::unitY(), V3::unitZ()}, V3{T{1}, T{1}, T{1}}};
+    acc += ysq::intersects(obb, obb) ? T{1} : T{0};
+    acc += ysq::intersects(obb, box) ? T{1} : T{0};
+    acc += ysq::intersect(ray, obb).value_or(T{0});
+    acc += ysq::closestPoint(obb, V3{T{5}, T{0}, T{0}}).x;
+
+    const ysq::Segment3<T> segment{V3{T{0}, T{0}, T{0}}, V3{T{10}, T{0}, T{0}}};
+    acc += ysq::closestPoint(segment, V3{T{5}, T{5}, T{0}}).x;
+    acc += ysq::closestPoint(plane, V3{T{5}, T{5}, T{0}}).y;
+
+    const std::array<V2, 4> square{V2{T{0}, T{0}}, V2{T{4}, T{0}}, V2{T{4}, T{4}},
+                                   V2{T{0}, T{4}}};
+    acc += ysq::pointInPolygon<T>(square, V2{T{2}, T{2}}) ? T{1} : T{0};
+
+    const std::vector<V2> hullPoints{square.begin(), square.end()};
+    const std::vector<V2> hull2D = ysq::convexHull2D(hullPoints);
+    acc += static_cast<T>(hull2D.size());
+
+    const std::vector<V3> cubePoints{V3{T{0}, T{0}, T{0}}, V3{T{1}, T{0}, T{0}},
+                                     V3{T{0}, T{1}, T{0}}, V3{T{0}, T{0}, T{1}},
+                                     V3{T{1}, T{1}, T{0}}, V3{T{1}, T{0}, T{1}},
+                                     V3{T{0}, T{1}, T{1}}, V3{T{1}, T{1}, T{1}}};
+    const std::vector<ysq::Triangle3<T>> hull3D = ysq::convexHull3D<T>(cubePoints);
+    acc += static_cast<T>(hull3D.size());
+
+    return acc;
+}
+
+template <class T>
+T exerciseSpatialPartition() {
+    using V3 = ysq::Vector3<T>;
+
+    T acc{};
+
+    const std::vector<V3> points{V3{T{0}, T{0}, T{0}}, V3{T{1}, T{0}, T{0}},
+                                 V3{T{0}, T{1}, T{0}}, V3{T{5}, T{5}, T{5}}};
+    const ysq::KdTree3<T> kdTree(points);
+    for (std::size_t index : kdTree.radiusQuery(V3::zero(), T{2})) {
+        acc += static_cast<T>(index);
+    }
+    for (std::size_t index : kdTree.nearestNeighbors(V3::zero(), 2)) {
+        acc += static_cast<T>(index);
+    }
+
+    const std::vector<ysq::AABB3<T>> boxes{
+        ysq::AABB3<T>{V3{T{0}, T{0}, T{0}}, V3{T{1}, T{1}, T{1}}},
+        ysq::AABB3<T>{V3{T{5}, T{5}, T{5}}, V3{T{6}, T{6}, T{6}}}};
+    const ysq::Bvh3<T> bvh(boxes);
+    for (std::size_t index :
+         bvh.overlapQuery(ysq::AABB3<T>{V3::zero(), V3::splat(T{2})})) {
+        acc += static_cast<T>(index);
+    }
+    const ysq::Ray3<T> bvhRay{V3{T{-5}, T{0.5}, T{0.5}}, V3{T{1}, T{0}, T{0}}};
+    for (std::size_t index : bvh.rayQuery(bvhRay)) {
+        acc += static_cast<T>(index);
+    }
+
+    const ysq::AABB3<T> worldBounds{V3{T{-10}, T{-10}, T{-10}}, V3{T{10}, T{10}, T{10}}};
+    const ysq::Octree3<T> octree(boxes, worldBounds);
+    for (std::size_t index :
+         octree.overlapQuery(ysq::AABB3<T>{V3::zero(), V3::splat(T{2})})) {
+        acc += static_cast<T>(index);
+    }
+    for (std::size_t index : octree.rayQuery(bvhRay)) {
+        acc += static_cast<T>(index);
+    }
+
+    return acc;
+}
+
+template <class T>
+T exerciseFFT() {
+    std::vector<ysq::Complex<T>> data{
+        ysq::Complex<T>{T{1}, T{0}}, ysq::Complex<T>{T{2}, T{0}},
+        ysq::Complex<T>{T{3}, T{0}}, ysq::Complex<T>{T{4}, T{0}}};
+
+    ysq::fft(data);
+    ysq::ifft(data);
+
+    T acc{};
+    for (const ysq::Complex<T>& value : data) {
+        acc += value.re + value.im;
+    }
+
+    const std::array<T, 4> samples{T{1}, T{2}, T{3}, T{4}};
+    const std::vector<ysq::Complex<T>> spectrum = ysq::fftReal<T>(samples);
+    for (const ysq::Complex<T>& value : spectrum) {
+        acc += value.re;
+    }
+
+    std::vector<ysq::Complex<T>> volume(8, ysq::Complex<T>{T{1}, T{0}});
+    ysq::fft3D(volume, 2, 2, 2);
+    ysq::ifft3D(volume, 2, 2, 2);
+    for (const ysq::Complex<T>& value : volume) {
+        acc += value.re + value.im;
+    }
 
     return acc;
 }
@@ -633,7 +871,8 @@ T exerciseFiniteDifference() {
 
     acc += ysq::firstDerivative(grid, 0, 0, 0, ysq::Axis::X, 0.5);
     acc += ysq::secondDerivative(grid, 0, 0, 0, ysq::Axis::Y, 0.5);
-    acc += ysq::mixedSecondDerivative(grid, 0, 0, 0, ysq::Axis::X, ysq::Axis::Z, 0.5, 0.5);
+    acc +=
+        ysq::mixedSecondDerivative(grid, 0, 0, 0, ysq::Axis::X, ysq::Axis::Z, 0.5, 0.5);
     acc += ysq::kreissOligerDissipation(grid, 0, 0, 0, ysq::Axis::Z, 0.5, 0.1);
     acc += ysq::kreissOligerDissipation3D(grid, 0, 0, 0, 0.5, 0.1);
 
@@ -646,12 +885,13 @@ double exerciseMultigrid() {
     const auto applyOperator = [](const ysq::Grid3D<double>& field, std::ptrdiff_t i,
                                   std::ptrdiff_t j, std::ptrdiff_t k, double h) {
         return (field(i + 1, j, k) + field(i - 1, j, k) + field(i, j + 1, k) +
-               field(i, j - 1, k) + field(i, j, k + 1) + field(i, j, k - 1) -
-               6.0 * field(i, j, k)) /
-              (h * h);
+                field(i, j - 1, k) + field(i, j, k + 1) + field(i, j, k - 1) -
+                6.0 * field(i, j, k)) /
+               (h * h);
     };
-    const auto relaxPoint = [](ysq::Grid3D<double>& field, std::ptrdiff_t i, std::ptrdiff_t j,
-                               std::ptrdiff_t k, double h, double target) {
+    const auto relaxPoint = [](ysq::Grid3D<double>& field, std::ptrdiff_t i,
+                               std::ptrdiff_t j, std::ptrdiff_t k, double h,
+                               double target) {
         const double neighborSum = field(i + 1, j, k) + field(i - 1, j, k) +
                                    field(i, j + 1, k) + field(i, j - 1, k) +
                                    field(i, j, k + 1) + field(i, j, k - 1);
@@ -663,7 +903,7 @@ double exerciseMultigrid() {
     const ysq::MultigridResult result =
         ysq::solveFAS(u, u.spacing(), applyOperator, relaxPoint, applyBoundary, settings);
     return static_cast<double>(result.vCyclesUsed) + result.finalResidual +
-          (result.converged ? 1.0 : 0.0);
+           (result.converged ? 1.0 : 0.0);
 }
 
 template <class T>
@@ -806,6 +1046,10 @@ TEST(MathStrictWarnings, EveryTemplateInstantiatesForFloatAndDouble) {
     EXPECT_TRUE(std::isfinite(exerciseMultigrid()));
     EXPECT_TRUE(std::isfinite(exerciseIntersection<float>()));
     EXPECT_TRUE(std::isfinite(exerciseIntersection<double>()));
+    EXPECT_TRUE(std::isfinite(exerciseSpatialPartition<float>()));
+    EXPECT_TRUE(std::isfinite(exerciseSpatialPartition<double>()));
+    EXPECT_TRUE(std::isfinite(exerciseFFT<float>()));
+    EXPECT_TRUE(std::isfinite(exerciseFFT<double>()));
     EXPECT_TRUE(std::isfinite(exerciseIntegrators<float>()));
     EXPECT_TRUE(std::isfinite(exerciseIntegrators<double>()));
 }

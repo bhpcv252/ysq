@@ -127,7 +127,7 @@ public:
     /// scene (so a body in front of it still occludes it) but does not
     /// write depth itself, so it never occludes anything drawn after it.
     void drawGlow(const Vec3f& position, float worldRadius, const Vec3f& color,
-                 float intensity);
+                  float intensity);
 
     /// Accumulates into the batch flushed at endFrame(). Call draw() calls
     /// and debugDraw() calls in any order within a frame.
@@ -144,7 +144,8 @@ public:
 
 private:
     Renderer(Shader basicShader, Shader instancedShader, Shader skyboxShader,
-             Shader glowShader, DebugDraw debugDraw, Mesh skyboxCube, Mesh glowQuad) noexcept
+             Shader glowShader, DebugDraw debugDraw, Mesh skyboxCube,
+             Mesh glowQuad) noexcept
         : m_basicShader(std::move(basicShader)),
           m_instancedShader(std::move(instancedShader)),
           m_skyboxShader(std::move(skyboxShader)),

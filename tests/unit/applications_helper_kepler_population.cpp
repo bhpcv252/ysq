@@ -21,12 +21,12 @@ TEST(ApplicationsHelperKeplerPopulation, ProducesExactlyTheRequestedCount) {
 }
 
 TEST(ApplicationsHelperKeplerPopulation, ZeroOrNegativeCountProducesNoParticles) {
-    EXPECT_TRUE(
-        generateKeplerPopulation(0, 1.0, 1.0, 2.0, 0.1, 0.1, 0, 1, 100.0, ysq::Vec3f::splat(1.0f))
-            .empty());
+    EXPECT_TRUE(generateKeplerPopulation(0, 1.0, 1.0, 2.0, 0.1, 0.1, 0, 1, 100.0,
+                                         ysq::Vec3f::splat(1.0f))
+                    .empty());
     EXPECT_TRUE(generateKeplerPopulation(0, 1.0, 1.0, 2.0, 0.1, 0.1, -5, 1, 100.0,
                                          ysq::Vec3f::splat(1.0f))
-                   .empty());
+                    .empty());
 }
 
 TEST(ApplicationsHelperKeplerPopulation, EveryParticleFallsWithinTheRequestedRanges) {
@@ -36,8 +36,9 @@ TEST(ApplicationsHelperKeplerPopulation, EveryParticleFallsWithinTheRequestedRan
     constexpr double maxI = ysq::radians(20.0);
     constexpr double realRadiusMeters = 2000.0;
 
-    const std::vector<KeplerParticle> particles = generateKeplerPopulation(
-        3, 42.0, minA, maxA, maxE, maxI, 2000, 7, realRadiusMeters, ysq::Vec3f::splat(0.7f));
+    const std::vector<KeplerParticle> particles =
+        generateKeplerPopulation(3, 42.0, minA, maxA, maxE, maxI, 2000, 7,
+                                 realRadiusMeters, ysq::Vec3f::splat(0.7f));
     ASSERT_EQ(particles.size(), 2000u);
 
     for (const KeplerParticle& particle : particles) {
@@ -66,10 +67,11 @@ TEST(ApplicationsHelperKeplerPopulation, TheSameSeedAlwaysProducesTheSameParticl
 
     ASSERT_EQ(first.size(), second.size());
     for (std::size_t i = 0; i < first.size(); ++i) {
-        EXPECT_DOUBLE_EQ(first[i].elements.semiMajorAxis, second[i].elements.semiMajorAxis);
+        EXPECT_DOUBLE_EQ(first[i].elements.semiMajorAxis,
+                         second[i].elements.semiMajorAxis);
         EXPECT_DOUBLE_EQ(first[i].elements.eccentricity, second[i].elements.eccentricity);
         EXPECT_DOUBLE_EQ(first[i].elements.meanAnomalyAtEpoch,
-                        second[i].elements.meanAnomalyAtEpoch);
+                         second[i].elements.meanAnomalyAtEpoch);
     }
 }
 

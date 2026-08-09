@@ -1,6 +1,7 @@
 #include <Physics/Fluids/SPH.hpp>
 
 #include <Math/Scalar.hpp>
+#include <Math/SpatialPartition/KdTree.hpp>
 
 #include <cmath>
 #include <cstddef>
@@ -52,11 +53,35 @@ Vec3 cubicSplineKernelGradient(const Vec3& separation, double smoothingLength) {
     return (separation / r) * dWdr;
 }
 
+namespace {
+
+/// Every particle position, in a `KdTree3` built fresh from `particles`'
+/// current state: cheap next to the O(n^2) all-pairs sum it replaces, and a
+/// tree built from stale positions would silently miss neighbours that have
+/// since moved into range, so it is never cached across calls.
+[[nodiscard]] KdTree3<double> buildPositionTree(std::span<const SPHParticle> particles) {
+    std::vector<Vec3> positions;
+    positions.reserve(particles.size());
+    for (const SPHParticle& particle : particles) {
+        positions.push_back(particle.position);
+    }
+    return KdTree3<double>(std::move(positions));
+}
+
+}  // namespace
+
 void computeDensityAndPressure(std::span<SPHParticle> particles, double smoothingLength,
                                double equationOfStateK, double polytropicIndex) {
+    const KdTree3<double> tree = buildPositionTree(particles);
+    // The kernel is exactly zero past q = 2 (r = 2h), so restricting the sum
+    // to this radius is not an approximation: it skips exactly the pairs
+    // that would have contributed zero anyway.
+    const double supportRadius = 2.0 * smoothingLength;
+
     for (SPHParticle& target : particles) {
         double density = 0.0;
-        for (const SPHParticle& source : particles) {
+        for (std::size_t j : tree.radiusQuery(target.position, supportRadius)) {
+            const SPHParticle& source = particles[j];
             const double r = length(target.position - source.position);
             density += source.mass * cubicSplineKernel(r, smoothingLength);
         }
@@ -67,14 +92,16 @@ void computeDensityAndPressure(std::span<SPHParticle> particles, double smoothin
 
 std::vector<Vec3> pressureAccelerations(std::span<const SPHParticle> particles,
                                         double smoothingLength) {
-    std::vector<Vec3> result(particles.size());
+    const KdTree3<double> tree = buildPositionTree(particles);
+    const double supportRadius = 2.0 * smoothingLength;
 
+    std::vector<Vec3> result(particles.size());
     for (std::size_t i = 0; i < particles.size(); ++i) {
         const SPHParticle& target = particles[i];
         const double targetTerm = target.pressure / (target.density * target.density);
 
         Vec3 total{};
-        for (std::size_t j = 0; j < particles.size(); ++j) {
+        for (std::size_t j : tree.radiusQuery(target.position, supportRadius)) {
             if (i == j) {
                 continue;
             }

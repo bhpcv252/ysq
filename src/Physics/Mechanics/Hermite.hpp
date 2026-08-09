@@ -57,10 +57,10 @@ namespace ysq {
 /// full 4th order. `dt` is the same interval `hermitePredict` was called
 /// with; `newAcceleration`/`newJerk` are evaluated at
 /// `predictedPosition`/`predictedVelocity`.
-[[nodiscard]] std::pair<Vec3, Vec3> hermiteCorrect(
-    const Vec3& oldAcceleration, const Vec3& oldJerk, const Vec3& newAcceleration,
-    const Vec3& newJerk, double dt, const Vec3& predictedPosition,
-    const Vec3& predictedVelocity);
+[[nodiscard]] std::pair<Vec3, Vec3>
+hermiteCorrect(const Vec3& oldAcceleration, const Vec3& oldJerk,
+               const Vec3& newAcceleration, const Vec3& newJerk, double dt,
+               const Vec3& predictedPosition, const Vec3& predictedVelocity);
 
 /// The Aarseth (1985) criterion: a body's own next step shrinks where its
 /// acceleration is large *and* rapidly changing (a close encounter, any
@@ -78,8 +78,8 @@ namespace ysq {
 /// body may take) is the caller's choice, not derived here. Falls back to
 /// `baseInterval` wherever the jerk is zero -- nothing about this body's
 /// current dynamics asks for a smaller step.
-[[nodiscard]] double hermiteTimestep(const Vec3& acceleration, const Vec3& jerk, double eta,
-                                     double baseInterval);
+[[nodiscard]] double hermiteTimestep(const Vec3& acceleration, const Vec3& jerk,
+                                     double eta, double baseInterval);
 
 /// What the scheduler asks its caller for every time a body's turn comes
 /// up: that one body's own (acceleration, jerk), given every body's
@@ -89,9 +89,10 @@ namespace ysq {
 template <class F>
 concept IndividualJerkField =
     requires(const F& f, std::size_t bodyIndex, const NBodyState& predictedPositions,
-            const NBodyState& predictedVelocities) {
-        { f(bodyIndex, predictedPositions, predictedVelocities) }
-            -> std::convertible_to<std::pair<Vec3, Vec3>>;
+             const NBodyState& predictedVelocities) {
+        {
+            f(bodyIndex, predictedPositions, predictedVelocities)
+        } -> std::convertible_to<std::pair<Vec3, Vec3>>;
     };
 
 /// Owns every body's own (last-update time, step size, position, velocity,
@@ -217,14 +218,15 @@ void IndividualTimestepScheduler::advanceTo(const JerkField& jerkField, double t
         const double dt = moverNextTime - m_lastUpdateTime[mover];
         const auto [correctedPosition, correctedVelocity] =
             hermiteCorrect(m_acceleration[mover], m_jerk[mover], newAcceleration, newJerk,
-                          dt, predictedPositions[mover], predictedVelocities[mover]);
+                           dt, predictedPositions[mover], predictedVelocities[mover]);
 
         m_position[mover] = correctedPosition;
         m_velocity[mover] = correctedVelocity;
         m_acceleration[mover] = newAcceleration;
         m_jerk[mover] = newJerk;
         m_lastUpdateTime[mover] = moverNextTime;
-        m_timestep[mover] = hermiteTimestep(newAcceleration, newJerk, m_eta, m_baseInterval);
+        m_timestep[mover] =
+            hermiteTimestep(newAcceleration, newJerk, m_eta, m_baseInterval);
         m_currentTime = moverNextTime;
     }
 }

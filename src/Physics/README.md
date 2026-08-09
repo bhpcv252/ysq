@@ -29,12 +29,20 @@ far.
 | `Physics/Mechanics/Frame.hpp` | Inertial reference frames, Galilean transform |
 | `Physics/Mechanics/Kinematics.hpp` | Lorentz factor, four-velocity, proper time, relativistic velocity addition |
 | `Physics/Mechanics/Dynamics.hpp` | `NBodyState`, the boundary between a span of `Body` and Math's integrators |
-| `Physics/Mechanics/RigidBody.hpp` | Gravity-gradient torque and Euler's rotation equation, general for any oblate body |
+| `Physics/Mechanics/RigidBody.hpp` | Gravity-gradient torque, Euler's rotation equation, and diagonalizing an arbitrary inertia tensor |
 | `Physics/Mechanics/Hermite.hpp` | 4th-order predictor-corrector integration and `IndividualTimestepScheduler`: each body its own step size, force-law-agnostic |
+| `Physics/Mechanics/Spring.hpp` | Hooke's law with linear damping, anchor- or body-to-body |
+| `Physics/Mechanics/Drag.hpp` | Linear (Stokes) and quadratic drag through a medium |
+| `Physics/Mechanics/Collision.hpp` | Sphere-sphere and sphere-box overlap, impulse-based resolution |
+| `Physics/Mechanics/Friction.hpp` | Coulomb friction: kinetic (sliding) and static (holding) |
+| `Physics/Mechanics/Constraints.hpp` | Sequential-impulse distance and point constraints, Baumgarte-stabilized |
+| `Physics/Continuum/Elasticity.hpp` | Hooke's law for a continuum; the bridge to Mechanics/Spring.hpp's spring constant |
+| `Physics/Continuum/ElasticChain1D.hpp` | A 1D elastic bar-chain solved for static equilibrium via a direct linear solve |
 | `Physics/Gravity/Newtonian.hpp` | Pairwise gravity, direct-sum N-body, potential energy, J2 oblateness, and `NewtonianJerkField` for `IndividualTimestepScheduler` |
 | `Physics/Gravity/PostNewtonian.hpp` | The 1PN two-body correction (perihelion precession), `RelativisticNBodySystem`'s per-body-primary N-body extension of it, and their jerk counterparts |
 | `Physics/Gravity/BarnesHut.hpp` | O(N log N) approximate N-body gravity |
 | `Physics/Gravity/Kepler.hpp` | Closed-form two-body orbits: classical elements to state vectors, Kepler's equation, mean motion and period |
+| `Physics/Gravity/SphericalHarmonics.hpp` | General geopotential gravity field: J2's generalization to arbitrary degree and order |
 | `Physics/Spacetime/Metric.hpp` | The `SpacetimeMetric` concept, Christoffel symbols, causal character |
 | `Physics/Spacetime/Minkowski.hpp` | Flat spacetime |
 | `Physics/Spacetime/Schwarzschild.hpp` | Non-rotating mass |
@@ -50,13 +58,27 @@ far.
 | `Physics/Optics/RefractiveMedium.hpp` | A graded-index medium, exposed as a metric: refraction is a null geodesic too |
 | `Physics/Optics/RayleighScattering.hpp` | Scattering cross-section and optical depth, general for any gas |
 | `Physics/Optics/Illumination.hpp` | Extended-source visibility through occlusion, refraction and scattering |
+| `Physics/Optics/RadiationPressure.hpp` | The force of light's own momentum: inverse-square irradiance, absorber/reflector pressure |
+| `Physics/Optics/Diffraction.hpp` | Fraunhofer diffraction (via FFT, any aperture) and two-slit interference |
+| `Physics/Optics/Aberration.hpp` | Relativistic aberration of a light ray's direction between two frames |
 | `Physics/Electromagnetism/Field.hpp` | Point-charge E and B fields, quasi-static |
 | `Physics/Electromagnetism/Lorentz.hpp` | Force on a charged body |
 | `Physics/Electromagnetism/Maxwell.hpp` | 1D FDTD: a field that actually propagates |
+| `Physics/Electromagnetism/Maxwell3D.hpp` | The full 3D Yee grid: six field components, two curl terms per update |
+| `Physics/Acoustics/Acoustic.hpp` | 1D FDTD linear acoustic wave equation: structurally identical to Maxwell's own |
+| `Physics/Acoustics/Acoustic3D.hpp` | 3D staggered (MAC) grid linear acoustics |
 | `Physics/Fluids/SPH.hpp` | Smoothed Particle Hydrodynamics, Lagrangian, no grid |
 | `Physics/Fluids/Eulerian.hpp` | 1D compressible flow on a `Math/Grid.hpp` mesh |
+| `Physics/Fluids/Eulerian3D.hpp` | 3D compressible flow via dimensional (Godunov) splitting |
 | `Physics/Thermodynamics/Thermodynamics.hpp` | Ideal gas law, adiabatic relation, black-body radiation |
+| `Physics/Thermodynamics/StatisticalMechanics.hpp` | Maxwell-Boltzmann speed distribution: density, CDF, moments, characteristic speeds |
+| `Physics/Thermodynamics/RadiativeTransfer.hpp` | Radiative exchange between two finite surfaces; the coaxial-disk view factor |
+| `Physics/QuantumMechanics/Schrodinger.hpp` | Time-independent Schrödinger equation as a symmetric eigenvalue problem |
+| `Physics/QuantumMechanics/Schrodinger3D.hpp` | The same, on the 3D 7-point Laplacian stencil |
+| `Physics/QuantumMechanics/WavePacket.hpp` | Time-dependent evolution via split-step Fourier |
+| `Physics/QuantumMechanics/WavePacket3D.hpp` | The same, via `Math/FFT.hpp`'s `fft3D`/`ifft3D` |
 | `Physics/Thermodynamics/HeatEquation.hpp` | 1D heat diffusion on a `Math/Grid.hpp` mesh |
+| `Physics/Thermodynamics/HeatEquation3D.hpp` | 3D heat diffusion on a `Math/Grid3D.hpp` mesh |
 
 ## Body stores momentum, not velocity
 
@@ -99,6 +121,115 @@ stepper.step(field, 0.0, state, stepSize, next);
 
 ysq::applyState(bodies, next.position, next.velocity);
 ```
+
+## General-purpose mechanics: forces any scenario can reach for
+
+Gravity is a ladder of approximations to one interaction; the rest of
+`Mechanics` is the opposite shape, a growing set of independent, general
+force laws with nothing to do with each other beyond all taking a `Body`
+(or a pair of them) and returning a `Force3`. None of them assume anything
+about what scenario is using them.
+
+`Spring.hpp` is Hooke's law, `F = -k(|r| - restLength) rHat`, with an
+optional linear damping term along the spring's own axis,
+`-c(v . rHat) rHat`. Two overloads: one anchored to a fixed point (a point
+in the inertial frame, not itself simulated, so it contributes no velocity
+of its own to the damping term), and one between two bodies, where the
+relative velocity of both feeds the damping term and Newton's third law
+means the second body's force is exactly the negation of the first's,
+`springForce(a, b, ...) == -springForce(b, a, ...)`.
+
+`Drag.hpp` is two regimes of one phenomenon, resistance to motion through a
+medium, that do not share a formula. `linearDragForce` (Stokes drag,
+`F = -b v_rel`) is correct at low Reynolds number: a small or slow object in
+a viscous medium, where drag scales with speed. `quadraticDragForce`
+(`F = -(1/2) rho Cd A |v_rel| v_rel`) is correct at high Reynolds number:
+most solid objects moving through air or water at everyday speed, where
+drag scales with speed *squared*. Both take an optional medium velocity
+(a wind, a current), defaulting to a stationary medium, so what actually
+enters either formula is always the body's velocity relative to whatever
+it is moving through, not its velocity in the inertial frame.
+
+`Collision.hpp` splits into the same two concerns any collision system
+does: detection (`detectCollision`, sphere-sphere and sphere-box, each
+returning a `Contact` -- where, along which axis, how deep) and response
+(`resolveCollision`, the standard point-mass impulse formula,
+`j = -(1 + e) v_rel . n / (1/m_a + 1/m_b)`, applied along the contact
+normal). `e` (`restitution`) of 0 is perfectly inelastic, both bodies end
+up moving at the same velocity along the normal; 1 is perfectly elastic,
+kinetic energy along the normal is conserved exactly, which
+`physics_mechanics_collision.cpp` checks directly (along with total
+momentum, always conserved regardless of `e`) rather than trusting the
+formula's derivation alone. Resolution is a no-op whenever the two shapes
+are already separating along the normal, so resolving the same contact
+twice -- or a contact left over from a previous step that has since
+resolved itself -- does not pull them back together. Neither detection nor
+resolution moves anything to fix the overlap itself; `Contact::penetrationDepth`
+is there for whichever positional-correction scheme a caller's own
+integrator prefers.
+
+`Friction.hpp` is Coulomb friction, split into the same two regimes real
+friction has and taking the same `contactNormal` convention as
+`Contact::normal`. `kineticFrictionForce` opposes whichever direction a
+body is actually sliding relative to a surface (stationary by default),
+`F = -mu_k N tHat`, projected onto the plane perpendicular to the normal so
+it never fights the collision response along the normal itself.
+`staticFrictionForce` is the complementary regime, holding a body in place
+against a driving force (gravity along an incline, an applied push) as
+long as that force's tangential component stays within the Coulomb limit
+`mu_s N` -- it returns exactly the negation of that component below the
+limit (equilibrium) and the capped value above it (the point past which
+the body actually starts to slide, where `kineticFrictionForce` becomes
+the correct law instead). Neither function knows where its normal-force
+magnitude comes from; a collision impulse, a resting contact, and `m g
+cos(theta)` on an incline are all equally valid callers.
+
+`Constraints.hpp` keeps two bodies (or a body and a fixed anchor) at a
+fixed distance, or pins a body to a fixed point exactly: a pendulum's rod,
+a chain's links, a rope's fixed end. Each is a sequential-impulse solve --
+one instantaneous impulse per call that drives the constrained quantity
+toward being satisfied at the velocity level, plus a Baumgarte
+stabilization term (`baumgarteFactor * error / dt`) that also corrects
+whatever positional drift has already accumulated. Calling one of these
+once per constraint per timestep is one Gauss-Seidel sweep; a chain of
+several links converges toward simultaneous satisfaction over a handful of
+sweeps, the same trade real-time constraint solvers make generally, and
+the reason this is sequential impulses rather than an exact simultaneous
+solve through `Math/LinearSolve.hpp`. `solvePointConstraint` is the vector
+generalization of `solveDistanceConstraint` at zero target distance,
+constraining all three axes at once rather than only the radial one, since
+"zero distance" alone does not pin a direction.
+`physics_mechanics_constraints.cpp`'s `PendulumStaysNearItsRodLengthOverManySteps`
+integrates a pendulum under gravity for 2000 steps and checks the rod
+length stays within 2.5% of target throughout, which is what the
+stabilization term is actually for: without it, this kind of small
+per-step error compounds into visible drift over exactly this many steps.
+
+## Continuum mechanics: Spring.hpp generalized
+
+`Spring.hpp`'s Hooke's law concentrates all of a connection's compliance
+at one point; `Continuum/Elasticity.hpp` is the same law for a
+*distributed* elastic medium, one that stretches proportionally to load
+along its own length rather than at a single spring. `hookeStress`
+(`stress = E strain`) and `axialExtension` (the same law solved for how
+far a rod of given length, cross-section and Young's modulus stretches
+under a load) are the closed forms; `equivalentSpringConstant`
+(`k = E A / L0`, the standard finite-element "bar element" stiffness) is
+the bridge back to `Spring.hpp`'s own `SpringConstant` -- the reason that
+type lives where it does, since a continuum discretized into segments is
+exactly a chain of springs of this stiffness.
+
+`Continuum/ElasticChain1D` is that discretization carried through: a 1D
+chain of elastic bar elements, solved for static equilibrium displacement
+under a load via `Math/LinearSolve.hpp`'s direct `solve` rather than
+`Constraints.hpp`'s sequential impulses. The difference in approach is
+deliberate, not incidental -- a static problem has no time-stepping to
+iterate over, so one exact simultaneous linear solve is both the natural
+and the cheaper choice, where a dynamic constraint chain would have to
+reassemble and re-solve its own system every single timestep instead. See
+[The elastic chain](#the-elastic-chain) below for the tridiagonal
+assembly and the two closed-form checks that validate it independently of
+the solver's own internals.
 
 ## The gravity ladder
 
@@ -236,6 +367,20 @@ directly, since a Minkowski four-velocity and this module's four-velocity
 convention are the same object once Kinematics's `x0 = ct` and this
 module's agree, which they do by construction.
 
+**Aberration is the direction counterpart to Doppler shift.** The same
+relative motion that changes a photon's frequency changes its apparent
+direction too; `Aberration.hpp`'s `aberratedDirection` gets there by
+reusing `relativisticVelocityAdd` again, this time applied to a velocity
+of magnitude `c` rather than to a massive body's velocity, since a
+photon's direction transforming between frames is exactly relativistic
+velocity addition applied to *its own* velocity. `aberratedCosine` is the
+1D textbook special case for a photon and boost that already share an
+axis. Both track the photon's own direction of travel, not the apparent
+direction to its source (the negation of the travel direction): the
+relativistic beaming that concentrates an isotropic field's apparent
+sources toward a fast frame's forward direction is this same shift, seen
+through that negation.
+
 **Refraction is the same computation once more, against a different
 metric.** `RefractiveMedium.hpp` exposes a static, spherically symmetric
 graded-index medium (n(r)) as a `SpacetimeMetric`, not because it curves
@@ -268,6 +413,33 @@ shadow from its planet, both feeding `Renderer::Material::lightMultiplier`
 (a single draw) or `Mesh::setInstanceLightMultipliers` (an instanced one) --
 see `src/Renderer/README.md`'s own section on both.
 
+`RadiationPressure.hpp` is the piece that turns light's own presence into
+an actual force, rather than only a color and a geometric fact about what
+is lit: `irradianceFromPointSource` is the inverse-square law a source's
+luminosity falls off by, and `radiationPressureForce` is momentum flux
+(irradiance over `c`) times a surface's area and a reflectivity
+coefficient `Cr` (1 for a perfect absorber, up to 2 for a perfect
+reflector, since reversing a photon's momentum transfers it twice). A
+"cannonball" overload composes both for the common astrodynamics case, a
+spherical body facing a point source. Nothing here decides visibility or
+color -- a caller combines this with `Illumination.hpp`'s own occlusion
+and scattering results for a source that is only partially visible or
+passing through a medium.
+
+`Diffraction.hpp` is the one place in `Optics` that is genuinely wave
+optics rather than ray optics: everything above (propagation, lensing,
+frequency shift, refraction, scattering) is a null geodesic looked at some
+way, but a diffraction pattern is not a ray's path at all, it is what
+happens because light is a wave. `fraunhoferDiffraction` computes the
+far-field pattern of an arbitrary 1D aperture as the (squared magnitude of
+the) Fourier transform of its own transmission function, via
+`Math/FFT.hpp` -- general for whatever aperture a sampled array describes,
+not a formula specific to a single slit. `twoSlitIntensity` is the
+classical closed form for the specific two-slit case instead, the
+single-slit diffraction envelope times the two-beam interference factor,
+useful directly without needing to sample an aperture array for the most
+common textbook case.
+
 ## Electromagnetism is a ladder too
 
 `Field.hpp` is the first rung: `electricField` / `magneticField` superpose
@@ -285,8 +457,36 @@ for the vacuum Maxwell equations, restricted to one spatial dimension (per
 rather than one assumed instantaneous. At the scheme's "magic" time step,
 `spacing / c`, it has no numerical dispersion at all and exactly conserves
 the field's energy; see [Maxwell FDTD](#maxwell-fdtd) below for the
-staggering, the conservation argument, and what a full 3D solver would still
-need to add.
+staggering and the conservation argument.
+
+`Maxwell3D.hpp`'s `MaxwellField3D` is the full 3D Yee grid this rung's own
+doc comment used to name as future work: the same leapfrog idea, six field
+components instead of two, two curl terms per update instead of one. See
+[3D Maxwell: the full Yee grid](#3d-maxwell-the-full-yee-grid) below.
+
+## Acoustics: the same wave equation once more
+
+`Acoustics/Acoustic.hpp`'s `AcousticField1D` is `Maxwell.hpp`'s own
+leapfrog FDTD scheme under a different physical interpretation, not a
+second derivation: the linearized 1D acoustic wave equations,
+`dp/dt = -rho0 c^2 du/dx`, `du/dt = -(1/rho0) dp/dx` (pressure `p`,
+particle velocity `u`, medium density `rho0`, sound speed `c`), are
+`Maxwell.hpp`'s `dEy/dt = -c^2 dBz/dx`, `dBz/dt = -dEy/dx` with
+`p <-> Ey`, `u <-> Bz`, `rho0 c^2 <-> c^2`, `1/rho0 <-> 1`. Every property
+that makes `MaxwellField1D` correct -- the Yee/leapfrog staggering, the
+CFL limit, the exact zero-dispersion "magic" time step, the
+symplectic-style energy conservation -- is a property of that discretized
+linear wave operator itself, not of which fields are involved, so it
+carries over unchanged; see [Acoustic wave equation](#acoustic-wave-equation)
+below. Unlike vacuum light speed, sound speed and medium density are not
+universal constants, so `AcousticField1D` takes both as constructor
+parameters rather than reaching for one from `Units/Constants.hpp`.
+
+`Acoustic3D.hpp`'s `AcousticField3D` generalizes the same way `Maxwell3D.hpp`
+does, on a staggered (marker-and-cell) grid instead of a full Yee cell,
+since divergence and gradient (what linear acoustics needs) have no
+cross-axis coupling the way curl (what Maxwell needs) does; see
+[3D acoustics](#3d-acoustics) below.
 
 ## Fluids: Lagrangian and Eulerian, another ladder
 
@@ -296,7 +496,10 @@ mesh) solve the same physics from opposite ends: SPH suits smooth,
 low-Mach flows and has no artificial viscosity to handle a shock; the
 Eulerian solver, a first-order finite-volume scheme with the Rusanov flux,
 is built for exactly that regime. Neither replaces the other, the same
-relationship as every other ladder in this module.
+relationship as every other ladder in this module. `Eulerian3D.hpp`
+extends the Eulerian rung to 3D by dimensional splitting; see
+[3D Eulerian flow: dimensional splitting](#3d-eulerian-flow-dimensional-splitting)
+below.
 
 ```cpp
 std::vector<ysq::SPHParticle> particles = /* ... */;
@@ -338,6 +541,26 @@ heat.setTemperature(cell, value);
 heat.step(heat.stableTimeStep(0.9));
 ```
 
+`StatisticalMechanics.hpp` sits underneath both: the ideal gas law's
+pressure and the heat equation's diffusion are macroscopic, bulk
+descriptions of what is really a distribution of individual molecular
+speeds. The Maxwell-Boltzmann speed distribution is that underlying
+distribution, general for any ideal gas: its probability density, its
+cumulative distribution (closed form, via the error function), and its
+characteristic speeds (most probable, mean, root-mean-square) via a
+general `<v^n>` moment formula through the gamma function, of which those
+three closed forms are special cases.
+
+`RadiativeTransfer.hpp` generalizes the Stefan-Boltzmann law the other
+direction: `blackBodyLuminosity` is radiation into free space, a view
+factor of 1 and a sink at absolute zero; `netRadiativeExchange` is the same
+law between two finite surfaces, each at its own temperature, only the
+fraction `viewFactor` of one surface's radiation ever reaching the other.
+`coaxialDiskViewFactor` supplies that fraction in closed form for one
+general geometric configuration (two coaxial, parallel disks) with an
+exact analytic view factor, rather than needing a numerical
+double-surface integral every other configuration does.
+
 The heat equation rung is validated against its fundamental solution, a
 Gaussian's variance growing linearly in time, the same kind of exact
 closed-form check `MaxwellField1D`'s propagation speed and
@@ -346,6 +569,58 @@ closed-form check `MaxwellField1D`'s propagation speed and
 [Closed-form thermodynamics](#closed-form-thermodynamics) below for the
 derivation and why the Stefan-Boltzmann constant above is computed from the
 SI-defining constants rather than typed as its own measured value.
+`HeatEquation3D.hpp`'s `HeatEquation3D` is the same FTCS scheme on
+`Math/Grid3D.hpp`'s 7-point Laplacian; see
+[3D heat diffusion](#3d-heat-diffusion) below.
+
+## Quantum mechanics: the last theory
+
+Every other theory in this module describes something classical; quantum
+mechanics is the one place the engine's state is a wavefunction rather
+than a position and momentum. Two pieces, matching the two forms the
+Schrödinger equation actually comes in.
+
+`QuantumMechanics/Schrodinger.hpp` is the time-*independent* equation as
+what it actually is once discretized: a real symmetric eigenvalue problem,
+solved directly by `Math/Eigen.hpp`'s `jacobiEigenSymmetric` -- the exact
+tool that module was built for, applied here to a Hamiltonian instead of
+an inertia tensor or a covariance matrix. `solveTimeIndependentSchrodinger`
+returns every bound state a confining potential has, ascending by energy.
+
+`QuantumMechanics/WavePacket.hpp`'s `TimeDependentWavefunction1D` is the
+time-*dependent* equation, evolved by the split-step Fourier method: half
+a potential-phase step, a full kinetic-phase step done in momentum space
+via `Math/FFT.hpp` (diagonal there, where it would be an expensive
+convolution in position space), then the other half potential-phase step.
+**This is the reason `Math/FFT.hpp` exists in this engine at all**, ahead
+of whichever other consumer asked for it first.
+
+`Schrodinger3D.hpp` and `WavePacket3D.hpp` are the same two pieces in
+three spatial dimensions: the eigenvalue problem on the 3D 7-point
+Laplacian stencil (still `jacobiEigenSymmetric`, only a bigger matrix),
+and split-step evolution via `Math/FFT.hpp`'s `fft3D`/`ifft3D` (the
+kinetic operator stays diagonal in momentum space in any dimension, since
+`kx^2+ky^2+kz^2` separates additively). See
+[3D quantum mechanics](#3d-quantum-mechanics) below, including why the
+eigenvalue solver stays practical only for modest grids.
+
+```cpp
+const std::vector<double> potential = /* V(x_i), one per grid point */;
+const ysq::QuantumEigenstates states =
+    ysq::solveTimeIndependentSchrodinger(potential, spacing, mass, hbar);
+
+ysq::TimeDependentWavefunction1D psi(initialWavefunction, potential, spacing, mass, hbar);
+psi.step(dt);
+const double probability = psi.totalProbability();  // stays 1: unitarity
+```
+
+Neither piece assumes a unit system: `hbar` and `mass` are always
+explicit parameters, since real SI quantum mechanics (`hbar ~ 1e-34`) and
+natural/atomic units (`hbar = 1`) are equally valid choices a caller might
+make. See [The discretized Schrödinger equation](#the-discretized-schrödinger-equation)
+and [Split-step Fourier evolution](#split-step-fourier-evolution) below for
+the discretization, the validation against textbook closed forms, and a
+cross-check linking the two files together.
 
 ## Derivations
 
@@ -448,6 +723,44 @@ precision over many orbits; the flipped sign drifted by parts in 10^4 and
 did not improve with a finer step, the signature of a formula error rather
 than truncation error).
 
+### General spherical harmonics
+
+J2 is one term (degree 2, order 0, "zonal": latitude-dependent but not
+longitude-dependent) of a general expansion that has no reason to stop
+there. `Gravity/SphericalHarmonics.hpp` is that general expansion, the
+standard geodesy geopotential:
+
+```
+U(r) = (GM/r) [1 + sum_n (Re/r)^n sum_m P_n^m(sin(phi))
+                     (C_nm cos(m lambda) + S_nm sin(m lambda))]
+```
+
+`phi`/`lambda` the query point's own latitude/longitude in the source's
+body frame, `P_n^m` `Math/SpecialFunctions.hpp`'s associated Legendre
+polynomial, and `C_nm`/`S_nm` the body's own shape coefficients ("tesseral"
+once `m > 0`, since those terms vary with longitude too, not just
+latitude, which a purely zonal `J2` term cannot). `C_2,0 = -J2`, every
+other coefficient zero, reproduces `Newtonian.hpp`'s own J2 acceleration
+exactly; `physics_gravity_sphericalharmonics.cpp`'s
+`J2OnlyMatchesNewtonianHppsClosedFormJ2Term` checks this directly, at
+several positions, against the already independently-validated closed
+form, which is what actually pins down this general expansion's sign
+convention rather than trusting the derivation alone.
+
+`U` is defined positive and increasing toward the source (the geodesy
+convention, unlike a potential *energy*), so the acceleration is `+grad(U)`
+with no extra sign: `U = GM/r` alone already has `grad(U) = -(GM/r^2) rHat`,
+the correct attractive pull, and every harmonic term adds to that same `U`.
+
+**The gradient is numerical, not analytic.** The associated Legendre
+functions' own derivatives need a separate recurrence relation with
+singularities at the poles to get right; a central-difference gradient
+(`Math/Calculus.hpp`'s `numericalGradient`) of the perfectly ordinary,
+pole-free Cartesian potential above sidesteps needing it, at the cost of
+finite-difference precision (about eight digits) rather than machine
+precision. Worth revisiting with an exact analytic gradient only once a
+real consumer needs more than that.
+
 ### Gravity-gradient torque and rigid-body rotation
 
 The rotational consequence of the identical asymmetry J2 is: an external
@@ -500,6 +813,60 @@ the closed form directly, including that it vanishes for a spherically
 symmetric body (no asymmetry, no torque) and on an oblate body's own
 equatorial limb (a perturber exactly in the equatorial plane pulls straight
 along a principal axis, no torque either).
+
+### Diagonalizing an arbitrary inertia tensor
+
+Everything above assumes `principalMomentsOfInertia` is already diagonal in
+the body's own frame -- true by construction for a symmetric body whose
+frame was chosen to match its symmetry, but not for an arbitrarily shaped
+one (an irregular asteroid, a spacecraft with off-axis instruments) whose
+inertia tensor, computed directly from its mass distribution, has nonzero
+off-diagonal products of inertia in whatever frame it was computed in.
+
+`diagonalizeInertia` closes that gap by eigendecomposing the tensor
+(`Math/Eigen.hpp`'s `jacobiEigenSymmetric`): the eigenvalues are the
+principal moments, and the eigenvectors, read off as a rotation matrix's
+columns, are the principal axes expressed in the tensor's own original
+frame. An eigenvector is only defined up to sign, so nothing guarantees the
+three Jacobi happens to return form a proper rotation rather than a
+reflection (determinant -1); the fix is the standard one, negate the third
+axis whenever the determinant comes out negative, which flips a reflection
+into a rotation without disturbing the other two (mutually orthogonal)
+axes it did not touch. `physics_rigidbody.cpp` checks the defining property
+directly, `R diag(moments) Rᵀ` reproduces the original tensor, rather than
+only checking the eigensolver's own guarantees, since diagonalization and
+correct eigendecomposition are related but distinct claims.
+
+### The elastic chain
+
+`Continuum/ElasticChain1D` assembles the standard finite-element "bar
+element" stiffness matrix for a chain of `n` nodes (`n - 1` segments,
+node 0 fixed) and solves it directly with `Math/LinearSolve.hpp`.
+
+**Assembly.** Each segment `i` (connecting nodes `i` and `i + 1`, stiffness
+`k_i`) contributes the elementary 2x2 stiffness `[[k, -k], [-k, k]]` to the
+global system: `K[i][i] += k`, `K[i+1][i+1] += k`, `K[i][i+1] -= k`,
+`K[i+1][i] -= k`. Fixing node 0 at zero displacement removes its row and
+column from the system entirely, rather than needing a separate
+correction term: a segment's coupling term to node 0 would otherwise move
+`-k u_0` to the load vector, and that term is exactly zero since `u_0` is
+zero by construction. The result is a reduced, `(n - 1) x (n - 1)`
+tridiagonal system for nodes `1..n-1`, solved with
+`Math/LinearSolve.hpp`'s `solve` (LU with partial pivoting).
+
+**Two closed-form checks, independent of the assembly's own correctness
+claims.** A single segment must reduce to plain Hooke's law inverted,
+`displacement = load / k`, checked directly. A uniform chain of `n`
+identical segments, each of stiffness `E A n / L` (so the whole chain
+represents one continuous rod of length `L`, cross-section `A`, modulus
+`E`), loaded only at the free end with force `F`: springs in series add
+reciprocal stiffness, so `1 / k_effective = n / (E A n / L) = L / (E A)`,
+meaning the total end displacement must equal the continuum formula
+`F L / (E A)` *exactly*, independent of how finely the rod is
+discretized. `physics_continuum_elasticchain.cpp` checks this at four
+different segment counts (1, 2, 5, 20) against the same closed form,
+which is what actually exercises the discretization-independence claim
+rather than merely checking one arbitrary mesh size.
 
 ### Barnes-Hut
 
@@ -1271,9 +1638,13 @@ photon.
 Electromagnetism is a ladder, the same shape as Gravity's: `Field.hpp` is
 its first rung, analytic point-charge superposition, quasi-static. Each
 source's *present* position and velocity are what matter, not where it was
-one light-travel-time ago; a field actually sourced by Maxwell's equations,
-with that retardation built in rather than assumed away, is the second
-rung and is not implemented yet.
+one light-travel-time ago. `Maxwell.hpp`/`Maxwell3D.hpp` (below) are the
+second rung, a field genuinely evolved from Maxwell's equations rather
+than assumed instantaneous -- but as an initial-value wave solve, not a
+source term: neither takes a moving charge's trajectory and produces the
+field it retards into. A field sourced that way (full Liénard-Wiechert
+retarded potentials, replacing `Field.hpp`'s quasi-static approximation
+with the exact relativistic one) is not implemented.
 
 ```
 E(at) = k_e sum_i  q_i (at - r_i) / |at - r_i|^3
@@ -1317,9 +1688,10 @@ dBz/dt = -dEy/dx
 ```
 
 **Scope: one spatial dimension**, the same restriction `Math/Grid.hpp`
-states for itself. A full 3D Yee-grid solver, which is what a genuine
-radiating source needs, is future work; what this validates is what 1D
-vacuum electrodynamics actually predicts, not a toy simplification of it.
+states for itself; what this validates is what 1D vacuum electrodynamics
+actually predicts, not a toy simplification of it. The full 3D Yee-grid
+solver, what a genuine radiating source needs, is
+[3D Maxwell: the full Yee grid](#3d-maxwell-the-full-yee-grid) below.
 
 **The Yee staggering.** `Ey` lives at the grid's integer points, `Bz` at the
 half-integer points between them, and time is staggered the same way: one
@@ -1345,6 +1717,127 @@ the field's total energy holds over hundreds of steps.
 propagation and conservation in a closed system; an absorbing boundary
 (so a wave leaves the domain rather than wrapping around) is not
 implemented.
+
+### 3D Maxwell: the full Yee grid
+
+`Maxwell3D.hpp`'s `MaxwellField3D` generalizes the leapfrog scheme above to
+the full vacuum Maxwell curl equations,
+
+```
+dEx/dt = c^2 (dBz/dy - dBy/dz)     dBx/dt = -(dEz/dy - dEy/dz)
+dEy/dt = c^2 (dBx/dz - dBz/dx)     dBy/dt = -(dEx/dz - dEz/dx)
+dEz/dt = c^2 (dBy/dx - dBx/dy)     dBz/dt = -(dEy/dx - dEx/dy)
+```
+
+on the standard Yee cell: each of the six field components keeps its own
+staggered position (`Ex` at `(i+1/2,j,k)`, `Ey` at `(i,j+1/2,k)`, `Ez` at
+`(i,j,k+1/2)`; `Bx` at `(i,j+1/2,k+1/2)`, `By` at `(i+1/2,j,k+1/2)`, `Bz`
+at `(i+1/2,j+1/2,k)`), chosen precisely so every curl term any component
+needs is a plain adjacent-index difference of another component already
+staggered to exactly the right position -- no interpolation, the same
+"only ever a 2-point difference" property the 1D scheme has, just with two
+curl terms per update instead of one. `B` updates read a forward
+difference of `E` (matching the 1D scheme's `Bz -= dt/dx (Ey[i+1] -
+Ey[i])`); `E` updates then read a backward difference of the
+just-updated `B`.
+
+**No exact "magic timestep" in 3D.** The 1D scheme's zero-dispersion step
+is a genuine coincidence of that specific 1D discretization exactly
+matching the continuum wave equation; no analogous step exists on a
+Cartesian Yee grid in 3D, where numerical dispersion becomes
+direction-dependent (a textbook FDTD fact, not a gap to close).
+`MaxwellField3D` exposes `stableTimeStep(courantFactor)`, the CFL limit
+`h / (c sqrt(3))`, only.
+
+**Validation.** Beyond
+[the dimensional-reduction cross-check](#the-dimensional-reduction-cross-check)
+below (a field uniform in `y` and `z`, only `Ey`/`Bz` populated, must
+reduce exactly to `MaxwellField1D`) two genuinely 3D checks:
+energy staying bounded (not exactly conserved, per the point above) over
+thousands of steps for a transverse plane wave travelling along the grid
+diagonal; and that same plane wave's actual simulated angular frequency
+matching the continuum `omega = c|k|` to the tolerance a second-order
+scheme's `O((k h)^2)` dispersion error predicts. A single Fourier mode
+is used for both, rather than a localized pulse, since it is an exact
+eigenmode of the periodic finite-difference curl operator regardless of
+any numerical dispersion in its time evolution, where a pulse (a
+superposition of many modes, each dispersing at a slightly different
+rate) is not.
+
+### The dimensional-reduction cross-check
+
+Every 3D solver below (`MaxwellField3D`, `AcousticField3D`, `HeatEquation3D`,
+`EulerianFluid3D`, and `TimeDependentWavefunction3D`) shares one validation
+technique in addition to whatever closed form or conservation law is
+specific to its own physics: a 3D field built uniform (translationally
+invariant) along two of its three axes, with periodic boundaries, must
+evolve *identically*, to floating-point precision, to the corresponding
+1D solver run on the remaining axis. This is not an approximation to check
+against a loose tolerance -- it is an exact identity for every scheme
+here, since each one's spatial operator (a curl, a divergence, a
+Laplacian, a flux difference, a Fourier mode) reduces its "flat" axes'
+contributions to differences between identical neighboring values, which
+are exactly zero in floating point, not merely small. Each 3D test file
+builds its field with a small cell count (typically 4) on the two flat
+axes and checks every 3D cell against the 1D solver's own state after the
+same number of identical steps, which is what actually ties a brand new
+3D implementation back to its already-validated 1D sibling rather than
+only to itself.
+
+Where a genuinely 3D case is also needed (a diagonal plane wave, an
+off-center blast, a product wavefunction along all three axes, all of
+which no flat-axis reduction can exercise), each solver's own subsection
+below covers it separately.
+
+### Acoustic wave equation
+
+`Physics/Acoustics/Acoustic.hpp`'s `AcousticField1D` is Maxwell FDTD's own
+scheme above, reused rather than re-derived. Linearizing the continuity
+equation, `d(rho')/dt + rho0 du/dx = 0`; Euler's equation,
+`rho0 du/dt = -d(p')/dx`; and the adiabatic relation between pressure and
+density perturbations, `p' = c^2 rho'`, gives:
+
+```
+dp/dt = -rho0 c^2 du/dx
+du/dt = -(1/rho0) dp/dx
+```
+
+for pressure perturbation `p`, particle velocity `u`, medium density
+`rho0`, and sound speed `c`. This is `dEy/dt = -c^2 dBz/dx`,
+`dBz/dt = -dEy/dx` with `p <-> Ey`, `u <-> Bz`, `rho0 c^2 <-> c^2`,
+`1/rho0 <-> 1`: the identical linear wave operator, so the Yee/leapfrog
+staggering, the CFL stability limit, the exact "magic" time step
+`spacing / c` (`c` the *sound* speed here, a per-medium constructor
+parameter rather than a universal constant), and the symplectic-style
+energy conservation all carry over unchanged -- properties of the
+discretized operator, not of which physical fields it is stepping.
+
+**Energy density** is kinetic plus compressional potential,
+`(1/2) rho0 u^2 + (1/2) p^2 / (rho0 c^2)`, the direct analog of Maxwell's
+electric-plus-magnetic energy density (`(1/2) epsilon0 Ey^2 + Bz^2 /
+(2 mu0)`) under the same field correspondence.
+
+`acoustics_acoustic.cpp` mirrors `em_maxwell.cpp`'s validation exactly: a
+right-moving Gaussian pressure pulse (`u = p / (rho0 c)`, the plane-wave
+impedance relation, the acoustic analog of `Bz = Ey / c`) advances by
+precisely one grid cell per step at the magic time step, and the field's
+total energy holds over hundreds of steps.
+
+### 3D acoustics
+
+`Acoustic3D.hpp`'s `AcousticField3D` generalizes the same way
+`MaxwellField3D` does, but on a staggered (marker-and-cell) grid rather
+than a full Yee cell: `p` at cell centers, `ux`/`uy`/`uz` each at their own
+face centers, updated by the direct 3D generalization of
+`dp/dt = -rho0 c^2 div(u)`, `du/dt = -(1/rho0) grad(p)`. Simpler than
+`MaxwellField3D` because divergence and gradient have no cross-axis
+coupling the way curl does -- each velocity component's update reads only
+pressure differences along its *own* axis, not the other two. Same "no
+exact magic timestep in 3D" point as `MaxwellField3D`, and the same
+validation shape: [the dimensional-reduction cross-check](#the-dimensional-reduction-cross-check)
+against `AcousticField1D`, energy bounded over many steps for a diagonal
+plane wave, and that wave's measured frequency matching `c|k|` to
+`O((k h)^2)`.
 
 ### SPH
 
@@ -1381,6 +1874,15 @@ against the known bulk value on a uniform lattice: SPH's kernel-sum density
 estimate is not exact even in the bulk of a perfect lattice, a few percent
 of scatter is the kernel's own discretization error at this `h / spacing`
 ratio, not a bug, and the test's tolerance reflects that.
+
+**Neighbor search** uses `Math/SpatialPartition/KdTree.hpp`'s `radiusQuery`
+at `2h` rather than a loop over every other particle: the kernel is exactly
+zero past that radius, so restricting the sum to it is not an approximation,
+only skipping pairs that would have contributed zero anyway. Both
+`computeDensityAndPressure` and `pressureAccelerations` build a fresh tree
+from the current positions each call, since a tree built once and reused
+across timesteps would silently miss neighbors that moved into range since
+it was built.
 
 **Scope.** No artificial viscosity, so this rung suits smooth, low
 Mach-number flows; the Eulerian rung below is built for shocks instead. No
@@ -1440,6 +1942,33 @@ genuine physical asymmetry of the Sod problem, not a bug, and it is why the
 three-quarter mark (in the shock's path) needs a shorter run than the
 quarter mark (in the rarefaction's) to stay undisturbed.
 
+### 3D Eulerian flow: dimensional splitting
+
+`Eulerian3D.hpp`'s `EulerianFluid3D` extends the scheme above to 3D by
+**dimensional (Godunov) splitting**: a full x-sweep, then a full y-sweep,
+then a full z-sweep, each `dt`, each being the identical 1D Rusanov update
+generalized to carry the two transverse momentum components through every
+flux passively (`flux = rho u v`, `rho u w`, no pressure term -- a
+1D-normal Riemann problem along one axis has nothing to say about the
+other two) while the Rusanov dissipation term still applies uniformly to
+all five conserved quantities. Splitting adds no accuracy and removes
+none: both the split-off 1D pieces and the original scheme are already
+first order, so this stays exactly the "robust, simple to verify, at the
+cost of smearing a shock" tradeoff the 1D scope note above already makes,
+just per-axis.
+
+**Validation.** [The dimensional-reduction cross-check](#the-dimensional-reduction-cross-check)
+against `EulerianFluid1D` (a Sod-tube-style discontinuity uniform in `y`
+and `z` -- the y- and z-sweeps are provably no-ops on uniform data, since
+a Rusanov flux between two identical states is exactly the physical flux
+with zero dissipation, and consecutive equal fluxes cancel exactly);
+exact conservation of mass, all three momentum components, and energy for
+a genuinely 3D case (an off-center high-pressure region inside a moving
+ambient medium, the nonzero background velocity making each momentum
+component's own conservation a real check rather than "stays near zero");
+no exact Riemann-structure check for the 3D case, since no simple closed
+form exists for a genuinely multi-dimensional shock.
+
 ### Closed-form thermodynamics
 
 Thermodynamics' first rung: relations with no space or time dependence, in
@@ -1472,6 +2001,87 @@ is, since it follows from `x` and the exact SI constants alone; it is the
 transcription of `x` itself that cannot be avoided, not an approximation
 of the physics.
 
+### Statistical mechanics
+
+The Maxwell-Boltzmann speed distribution, in
+`Physics/Thermodynamics/StatisticalMechanics.hpp`: the distribution of
+molecular speeds a gas in thermal equilibrium actually has, which the
+ideal gas law's pressure is a bulk average over.
+
+Every closed form here is expressed in units of the distribution's own
+scale parameter, `a = sqrt(k T / m)`, the speed at which the exponential
+factor `exp(-v^2 / (2a^2))` falls to `1/e`. The density,
+
+```
+f(v) = sqrt(2/pi) (v/a)^2 exp(-v^2 / (2a^2)) / a
+```
+
+is a chi distribution with three degrees of freedom (speed is the
+magnitude of a 3D normally-distributed velocity), which is why its
+cumulative distribution has the standard chi-3 closed form,
+`erf(v / (sqrt(2) a)) - sqrt(2/pi) (v/a) exp(-v^2 / (2a^2))`, via
+`Math/SpecialFunctions.hpp`'s `erf`.
+
+**The general moment formula**, via `Math/SpecialFunctions.hpp`'s `gamma`:
+
+```
+<v^n> = (2^(n/2 + 1) / sqrt(pi)) a^n Gamma((n + 3) / 2)
+```
+
+is what the three named characteristic speeds are special cases of: `n = 1`
+gives the mean speed `sqrt(8 k T / (pi m))`, `n = 2` gives the
+mean-square speed `3 k T / m` (so `sqrt` of it is the RMS speed, the
+speed whose kinetic energy `(1/2) m v_rms^2 = (3/2) k T` is the
+equipartition result for three translational degrees of freedom). The
+most probable speed, `sqrt(2) a`, is not a moment at all, the density's
+own peak rather than an average, and is derived directly rather than
+through this formula. `physics_thermodynamics_statisticalmechanics.cpp`
+checks the general moment formula against direct numerical integration of
+`v^n f(v)` for `n = 1, 2` (not merely against itself for the closed forms
+that reduce to it), and the standard textbook ratios `v_p : v_mean :
+v_rms = sqrt(2) : sqrt(8/pi) : sqrt(3)`, plus a real-world number:
+nitrogen at room temperature has an RMS speed of about 517 m/s.
+
+### Radiative transfer
+
+`Physics/Thermodynamics/RadiativeTransfer.hpp` generalizes
+`blackBodyLuminosity` from radiating into free space to exchanging with a
+second finite surface:
+
+```
+Q = sigma A1 F_12 (T1^4 - T2^4)
+```
+
+`F_12`, the view factor, is the fraction of surface 1's own radiation that
+reaches surface 2; `blackBodyLuminosity` is the special case `F_12 = 1`,
+`T2 = 0`, everything emitted escaping to a sink at absolute zero.
+
+**The coaxial-disk view factor** is one of the few surface-pair
+configurations with an exact closed form (Incropera et al.):
+
+```
+R_i = radius1 / distance,  R_j = radius2 / distance
+S = 1 + (1 + R_j^2) / R_i^2
+F_ij = (1/2) [S - sqrt(S^2 - 4 (R_j/R_i)^2)]
+```
+
+implemented instead as `2x / (S + sqrt(S^2 - 4x))` (`x = (R_j/R_i)^2`), the
+algebraically equivalent form reached by multiplying through by the
+textbook expression's own conjugate: the textbook form subtracts two
+nearly equal large numbers whenever the disks are far apart relative to
+their radii (`S` large), losing most of its own precision to cancellation
+exactly where the view factor is smallest and that precision matters
+most, which `physics_thermodynamics_radiativetransfer.cpp`'s
+`CoaxialDiskViewFactorVanishesAtLargeSeparation` is what actually caught --
+the textbook form failed that check at 1000 radii of separation, and the
+division form does not.
+
+Three geometric limits and one physical identity are checked directly:
+the view factor approaches 1 as two equal disks are brought together
+(nearly everything one emits reaches the other), vanishes at large
+separation, stays within `[0, 1]` generally, and satisfies the reciprocity
+relation `A1 F_12 = A2 F_21` regardless of which disk is named first.
+
 ### The heat equation
 
 Thermodynamics' second rung: `dT/dt = alpha d^2T/dx^2` in one spatial
@@ -1500,3 +2110,154 @@ depend on exactly where a Gaussian's tails have spread to being resolved
 by the grid. Periodic boundaries, the same choice `MaxwellField1D` and
 `EulerianFluid1D` make, so total heat, `sum T dx`, is exactly conserved,
 checked separately from the spreading-rate measurement.
+
+### 3D heat diffusion
+
+`HeatEquation3D.hpp`'s `HeatEquation3D` sums the same centred-difference
+idea over all three axes, the standard 7-point Laplacian:
+
+```
+T_ijk^(n+1) = T_ijk^n + alpha dt/h^2 (T_(i+1)jk + T_(i-1)jk + T_i(j+1)k
+               + T_i(j-1)k + T_ij(k+1) + T_ij(k-1) - 6 T_ijk)
+```
+
+stable for `alpha dt / h^2 <= 1/6` -- three times tighter than 1D's `1/2`,
+since the Laplacian now picks up two neighbor terms per axis across three
+axes instead of one. Still second order: this is a dimensional extension
+of the 1D scheme, not also an accuracy upgrade, so it does not reach for
+`Math/FiniteDifference.hpp`'s fourth-order stencils (built for
+`Physics/Spacetime`'s BSSN evolution, a different accuracy target).
+
+**Validated three ways**: total heat conservation (as in 1D); the 3D heat
+kernel, which separates exactly into a product of three 1D Gaussians
+(`T(x,y,z,t) = T0 prod_axis gaussian(axis, t)`, since the Laplacian is a
+sum of independent per-axis second derivatives), checked by marginalizing
+the 3D field onto one axis and measuring that axis's own variance growth
+rate against the identical 1D closed form; and
+[the dimensional-reduction cross-check](#the-dimensional-reduction-cross-check)
+against `HeatEquation1D`.
+
+### The discretized Schrödinger equation
+
+`Physics/QuantumMechanics/Schrodinger.hpp` discretizes
+`-hbar^2/(2m) d^2(psi)/dx^2 + V(x) psi = E psi` with the standard 3-point
+central-difference stencil for the second derivative, turning it into a
+real symmetric matrix eigenvalue problem:
+
+```
+H[i][i]   = hbar^2 / (m dx^2) + V(x_i)
+H[i][i-1] = H[i][i+1] = -hbar^2 / (2 m dx^2)
+```
+
+(Dirichlet boundary, `psi = 0` just outside the grid: the standard
+"particle confined to this domain" condition), solved directly by
+`Math/Eigen.hpp`'s `jacobiEigenSymmetric` -- the Hamiltonian discretizes to
+exactly the kind of matrix that solver exists for, no adaptation needed.
+Each returned eigenvector is normalized so `sum psi_i^2 dx = 1`.
+
+**Validated against two textbook closed forms**, not only against the
+eigensolver's own guarantees (which `physics_quantummechanics_schrodinger.cpp`'s
+`EigenstatesAreOrthonormal` checks separately): the infinite square well
+(`V = 0` inside, confined by the Dirichlet boundary itself acting as
+infinite walls), `E_n = n^2 pi^2 hbar^2 / (2 m L^2)`; and the quantum
+harmonic oscillator (`V(x) = (1/2) m omega^2 x^2`),
+`E_n = (n + 1/2) hbar omega`. Both are standard results with no free
+parameters to tune into agreement, so matching them is a genuine test of
+the discretization rather than a circular one.
+
+### Split-step Fourier evolution
+
+`Physics/QuantumMechanics/WavePacket.hpp`'s `TimeDependentWavefunction1D`
+evolves `i hbar d(psi)/dt = [-hbar^2/(2m) d^2/dx^2 + V(x)] psi` by the
+second-order Strang-split split-step Fourier method (Feit, Fleck &
+Steiger 1982):
+
+```
+psi <- exp(-i V dt / (2 hbar)) psi                          [position space]
+psi_k <- FFT(psi); psi_k <- exp(-i hbar k^2 dt / (2m)) psi_k; psi <- IFFT(psi_k)
+psi <- exp(-i V dt / (2 hbar)) psi                          [position space]
+```
+
+`k` follows the same spatial-frequency mapping
+`Optics/Diffraction.hpp`'s `fraunhoferDiffraction` already uses,
+`k = 2 pi j / (N dx)`, negative for `j > N/2`. Every operator applied is a
+pure phase, so **unitarity is structural, not merely approximate** --
+`sum |psi_i|^2 dx` cannot drift at any single step, which
+`physics_quantummechanics_wavepacket.cpp`'s
+`TotalProbabilityStaysNormalizedOverManySteps` confirms holds over
+hundreds of steps in practice, not only in principle.
+
+**Energy conservation is checked by a deliberately independent
+measurement.** `expectationEnergy()` computes `<H>` with the *same*
+3-point finite-difference Hamiltonian `Schrodinger.hpp` uses, not the
+FFT's spectral kinetic operator `step()` actually propagates with: two
+different discretizations of the same continuous operator, exact for each
+other's own eigenstates only in the continuum limit. A small,
+non-accumulating offset between what each discretization reports is the
+expected signature of that mismatch (and shrinks as the grid refines), not
+drift; `physics_quantummechanics_wavepacket.cpp`'s energy-conservation
+test tolerance is set to comfortably cover it while still catching genuine
+drift, which would keep growing over further steps rather than saturate.
+
+**The cross-check linking both files.** Initializing
+`TimeDependentWavefunction1D` with `solveTimeIndependentSchrodinger`'s own
+ground state (for the harmonic oscillator) and evolving it must leave the
+probability density unchanged: a stationary state only picks up an
+overall phase `exp(-i E t / hbar)`, invisible in `|psi|^2`. This only
+holds at all if the eigenvalue solver and the propagator agree on the same
+underlying physics -- `AnEigenstateStaysStationaryUnderEvolution`'s
+tolerance, like the energy check's, is set relative to the wavefunction's
+own peak density to absorb the same finite-difference-versus-spectral
+discretization mismatch discussed above, not to hide an error.
+
+### 3D quantum mechanics
+
+`Schrodinger3D.hpp` discretizes the 3D Laplacian the same way
+`HeatEquation3D.hpp` does, the standard 7-point stencil, turning
+`-hbar^2/(2m)(d^2/dx^2+d^2/dy^2+d^2/dz^2) psi + V psi = E psi` into a
+real symmetric eigenvalue problem exactly like the 1D one, only bigger
+(`N = nx ny nz` instead of one point per grid cell), solved by the same
+`jacobiEigenSymmetric`.
+
+**Scope: dense eigensolver, so only modest grids.** `Math/Eigen.hpp` has
+no sparse/iterative eigensolver (Lanczos, say) -- building one is separate
+scope well beyond a 1D-to-3D extension, flagged rather than silently
+worked around. `jacobiEigenSymmetric` is `O(N^3)`, so this stays correct
+and general but practical only up to about `8x8x8 = 512`, not a
+production-scale simulation.
+
+**Validated by separability, not a resolution-dependent closed form.**
+Both the 3D infinite well (potential zero everywhere) and the 3D isotropic
+harmonic oscillator (`V(x,y,z) = Vx(x)+Vy(y)+Vz(z)`, itself a sum of three
+identical 1D potentials) have Hamiltonians that are exactly the Kronecker
+sum of three copies of the identical 1D discretized Hamiltonian
+`Schrodinger.hpp` already solves. A Kronecker sum's eigenvalues are
+exactly every sum of three eigenvalues of its summands, so
+`physics_quantummechanics_schrodinger3d.cpp` computes every such triple
+sum from the *already-validated 1D solver's own output* and checks the 3D
+solver's eigenvalues against that list directly -- an exact
+cross-check tied to existing, proven code, not a comparison to the
+continuum closed form loosened to fit whatever resolution the dense
+eigensolver's cost allows.
+
+`WavePacket3D.hpp`'s `TimeDependentWavefunction3D` is `WavePacket.hpp`'s
+split-step method with `Math/FFT.hpp`'s `fft3D`/`ifft3D` in place of
+`fft`/`ifft`: the kinetic operator stays diagonal in momentum space in any
+dimension, since `kx^2+ky^2+kz^2` separates additively into one phase
+factor per axis. Storage is a flat `std::vector<Complex<double>>`, not a
+`Grid3D`, for the same reason `TimeDependentWavefunction1D` is not a
+`Grid1D`: `Complex` does not satisfy `Numeric`.
+
+**Validated the same four ways as the 1D version**, at a wider tolerance
+where three axes compound the same finite-difference-versus-spectral
+mismatch `WavePacket.hpp`'s own derivation above discusses: unitarity;
+energy conservation via the 7-point finite-difference Hamiltonian; a
+stationary eigenstate staying stationary; and
+[the dimensional-reduction cross-check](#the-dimensional-reduction-cross-check)
+against `TimeDependentWavefunction1D`. The stationary-state check builds
+its eigenstate as a product of three 1D ground states from
+`Schrodinger.hpp`'s fast solver rather than calling the 3D dense
+eigensolver at the same resolution — exactly valid, since a separable
+Hamiltonian's ground state is exactly the product of its 1D pieces' own
+ground states, and far cheaper than an `O(N^3)` solve would be at a
+matching grid size.

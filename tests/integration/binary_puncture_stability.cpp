@@ -100,7 +100,8 @@ void applyOutflowBoundary(BssnState& state) {
 /// (no boundary condition has been applied to it yet, so there is nothing
 /// to exclude there).
 double maxBulkHamiltonianViolation(const BssnState& state, std::ptrdiff_t cellCount,
-                                   double spacing, const std::vector<ysq::Vec3>& punctures,
+                                   double spacing,
+                                   const std::vector<ysq::Vec3>& punctures,
                                    double excludeRadius, double edgeMargin) {
     double maxAbs = 0.0;
     const std::ptrdiff_t halfCells = cellCount / 2;
@@ -129,7 +130,8 @@ double maxBulkHamiltonianViolation(const BssnState& state, std::ptrdiff_t cellCo
                 if (tooClose) {
                     continue;
                 }
-                maxAbs = std::max(maxAbs, std::abs(ysq::hamiltonianConstraint(state, i, j, k)));
+                maxAbs = std::max(maxAbs,
+                                  std::abs(ysq::hamiltonianConstraint(state, i, j, k)));
             }
         }
     }
@@ -173,8 +175,8 @@ double maxBulkMomentumViolation(const BssnState& state, std::ptrdiff_t cellCount
                     continue;
                 }
                 for (int component = 0; component < 3; ++component) {
-                    maxAbs = std::max(
-                        maxAbs, std::abs(ysq::momentumConstraint(state, i, j, k, component)));
+                    maxAbs = std::max(maxAbs, std::abs(ysq::momentumConstraint(
+                                                  state, i, j, k, component)));
                 }
             }
         }
@@ -186,7 +188,8 @@ bool isFiniteEverywhere(const BssnState& state, std::ptrdiff_t cellCount) {
     for (std::ptrdiff_t i = 0; i < cellCount; ++i) {
         for (std::ptrdiff_t j = 0; j < cellCount; ++j) {
             for (std::ptrdiff_t k = 0; k < cellCount; ++k) {
-                if (!std::isfinite(state.phi(i, j, k)) || !std::isfinite(state.lapse(i, j, k)) ||
+                if (!std::isfinite(state.phi(i, j, k)) ||
+                    !std::isfinite(state.lapse(i, j, k)) ||
                     !std::isfinite(state.traceExtrinsicCurvature(i, j, k))) {
                     return false;
                 }
@@ -199,10 +202,10 @@ bool isFiniteEverywhere(const BssnState& state, std::ptrdiff_t cellCount) {
 }  // namespace
 
 TEST(BinaryPunctureStability, InitialDataConvergesAndEvolutionStaysStable) {
-    const double mass = 0.5;               // each puncture; total mass M = 1
-    const double separation = 6.0;         // wide: D = 6M
+    const double mass = 0.5;        // each puncture; total mass M = 1
+    const double separation = 6.0;  // wide: D = 6M
     const std::size_t cellCount = 16;
-    const double spacing = 0.5;            // half-extent = 4.0
+    const double spacing = 0.5;  // half-extent = 4.0
     const std::size_t ghostCells = 3;
 
     const double tangentialMomentum =
@@ -227,7 +230,8 @@ TEST(BinaryPunctureStability, InitialDataConvergesAndEvolutionStaysStable) {
     EXPECT_TRUE(initialData.converged);
     EXPECT_LT(initialData.iterationsUsed, 30);
 
-    const std::vector<ysq::Vec3> punctureLocations{punctures[0].position, punctures[1].position};
+    const std::vector<ysq::Vec3> punctureLocations{punctures[0].position,
+                                                   punctures[1].position};
     // At this test's coarse (fast-CI) resolution, a fixed physical exclusion
     // radius smaller than even one grid spacing excludes nothing at all and
     // the check is dominated by the immediate puncture-adjacent cells --
@@ -244,9 +248,9 @@ TEST(BinaryPunctureStability, InitialDataConvergesAndEvolutionStaysStable) {
     // approximation the evolution loop below needs -- so no edge margin is
     // needed here, only the near-puncture exclusion.
     BssnState state = ysq::admToBssn(initialData.adm);
-    const double initialBulkViolation = maxBulkHamiltonianViolation(
-        state, static_cast<std::ptrdiff_t>(cellCount), spacing, punctureLocations,
-        excludeRadius, 0.0);
+    const double initialBulkViolation =
+        maxBulkHamiltonianViolation(state, static_cast<std::ptrdiff_t>(cellCount),
+                                    spacing, punctureLocations, excludeRadius, 0.0);
     EXPECT_LT(initialBulkViolation, 0.05);
 
     // Bowen-York gives this state a genuinely nonzero, spatially varying
@@ -254,9 +258,9 @@ TEST(BinaryPunctureStability, InitialDataConvergesAndEvolutionStaysStable) {
     // the real check that momentumConstraint's divergence term is computed
     // correctly, not merely that it returns zero on data too symmetric to
     // tell the difference.
-    const double initialBulkMomentumViolation = maxBulkMomentumViolation(
-        state, static_cast<std::ptrdiff_t>(cellCount), spacing, punctureLocations,
-        excludeRadius, 0.0);
+    const double initialBulkMomentumViolation =
+        maxBulkMomentumViolation(state, static_cast<std::ptrdiff_t>(cellCount), spacing,
+                                 punctureLocations, excludeRadius, 0.0);
     EXPECT_LT(initialBulkMomentumViolation, 0.05);
 
     applyOutflowBoundary(state);
@@ -295,9 +299,8 @@ TEST(BinaryPunctureStability, InitialDataConvergesAndEvolutionStaysStable) {
         excludeRadius, 3.0 * spacing);
     EXPECT_LT(finalBulkViolation, 20.0 * (initialBulkViolation + 1.0e-6));
 
-    const double finalBulkMomentumViolation = maxBulkMomentumViolation(
-        state, static_cast<std::ptrdiff_t>(cellCount), spacing, punctureLocations,
-        excludeRadius, 3.0 * spacing);
-    EXPECT_LT(finalBulkMomentumViolation,
-             20.0 * (initialBulkMomentumViolation + 1.0e-6));
+    const double finalBulkMomentumViolation =
+        maxBulkMomentumViolation(state, static_cast<std::ptrdiff_t>(cellCount), spacing,
+                                 punctureLocations, excludeRadius, 3.0 * spacing);
+    EXPECT_LT(finalBulkMomentumViolation, 20.0 * (initialBulkMomentumViolation + 1.0e-6));
 }

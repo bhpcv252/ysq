@@ -23,7 +23,7 @@ using ysq::BssnState;
 /// conformal Ricci tensor, constraint formulas) has an index error, the
 /// Hamiltonian/momentum constraints computed from it will not vanish here.
 AdmData staticSchwarzschildPuncture(double mass, std::size_t cellCount, double spacing,
-                                   std::size_t ghostCells) {
+                                    std::size_t ghostCells) {
     AdmData adm(cellCount, cellCount, cellCount, spacing, ghostCells);
     const auto n = static_cast<std::ptrdiff_t>(cellCount);
     const auto ig = static_cast<std::ptrdiff_t>(ghostCells);
@@ -65,7 +65,7 @@ AdmData staticSchwarzschildPuncture(double mass, std::size_t cellCount, double s
 /// this function reports, which `HamiltonianConstraintShrinksUnderGridRefinement`
 /// below checks.
 double maxHamiltonianViolation(const BssnState& state, std::ptrdiff_t cellCount,
-                              double spacing, double excludeRadius = 0.0) {
+                               double spacing, double excludeRadius = 0.0) {
     double maxAbs = 0.0;
     const std::ptrdiff_t halfCells = cellCount / 2;
     const double half = static_cast<double>(halfCells) * spacing;
@@ -78,7 +78,8 @@ double maxHamiltonianViolation(const BssnState& state, std::ptrdiff_t cellCount,
                 if (std::sqrt(x * x + y * y + z * z) < excludeRadius) {
                     continue;
                 }
-                maxAbs = std::max(maxAbs, std::abs(ysq::hamiltonianConstraint(state, i, j, k)));
+                maxAbs = std::max(maxAbs,
+                                  std::abs(ysq::hamiltonianConstraint(state, i, j, k)));
             }
         }
     }
@@ -109,7 +110,8 @@ TEST(Bssn, AdmRoundTripsThroughBssnForFlatSpace) {
     for (std::ptrdiff_t i = 0; i < n; ++i) {
         for (std::ptrdiff_t j = 0; j < n; ++j) {
             for (std::ptrdiff_t k = 0; k < n; ++k) {
-                const ysq::Tensor<double, 2, 3> gamma = roundTripped.spatialMetric.at(i, j, k);
+                const ysq::Tensor<double, 2, 3> gamma =
+                    roundTripped.spatialMetric.at(i, j, k);
                 EXPECT_NEAR(gamma(0, 0), 1.0, 1.0e-9);
                 EXPECT_NEAR(gamma(1, 1), 1.0, 1.0e-9);
                 EXPECT_NEAR(gamma(2, 2), 1.0, 1.0e-9);

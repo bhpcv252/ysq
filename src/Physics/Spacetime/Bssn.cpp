@@ -19,23 +19,30 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
 /// call site here only ever asks for the canonical ordering).
 [[nodiscard]] const Grid3D<double>& componentField(const SymmetricSpatialTensorFields& f,
                                                    int a, int b) {
-    if (a == 0 && b == 0) return f.xx;
-    if ((a == 0 && b == 1) || (a == 1 && b == 0)) return f.xy;
-    if ((a == 0 && b == 2) || (a == 2 && b == 0)) return f.xz;
-    if (a == 1 && b == 1) return f.yy;
-    if ((a == 1 && b == 2) || (a == 2 && b == 1)) return f.yz;
+    if (a == 0 && b == 0)
+        return f.xx;
+    if ((a == 0 && b == 1) || (a == 1 && b == 0))
+        return f.xy;
+    if ((a == 0 && b == 2) || (a == 2 && b == 0))
+        return f.xz;
+    if (a == 1 && b == 1)
+        return f.yy;
+    if ((a == 1 && b == 2) || (a == 2 && b == 1))
+        return f.yz;
     return f.zz;
 }
 
 [[nodiscard]] const Grid3D<double>& vectorComponentField(const SpatialVectorFields& f,
                                                          int a) {
-    if (a == 0) return f.x;
-    if (a == 1) return f.y;
+    if (a == 0)
+        return f.x;
+    if (a == 1)
+        return f.y;
     return f.z;
 }
 
-[[nodiscard]] Sym3 conformalMetricAt(const BssnState& s, std::ptrdiff_t i, std::ptrdiff_t j,
-                                     std::ptrdiff_t k) {
+[[nodiscard]] Sym3 conformalMetricAt(const BssnState& s, std::ptrdiff_t i,
+                                     std::ptrdiff_t j, std::ptrdiff_t k) {
     return s.conformalMetric.at(i, j, k);
 }
 
@@ -56,17 +63,16 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
 
 /// d(gammaTilde_ab)/d(axis m), for every m, a, b: the raw ingredient the
 /// conformal Christoffel symbols are built from.
-[[nodiscard]] std::array<Sym3, 3> conformalMetricPartialsAt(const BssnState& s,
-                                                            std::ptrdiff_t i,
-                                                            std::ptrdiff_t j,
-                                                            std::ptrdiff_t k,
-                                                            double spacing) {
+[[nodiscard]] std::array<Sym3, 3>
+conformalMetricPartialsAt(const BssnState& s, std::ptrdiff_t i, std::ptrdiff_t j,
+                          std::ptrdiff_t k, double spacing) {
     std::array<Sym3, 3> dg{};
     for (int m = 0; m < 3; ++m) {
         for (int a = 0; a < 3; ++a) {
             for (int b = a; b < 3; ++b) {
-                const double value = firstDerivative(componentField(s.conformalMetric, a, b),
-                                                     i, j, k, static_cast<Axis>(m), spacing);
+                const double value =
+                    firstDerivative(componentField(s.conformalMetric, a, b), i, j, k,
+                                    static_cast<Axis>(m), spacing);
                 dg[static_cast<std::size_t>(m)](a, b) = value;
                 dg[static_cast<std::size_t>(m)](b, a) = value;
             }
@@ -91,8 +97,8 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
                 double sum = 0.0;
                 for (int l = 0; l < 3; ++l) {
                     sum += ginv(upper, l) * (dg[static_cast<std::size_t>(a)](l, b) +
-                                            dg[static_cast<std::size_t>(b)](l, a) -
-                                            dg[static_cast<std::size_t>(l)](a, b));
+                                             dg[static_cast<std::size_t>(b)](l, a) -
+                                             dg[static_cast<std::size_t>(l)](a, b));
                 }
                 christoffel(upper, a, b) = 0.5 * sum;
             }
@@ -125,8 +131,8 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
                     raisedGradPhi += ginv(upper, l) * dphi[static_cast<std::size_t>(l)];
                 }
                 double shift = (upper == a ? dphi[static_cast<std::size_t>(b)] : 0.0) +
-                              (upper == b ? dphi[static_cast<std::size_t>(a)] : 0.0) -
-                              g(a, b) * raisedGradPhi;
+                               (upper == b ? dphi[static_cast<std::size_t>(a)] : 0.0) -
+                               g(a, b) * raisedGradPhi;
                 result(upper, a, b) = conformal(upper, a, b) + 2.0 * shift;
             }
         }
@@ -138,22 +144,22 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
 /// Gamma^k_ij d_k f, given whichever Christoffel symbols the caller passes
 /// (physical for alpha, conformal for phi -- the same formula either way,
 /// since it only depends on the connection being torsion-free).
-[[nodiscard]] Sym3 covariantHessianAt(const Grid3D<double>& field, const Chr3& christoffel,
-                                     std::ptrdiff_t i, std::ptrdiff_t j, std::ptrdiff_t k,
-                                     double spacing) {
+[[nodiscard]] Sym3 covariantHessianAt(const Grid3D<double>& field,
+                                      const Chr3& christoffel, std::ptrdiff_t i,
+                                      std::ptrdiff_t j, std::ptrdiff_t k,
+                                      double spacing) {
     const std::array<double, 3> d1 = gradientAt(field, i, j, k, spacing);
     Sym3 result{};
     for (int a = 0; a < 3; ++a) {
         for (int b = a; b < 3; ++b) {
-            const double d2 = (a == b) ? secondDerivative(field, i, j, k,
-                                                          static_cast<Axis>(a), spacing)
-                                       : mixedSecondDerivative(field, i, j, k,
-                                                              static_cast<Axis>(a),
-                                                              static_cast<Axis>(b), spacing,
-                                                              spacing);
+            const double d2 =
+                (a == b) ? secondDerivative(field, i, j, k, static_cast<Axis>(a), spacing)
+                         : mixedSecondDerivative(field, i, j, k, static_cast<Axis>(a),
+                                                 static_cast<Axis>(b), spacing, spacing);
             double christoffelTerm = 0.0;
             for (int upper = 0; upper < 3; ++upper) {
-                christoffelTerm += christoffel(upper, a, b) * d1[static_cast<std::size_t>(upper)];
+                christoffelTerm +=
+                    christoffel(upper, a, b) * d1[static_cast<std::size_t>(upper)];
             }
             const double value = d2 - christoffelTerm;
             result(a, b) = value;
@@ -167,8 +173,8 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
 /// Christoffel with its upper index lowered by the conformal metric. Used
 /// throughout the Ricci tensor formula below, which mixes raised and
 /// lowered forms of the same connection.
-[[nodiscard]] double loweredChristoffel(const Sym3& g, const Chr3& christoffel, int lowered,
-                                       int a, int b) {
+[[nodiscard]] double loweredChristoffel(const Sym3& g, const Chr3& christoffel,
+                                        int lowered, int a, int b) {
     double sum = 0.0;
     for (int p = 0; p < 3; ++p) {
         sum += g(lowered, p) * christoffel(p, a, b);
@@ -194,8 +200,8 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
 /// term against the citation above; `tests/unit/bssn.cpp` and
 /// `tests/integration/single_puncture_stability.cpp` are the real proof it
 /// is right, not this comment.
-[[nodiscard]] Sym3 conformalRicciAt(const BssnState& s, std::ptrdiff_t i, std::ptrdiff_t j,
-                                    std::ptrdiff_t k, double spacing) {
+[[nodiscard]] Sym3 conformalRicciAt(const BssnState& s, std::ptrdiff_t i,
+                                    std::ptrdiff_t j, std::ptrdiff_t k, double spacing) {
     const Sym3 g = conformalMetricAt(s, i, j, k);
     const Sym3 ginv = conformalMetricInverseAt(s, i, j, k);
     const Chr3 christoffel = conformalChristoffelAt(s, i, j, k, spacing);
@@ -207,8 +213,8 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
 
     std::array<std::array<double, 3>, 3> dGammaTilde{};  // d_axis GammaTilde^k
     for (int upper = 0; upper < 3; ++upper) {
-        const std::array<double, 3> grad =
-            gradientAt(vectorComponentField(s.conformalConnection, upper), i, j, k, spacing);
+        const std::array<double, 3> grad = gradientAt(
+            vectorComponentField(s.conformalConnection, upper), i, j, k, spacing);
         for (int axis = 0; axis < 3; ++axis) {
             dGammaTilde[static_cast<std::size_t>(upper)][static_cast<std::size_t>(axis)] =
                 grad[static_cast<std::size_t>(axis)];
@@ -223,11 +229,13 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
             for (int l = 0; l < 3; ++l) {
                 for (int m = 0; m < 3; ++m) {
                     const double d2 =
-                        (l == m) ? secondDerivative(componentField(s.conformalMetric, a, b),
-                                                   i, j, k, static_cast<Axis>(l), spacing)
-                                : mixedSecondDerivative(componentField(s.conformalMetric, a, b),
-                                                        i, j, k, static_cast<Axis>(l),
-                                                        static_cast<Axis>(m), spacing, spacing);
+                        (l == m)
+                            ? secondDerivative(componentField(s.conformalMetric, a, b), i,
+                                               j, k, static_cast<Axis>(l), spacing)
+                            : mixedSecondDerivative(
+                                  componentField(s.conformalMetric, a, b), i, j, k,
+                                  static_cast<Axis>(l), static_cast<Axis>(m), spacing,
+                                  spacing);
                     term1 += ginv(l, m) * d2;
                 }
             }
@@ -237,9 +245,9 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
             double term2 = 0.0;
             for (int kk = 0; kk < 3; ++kk) {
                 term2 += g(kk, a) * dGammaTilde[static_cast<std::size_t>(kk)]
-                                              [static_cast<std::size_t>(b)];
+                                               [static_cast<std::size_t>(b)];
                 term2 += g(kk, b) * dGammaTilde[static_cast<std::size_t>(kk)]
-                                              [static_cast<std::size_t>(a)];
+                                               [static_cast<std::size_t>(a)];
             }
             term2 *= 0.5;
 
@@ -249,7 +257,7 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
                 const double loweredAB = loweredChristoffel(g, christoffel, a, b, kk);
                 const double loweredBA = loweredChristoffel(g, christoffel, b, a, kk);
                 term3 += gammaTilde[static_cast<std::size_t>(kk)] * 0.5 *
-                        (loweredAB + loweredBA);
+                         (loweredAB + loweredBA);
             }
 
             // Term 4: gammaTilde^lm [ 2 GammaTilde^k_l(a GammaTilde_b)km
@@ -260,13 +268,16 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
                     for (int kk = 0; kk < 3; ++kk) {
                         const double gammaTildeKLa = christoffel(kk, l, a);
                         const double gammaTildeKLb = christoffel(kk, l, b);
-                        const double loweredBKM = loweredChristoffel(g, christoffel, b, kk, m);
-                        const double loweredAKM = loweredChristoffel(g, christoffel, a, kk, m);
+                        const double loweredBKM =
+                            loweredChristoffel(g, christoffel, b, kk, m);
+                        const double loweredAKM =
+                            loweredChristoffel(g, christoffel, a, kk, m);
                         const double symmetrized =
                             gammaTildeKLa * loweredBKM + gammaTildeKLb * loweredAKM;
 
                         const double gammaTildeKAm = christoffel(kk, a, m);
-                        const double loweredKLB = loweredChristoffel(g, christoffel, kk, l, b);
+                        const double loweredKLB =
+                            loweredChristoffel(g, christoffel, kk, l, b);
 
                         term4 += ginv(l, m) * (symmetrized + gammaTildeKAm * loweredKLB);
                     }
@@ -287,11 +298,12 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
 ///   R^phi_ij = -2 DtildeI Dtilde J phi - 2 gammaTilde_ij DtildeL DtildeL phi
 ///            + 4 DtildeI phi DtildeJ phi - 4 gammaTilde_ij DtildeL phi DtildeL phi
 [[nodiscard]] Sym3 phiRicciAt(const BssnState& s, std::ptrdiff_t i, std::ptrdiff_t j,
-                             std::ptrdiff_t k, double spacing) {
+                              std::ptrdiff_t k, double spacing) {
     const Sym3 g = conformalMetricAt(s, i, j, k);
     const Sym3 ginv = conformalMetricInverseAt(s, i, j, k);
     const Chr3 conformalChristoffel = conformalChristoffelAt(s, i, j, k, spacing);
-    const Sym3 hessianPhi = covariantHessianAt(s.phi, conformalChristoffel, i, j, k, spacing);
+    const Sym3 hessianPhi =
+        covariantHessianAt(s.phi, conformalChristoffel, i, j, k, spacing);
     const std::array<double, 3> dphi = gradientAt(s.phi, i, j, k, spacing);
 
     double traceHessian = 0.0;
@@ -299,8 +311,8 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
     for (int l = 0; l < 3; ++l) {
         for (int m = 0; m < 3; ++m) {
             traceHessian += ginv(l, m) * hessianPhi(l, m);
-            gradientSquared +=
-                ginv(l, m) * dphi[static_cast<std::size_t>(l)] * dphi[static_cast<std::size_t>(m)];
+            gradientSquared += ginv(l, m) * dphi[static_cast<std::size_t>(l)] *
+                               dphi[static_cast<std::size_t>(m)];
         }
     }
 
@@ -343,8 +355,8 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
 /// Sum_axis beta^axis d_axis(field): the advection term every BSSN
 /// evolution equation carries, beta^i d_i(quantity), for a scalar field.
 [[nodiscard]] double advectionAt(const Grid3D<double>& field, const BssnState& s,
-                                std::ptrdiff_t i, std::ptrdiff_t j, std::ptrdiff_t k,
-                                double spacing) {
+                                 std::ptrdiff_t i, std::ptrdiff_t j, std::ptrdiff_t k,
+                                 double spacing) {
     return s.shift.x(i, j, k) * firstDerivative(field, i, j, k, Axis::X, spacing) +
            s.shift.y(i, j, k) * firstDerivative(field, i, j, k, Axis::Y, spacing) +
            s.shift.z(i, j, k) * firstDerivative(field, i, j, k, Axis::Z, spacing);
@@ -354,11 +366,9 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
 /// evolution equation for a tensor needs how the shift itself varies
 /// (the terms that make the equation a genuine Lie derivative, not a plain
 /// advection).
-[[nodiscard]] std::array<std::array<double, 3>, 3> shiftJacobianAt(const BssnState& s,
-                                                                   std::ptrdiff_t i,
-                                                                   std::ptrdiff_t j,
-                                                                   std::ptrdiff_t k,
-                                                                   double spacing) {
+[[nodiscard]] std::array<std::array<double, 3>, 3>
+shiftJacobianAt(const BssnState& s, std::ptrdiff_t i, std::ptrdiff_t j, std::ptrdiff_t k,
+                double spacing) {
     std::array<std::array<double, 3>, 3> result{};
     for (int component = 0; component < 3; ++component) {
         const std::array<double, 3> grad =
@@ -381,12 +391,10 @@ using Chr3 = Tensor<double, 3, 3>;  // Gamma^k_ij: rank 3, dimension 3, (k, i, j
 /// entirely -- an O(1) term, not a higher-order truncation error, whenever
 /// the conformal metric is not locally uniform (i.e. whenever there is
 /// curvature to actually check).
-[[nodiscard]] double raisedTracelessExtrinsicCurvatureDerivative(const BssnState& s,
-                                                                 std::ptrdiff_t i,
-                                                                 std::ptrdiff_t j,
-                                                                 std::ptrdiff_t k, int a,
-                                                                 int b, Axis derivativeAxis,
-                                                                 double spacing) {
+[[nodiscard]] double
+raisedTracelessExtrinsicCurvatureDerivative(const BssnState& s, std::ptrdiff_t i,
+                                            std::ptrdiff_t j, std::ptrdiff_t k, int a,
+                                            int b, Axis derivativeAxis, double spacing) {
     double sum = 0.0;
     for (std::ptrdiff_t m = -2; m <= 2; ++m) {
         std::ptrdiff_t di = 0;
@@ -453,7 +461,8 @@ BssnState admToBssn(const AdmData& adm) {
                 Sym3 aTilde{};
                 for (int a = 0; a < 3; ++a) {
                     for (int b = a; b < 3; ++b) {
-                        gammaTilde(a, b) = gammaTilde(b, a) = conformalFactor * gamma(a, b);
+                        gammaTilde(a, b) = gammaTilde(b, a) =
+                            conformalFactor * gamma(a, b);
                         const double physicalTraceFree =
                             kExtrinsic(a, b) - (traceK / 3.0) * gamma(a, b);
                         aTilde(a, b) = aTilde(b, a) = conformalFactor * physicalTraceFree;
@@ -529,7 +538,8 @@ AdmData bssnToAdm(const BssnState& state) {
             for (std::ptrdiff_t k = -ig; k < iz + ig; ++k) {
                 const double conformalFactor = std::exp(4.0 * state.phi(i, j, k));
                 const Sym3 gammaTilde = state.conformalMetric.at(i, j, k);
-                const Sym3 aTilde = state.conformalTracelessExtrinsicCurvature.at(i, j, k);
+                const Sym3 aTilde =
+                    state.conformalTracelessExtrinsicCurvature.at(i, j, k);
                 const double traceK = state.traceExtrinsicCurvature(i, j, k);
 
                 Sym3 gamma{};
@@ -580,7 +590,8 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
                     shiftJacobianAt(s, i, j, k, spacing);
                 double divBeta = 0.0;
                 for (int axis = 0; axis < 3; ++axis) {
-                    divBeta += dBeta[static_cast<std::size_t>(axis)][static_cast<std::size_t>(axis)];
+                    divBeta += dBeta[static_cast<std::size_t>(axis)]
+                                    [static_cast<std::size_t>(axis)];
                 }
 
                 // Raised (both indices) AtildeIJ, used repeatedly below.
@@ -605,9 +616,9 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
 
                 // --- phi ---------------------------------------------------
                 rhs.phi(i, j, k) = advectionAt(s.phi, s, i, j, k, spacing) -
-                                  (alpha * traceK) / 6.0 +
-                                  kreissOligerDissipation3D(s.phi, i, j, k, spacing,
-                                                            params.kreissOligerSigma);
+                                   (alpha * traceK) / 6.0 +
+                                   kreissOligerDissipation3D(s.phi, i, j, k, spacing,
+                                                             params.kreissOligerSigma);
 
                 // --- gammaTilde_ij ------------------------------------------
                 {
@@ -617,26 +628,32 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
                             double lieShift = 0.0;
                             for (int c = 0; c < 3; ++c) {
                                 const double gac =
-                                    (c == 0)   ? componentField(s.conformalMetric, a, 0)(i, j, k)
-                                    : (c == 1) ? componentField(s.conformalMetric, a, 1)(i, j, k)
-                                              : componentField(s.conformalMetric, a, 2)(i, j, k);
+                                    (c == 0)
+                                        ? componentField(s.conformalMetric, a, 0)(i, j, k)
+                                    : (c == 1)
+                                        ? componentField(s.conformalMetric, a, 1)(i, j, k)
+                                        : componentField(s.conformalMetric, a, 2)(i, j,
+                                                                                  k);
                                 const double gbc =
-                                    (c == 0)   ? componentField(s.conformalMetric, b, 0)(i, j, k)
-                                    : (c == 1) ? componentField(s.conformalMetric, b, 1)(i, j, k)
-                                              : componentField(s.conformalMetric, b, 2)(i, j, k);
+                                    (c == 0)
+                                        ? componentField(s.conformalMetric, b, 0)(i, j, k)
+                                    : (c == 1)
+                                        ? componentField(s.conformalMetric, b, 1)(i, j, k)
+                                        : componentField(s.conformalMetric, b, 2)(i, j,
+                                                                                  k);
                                 lieShift += gac * dBeta[static_cast<std::size_t>(c)]
                                                        [static_cast<std::size_t>(b)] +
-                                           gbc * dBeta[static_cast<std::size_t>(c)]
-                                                      [static_cast<std::size_t>(a)];
+                                            gbc * dBeta[static_cast<std::size_t>(c)]
+                                                       [static_cast<std::size_t>(a)];
                             }
                             const double value =
-                                advectionAt(componentField(s.conformalMetric, a, b), s, i, j, k,
-                                          spacing) -
+                                advectionAt(componentField(s.conformalMetric, a, b), s, i,
+                                            j, k, spacing) -
                                 2.0 * alpha * aTilde(a, b) + lieShift -
                                 (2.0 / 3.0) * g(a, b) * divBeta +
-                                kreissOligerDissipation3D(componentField(s.conformalMetric, a, b),
-                                                         i, j, k, spacing,
-                                                         params.kreissOligerSigma);
+                                kreissOligerDissipation3D(
+                                    componentField(s.conformalMetric, a, b), i, j, k,
+                                    spacing, params.kreissOligerSigma);
                             rhsGamma(a, b) = rhsGamma(b, a) = value;
                         }
                     }
@@ -654,7 +671,8 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
                     }
                 }
 
-                const Chr3 physicalChristoffel = physicalChristoffelAt(s, i, j, k, spacing);
+                const Chr3 physicalChristoffel =
+                    physicalChristoffelAt(s, i, j, k, spacing);
                 const Sym3 hessianAlpha =
                     covariantHessianAt(s.lapse, physicalChristoffel, i, j, k, spacing);
 
@@ -664,14 +682,16 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
                     double laplacianAlpha = 0.0;  // gamma^ij D_i D_j alpha
                     for (int a = 0; a < 3; ++a) {
                         for (int b = 0; b < 3; ++b) {
-                            laplacianAlpha += conformalFactor * ginv(a, b) * hessianAlpha(a, b);
+                            laplacianAlpha +=
+                                conformalFactor * ginv(a, b) * hessianAlpha(a, b);
                         }
                     }
                     rhs.traceExtrinsicCurvature(i, j, k) =
                         advectionAt(s.traceExtrinsicCurvature, s, i, j, k, spacing) -
-                        laplacianAlpha + alpha * (aTildeSquared + (traceK * traceK) / 3.0) +
-                        kreissOligerDissipation3D(s.traceExtrinsicCurvature, i, j, k, spacing,
-                                                 params.kreissOligerSigma);
+                        laplacianAlpha +
+                        alpha * (aTildeSquared + (traceK * traceK) / 3.0) +
+                        kreissOligerDissipation3D(s.traceExtrinsicCurvature, i, j, k,
+                                                  spacing, params.kreissOligerSigma);
                 }
 
                 // --- AtildeIJ -------------------------------------------------
@@ -706,20 +726,23 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
                         for (int b = a; b < 3; ++b) {
                             double lieShift = 0.0;
                             for (int c = 0; c < 3; ++c) {
-                                lieShift += aTilde(a, c) * dBeta[static_cast<std::size_t>(c)]
-                                                                [static_cast<std::size_t>(b)] +
-                                           aTilde(b, c) * dBeta[static_cast<std::size_t>(c)]
-                                                               [static_cast<std::size_t>(a)];
+                                lieShift +=
+                                    aTilde(a, c) * dBeta[static_cast<std::size_t>(c)]
+                                                        [static_cast<std::size_t>(b)] +
+                                    aTilde(b, c) * dBeta[static_cast<std::size_t>(c)]
+                                                        [static_cast<std::size_t>(a)];
                             }
                             const double value =
                                 conformalFactor * tf(a, b) +
                                 alpha * (traceK * aTilde(a, b) - 2.0 * aSquared(a, b)) +
-                                advectionAt(componentField(s.conformalTracelessExtrinsicCurvature,
-                                                          a, b),
-                                          s, i, j, k, spacing) +
+                                advectionAt(
+                                    componentField(s.conformalTracelessExtrinsicCurvature,
+                                                   a, b),
+                                    s, i, j, k, spacing) +
                                 lieShift - (2.0 / 3.0) * aTilde(a, b) * divBeta +
                                 kreissOligerDissipation3D(
-                                    componentField(s.conformalTracelessExtrinsicCurvature, a, b),
+                                    componentField(s.conformalTracelessExtrinsicCurvature,
+                                                   a, b),
                                     i, j, k, spacing, params.kreissOligerSigma);
                             rhsATilde(a, b) = rhsATilde(b, a) = value;
                         }
@@ -738,11 +761,14 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
                 //                            - 6 Atilde^ij d_j phi)
                 std::array<double, 3> rhsGammaTilde{};
                 {
-                    const std::array<double, 3> dAlpha = gradientAt(s.lapse, i, j, k, spacing);
+                    const std::array<double, 3> dAlpha =
+                        gradientAt(s.lapse, i, j, k, spacing);
                     const std::array<double, 3> dK =
                         gradientAt(s.traceExtrinsicCurvature, i, j, k, spacing);
-                    const std::array<double, 3> dPhi = gradientAt(s.phi, i, j, k, spacing);
-                    const Chr3 conformalChristoffel = conformalChristoffelAt(s, i, j, k, spacing);
+                    const std::array<double, 3> dPhi =
+                        gradientAt(s.phi, i, j, k, spacing);
+                    const Chr3 conformalChristoffel =
+                        conformalChristoffelAt(s, i, j, k, spacing);
 
                     std::array<double, 3> gammaTilde{};
                     gammaTilde[0] = s.conformalConnection.x(i, j, k);
@@ -753,8 +779,9 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
                     // rather than inside the advection loop below.
                     std::array<std::array<double, 3>, 3> dGammaTilde{};
                     for (int upper = 0; upper < 3; ++upper) {
-                        dGammaTilde[static_cast<std::size_t>(upper)] = gradientAt(
-                            vectorComponentField(s.conformalConnection, upper), i, j, k, spacing);
+                        dGammaTilde[static_cast<std::size_t>(upper)] =
+                            gradientAt(vectorComponentField(s.conformalConnection, upper),
+                                       i, j, k, spacing);
                     }
 
                     for (int upper = 0; upper < 3; ++upper) {
@@ -764,12 +791,13 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
                             for (int b = 0; b < 3; ++b) {
                                 const double d2 =
                                     (a == b)
-                                        ? secondDerivative(vectorComponentField(s.shift, upper),
-                                                         i, j, k, static_cast<Axis>(a), spacing)
+                                        ? secondDerivative(
+                                              vectorComponentField(s.shift, upper), i, j,
+                                              k, static_cast<Axis>(a), spacing)
                                         : mixedSecondDerivative(
-                                              vectorComponentField(s.shift, upper), i, j, k,
-                                              static_cast<Axis>(a), static_cast<Axis>(b), spacing,
-                                              spacing);
+                                              vectorComponentField(s.shift, upper), i, j,
+                                              k, static_cast<Axis>(a),
+                                              static_cast<Axis>(b), spacing, spacing);
                                 laplacianBeta += ginv(a, b) * d2;
                             }
                         }
@@ -783,12 +811,13 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
                             for (int c = 0; c < 3; ++c) {
                                 sumOverC +=
                                     (a == c)
-                                        ? secondDerivative(vectorComponentField(s.shift, c), i, j,
-                                                         k, static_cast<Axis>(a), spacing)
+                                        ? secondDerivative(
+                                              vectorComponentField(s.shift, c), i, j, k,
+                                              static_cast<Axis>(a), spacing)
                                         : mixedSecondDerivative(
                                               vectorComponentField(s.shift, c), i, j, k,
-                                              static_cast<Axis>(a), static_cast<Axis>(c), spacing,
-                                              spacing);
+                                              static_cast<Axis>(a), static_cast<Axis>(c),
+                                              spacing, spacing);
                             }
                             divBetaGradient += ginv(upper, a) * sumOverC;
                         }
@@ -798,16 +827,19 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
                         double advectionGamma = 0.0;
                         // GammaTilde^a d_a beta^upper (note: d_a beta^upper is
                         // dBeta[upper][a], not dBeta[a][upper] --
-                        // shiftJacobianAt(...)[component][axis] = d_axis(beta^component)).
+                        // shiftJacobianAt(...)[component][axis] =
+                        // d_axis(beta^component)).
                         double shiftTerm = 0.0;
                         for (int axis = 0; axis < 3; ++axis) {
-                            const double betaAxis = (axis == 0) ? bx : (axis == 1) ? by : bz;
-                            advectionGamma +=
-                                betaAxis * dGammaTilde[static_cast<std::size_t>(upper)]
-                                                     [static_cast<std::size_t>(axis)];
+                            const double betaAxis = (axis == 0)   ? bx
+                                                    : (axis == 1) ? by
+                                                                  : bz;
+                            advectionGamma += betaAxis *
+                                              dGammaTilde[static_cast<std::size_t>(upper)]
+                                                         [static_cast<std::size_t>(axis)];
                             shiftTerm += gammaTilde[static_cast<std::size_t>(axis)] *
-                                        dBeta[static_cast<std::size_t>(upper)]
-                                            [static_cast<std::size_t>(axis)];
+                                         dBeta[static_cast<std::size_t>(upper)]
+                                              [static_cast<std::size_t>(axis)];
                         }
 
                         double aTildeDotDAlpha = 0.0;
@@ -815,9 +847,10 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
                         double aTildeDGammaTerm = 0.0;
                         double aTildeDPhiTerm = 0.0;
                         for (int a = 0; a < 3; ++a) {
-                            aTildeDotDAlpha +=
-                                aTildeUpper(upper, a) * dAlpha[static_cast<std::size_t>(a)];
-                            aTildeDGammaTerm += ginv(upper, a) * dK[static_cast<std::size_t>(a)];
+                            aTildeDotDAlpha += aTildeUpper(upper, a) *
+                                               dAlpha[static_cast<std::size_t>(a)];
+                            aTildeDGammaTerm +=
+                                ginv(upper, a) * dK[static_cast<std::size_t>(a)];
                             aTildeDPhiTerm +=
                                 aTildeUpper(upper, a) * dPhi[static_cast<std::size_t>(a)];
                             for (int b = 0; b < 3; ++b) {
@@ -828,14 +861,15 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
 
                         rhsGammaTilde[static_cast<std::size_t>(upper)] =
                             laplacianBeta + divBetaGradient + advectionGamma - shiftTerm +
-                            (2.0 / 3.0) * gammaTilde[static_cast<std::size_t>(upper)] * divBeta -
+                            (2.0 / 3.0) * gammaTilde[static_cast<std::size_t>(upper)] *
+                                divBeta -
                             2.0 * aTildeDotDAlpha +
                             2.0 * alpha *
                                 (christoffelATilde - (2.0 / 3.0) * aTildeDGammaTerm -
-                                6.0 * aTildeDPhiTerm) +
+                                 6.0 * aTildeDPhiTerm) +
                             kreissOligerDissipation3D(
-                                vectorComponentField(s.conformalConnection, upper), i, j, k,
-                                spacing, params.kreissOligerSigma);
+                                vectorComponentField(s.conformalConnection, upper), i, j,
+                                k, spacing, params.kreissOligerSigma);
                     }
                 }
                 rhs.conformalConnection.x(i, j, k) = rhsGammaTilde[0];
@@ -844,20 +878,23 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
 
                 // --- Gauge: 1+log slicing, (non-advective) Gamma-driver -----
                 rhs.lapse(i, j, k) = advectionAt(s.lapse, s, i, j, k, spacing) -
-                                    2.0 * alpha * traceK +
-                                    kreissOligerDissipation3D(s.lapse, i, j, k, spacing,
-                                                             params.kreissOligerSigma);
+                                     2.0 * alpha * traceK +
+                                     kreissOligerDissipation3D(s.lapse, i, j, k, spacing,
+                                                               params.kreissOligerSigma);
 
                 rhs.shift.x(i, j, k) = 0.75 * s.shiftAuxiliary.x(i, j, k);
                 rhs.shift.y(i, j, k) = 0.75 * s.shiftAuxiliary.y(i, j, k);
                 rhs.shift.z(i, j, k) = 0.75 * s.shiftAuxiliary.z(i, j, k);
 
                 rhs.shiftAuxiliary.x(i, j, k) =
-                    rhsGammaTilde[0] - params.gammaDriverEta * s.shiftAuxiliary.x(i, j, k);
+                    rhsGammaTilde[0] -
+                    params.gammaDriverEta * s.shiftAuxiliary.x(i, j, k);
                 rhs.shiftAuxiliary.y(i, j, k) =
-                    rhsGammaTilde[1] - params.gammaDriverEta * s.shiftAuxiliary.y(i, j, k);
+                    rhsGammaTilde[1] -
+                    params.gammaDriverEta * s.shiftAuxiliary.y(i, j, k);
                 rhs.shiftAuxiliary.z(i, j, k) =
-                    rhsGammaTilde[2] - params.gammaDriverEta * s.shiftAuxiliary.z(i, j, k);
+                    rhsGammaTilde[2] -
+                    params.gammaDriverEta * s.shiftAuxiliary.z(i, j, k);
             }
         }
     }
@@ -866,7 +903,7 @@ BssnState bssnRhs(const BssnState& s, BssnParameters params) {
 }
 
 double hamiltonianConstraint(const BssnState& s, std::ptrdiff_t i, std::ptrdiff_t j,
-                            std::ptrdiff_t k) {
+                             std::ptrdiff_t k) {
     const double spacing = s.phi.spacing();
     const Sym3 ginv = conformalMetricInverseAt(s, i, j, k);
     const Sym3 conformalRicci = conformalRicciAt(s, i, j, k, spacing);
@@ -887,7 +924,8 @@ double hamiltonianConstraint(const BssnState& s, std::ptrdiff_t i, std::ptrdiff_
         for (int b = 0; b < 3; ++b) {
             for (int l = 0; l < 3; ++l) {
                 for (int m = 0; m < 3; ++m) {
-                    aTildeSquared += ginv(a, l) * ginv(b, m) * aTilde(a, b) * aTilde(l, m);
+                    aTildeSquared +=
+                        ginv(a, l) * ginv(b, m) * aTilde(a, b) * aTilde(l, m);
                 }
             }
         }
@@ -900,12 +938,13 @@ double hamiltonianConstraint(const BssnState& s, std::ptrdiff_t i, std::ptrdiff_
 }
 
 double momentumConstraint(const BssnState& s, std::ptrdiff_t i, std::ptrdiff_t j,
-                         std::ptrdiff_t k, int component) {
+                          std::ptrdiff_t k, int component) {
     const double spacing = s.phi.spacing();
     const Sym3 ginv = conformalMetricInverseAt(s, i, j, k);
     const Sym3 aTilde = s.conformalTracelessExtrinsicCurvature.at(i, j, k);
     const Chr3 christoffel = conformalChristoffelAt(s, i, j, k, spacing);
-    const std::array<double, 3> dK = gradientAt(s.traceExtrinsicCurvature, i, j, k, spacing);
+    const std::array<double, 3> dK =
+        gradientAt(s.traceExtrinsicCurvature, i, j, k, spacing);
     const std::array<double, 3> dPhi = gradientAt(s.phi, i, j, k, spacing);
 
     Sym3 aTildeUpper{};
@@ -948,7 +987,8 @@ double momentumConstraint(const BssnState& s, std::ptrdiff_t i, std::ptrdiff_t j
     // M^i = D_j Atilde^ij - (2/3) gammaTilde^ij d_j K - 6 Atilde^ij d_j phi
     //     = (d_j Atilde^ij + Gamma^i_jk Atilde^jk) - (2/3) gammaTilde^ij d_j K
     //       - 6 Atilde^ij d_j phi   (vacuum: no matter momentum density).
-    return partialDivergence + christoffelCorrection - (2.0 / 3.0) * dKTerm - 6.0 * dPhiTerm;
+    return partialDivergence + christoffelCorrection - (2.0 / 3.0) * dKTerm -
+           6.0 * dPhiTerm;
 }
 
 }  // namespace ysq

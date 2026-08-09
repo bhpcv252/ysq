@@ -15,8 +15,12 @@
 /// GCC is laxer, so this would otherwise have passed locally and failed in CI.
 
 #include <Units/Acceleration.hpp>
+#include <Units/Chemistry.hpp>
 #include <Units/Constants.hpp>
+#include <Units/Elasticity.hpp>
+#include <Units/Electromagnetism.hpp>
 #include <Units/Energy.hpp>
+#include <Units/Fluids.hpp>
 #include <Units/Force.hpp>
 #include <Units/Length.hpp>
 #include <Units/Luminosity.hpp>
@@ -202,6 +206,52 @@ TEST(UnitsDimensions, DimensionallyIdenticalQuantitiesAreOneType) {
     static_assert(std::is_same_v<Radiance, Irradiance>);
     static_assert(std::is_same_v<LuminousFlux, LuminousIntensity>);
     static_assert(std::is_same_v<RadiantPower, Power>);
+    SUCCEED();
+}
+
+TEST(UnitsDimensions,
+     ElectromagnetismFluidsAndChemistryAdditionsAreTheProductsTheyAreDefinedAs) {
+    static_assert(
+        std::is_same_v<decltype(Energy{} / ElectricCharge{}), ElectricPotential>);
+    static_assert(
+        std::is_same_v<decltype(ElectricCharge{} / ElectricPotential{}), Capacitance>);
+    using Current = Quantity<dim::Current>;
+    static_assert(std::is_same_v<decltype(ElectricPotential{} / Current{}), Resistance>);
+    static_assert(std::is_same_v<decltype(Dimensionless{} / Resistance{}), Conductance>);
+    static_assert(std::is_same_v<decltype(ElectricPotential{} * Time{}), MagneticFlux>);
+    static_assert(std::is_same_v<decltype(MagneticFlux{} / Current{}), Inductance>);
+
+    static_assert(std::is_same_v<decltype(Pressure{} * Time{}), DynamicViscosity>);
+    static_assert(std::is_same_v<decltype(Area{} / Time{}), KinematicViscosity>);
+    static_assert(std::is_same_v<decltype(Force{} / Length{}), SurfaceTension>);
+
+    static_assert(std::is_same_v<decltype(Power{} / (Length{} * Temperature{})),
+                                 ThermalConductivity>);
+    static_assert(
+        std::is_same_v<decltype(HeatCapacity{} / Mass{}), SpecificHeatCapacity>);
+
+    static_assert(
+        std::is_same_v<decltype(AmountOfSubstance{} / Volume{}), Concentration>);
+    static_assert(std::is_same_v<decltype(Mass{} / AmountOfSubstance{}), MolarMass>);
+
+    static_assert(
+        std::is_same_v<decltype(AngularVelocity{} / Time{}), AngularAcceleration>);
+    SUCCEED();
+}
+
+TEST(UnitsDimensions, StressAndStrainAreThePressureAndDimensionlessTypesRespectively) {
+    // Documented alongside Torque/Energy, Entropy/HeatCapacity and
+    // ThermalDiffusivity/KinematicViscosity above.
+    static_assert(std::is_same_v<Stress, Pressure>);
+    static_assert(std::is_same_v<Strain, Dimensionless>);
+    SUCCEED();
+}
+
+TEST(UnitsDimensions, ThermalDiffusivityAndKinematicViscosityAreOneType) {
+    // Documented alongside Torque/Energy and Entropy/HeatCapacity above: both
+    // are an area per time, so the dimension system cannot tell "how fast
+    // heat spreads" from "how fast momentum spreads" apart.
+    static_assert(std::is_same_v<ThermalDiffusivity, KinematicViscosity>);
     SUCCEED();
 }
 

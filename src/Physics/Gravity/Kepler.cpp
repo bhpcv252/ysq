@@ -1,5 +1,6 @@
 #include <Physics/Gravity/Kepler.hpp>
 
+#include <Math/RootFinding.hpp>
 #include <Math/Scalar.hpp>
 
 #include <cmath>
@@ -58,21 +59,20 @@ KeplerStateVector stateVectorFromElements(const OrbitalElements& elements, doubl
 double trueAnomalyFromMeanAnomaly(double meanAnomaly, double eccentricity) {
     const double e = eccentricity;
 
+    const auto keplersEquation = [meanAnomaly, e](double eccentricAnomaly) {
+        return eccentricAnomaly - e * std::sin(eccentricAnomaly) - meanAnomaly;
+    };
+    const auto keplersEquationDerivative = [e](double eccentricAnomaly) {
+        return 1.0 - e * std::cos(eccentricAnomaly);
+    };
+
     // E0 = M + e sin(M): the standard better-than-M starting guess: it
     // reaches double-precision convergence in noticeably fewer iterations
     // than starting from E0 = M, though either converges for any bound
     // orbit (e in [0, 1)).
-    double eccentricAnomaly = meanAnomaly + e * std::sin(meanAnomaly);
-
-    for (int iteration = 0; iteration < 50; ++iteration) {
-        const double f = eccentricAnomaly - e * std::sin(eccentricAnomaly) - meanAnomaly;
-        const double fPrime = 1.0 - e * std::cos(eccentricAnomaly);
-        const double step = f / fPrime;
-        eccentricAnomaly -= step;
-        if (std::abs(step) < 1.0e-14) {
-            break;
-        }
-    }
+    const double initialGuess = meanAnomaly + e * std::sin(meanAnomaly);
+    const double eccentricAnomaly = newtonRaphson(
+        keplersEquation, keplersEquationDerivative, initialGuess, 1.0e-14, 50);
 
     // Not needed for correctness (the doubled atan2 below already returns
     // the same physical angle for eccentricAnomaly shifted by any whole

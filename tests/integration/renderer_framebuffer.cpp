@@ -135,11 +135,10 @@ TEST(RendererFramebuffer, PointLightAttenuationIsRealInverseSquare) {
         renderer->endFrame();
         const std::vector<std::uint8_t> pixels = target->readPixels();
         RenderTarget::bindDefault();
-        const std::size_t centerIndex =
-            (static_cast<std::size_t>(target->height() / 2) *
-                 static_cast<std::size_t>(target->width()) +
-             static_cast<std::size_t>(target->width() / 2)) *
-            4;
+        const std::size_t centerIndex = (static_cast<std::size_t>(target->height() / 2) *
+                                             static_cast<std::size_t>(target->width()) +
+                                         static_cast<std::size_t>(target->width() / 2)) *
+                                        4;
         return static_cast<double>(pixels[centerIndex]);
     };
 
@@ -149,7 +148,8 @@ TEST(RendererFramebuffer, PointLightAttenuationIsRealInverseSquare) {
     const double nearBrightness = renderAtLightDistance(6.0f);
     const double farBrightness = renderAtLightDistance(11.0f);
 
-    ASSERT_GT(nearBrightness, 20.0) << "near case should be comfortably above the noise floor";
+    ASSERT_GT(nearBrightness, 20.0)
+        << "near case should be comfortably above the noise floor";
     const double ratio = nearBrightness / farBrightness;
     EXPECT_NEAR(ratio, 4.0, 0.6) << "doubling the light's distance must quarter the "
                                     "brightness under real inverse-square falloff (near="
@@ -205,11 +205,10 @@ TEST(RendererFramebuffer, PerInstanceLightMultiplierActuallyDarkensAnInstance) {
 
         const std::vector<std::uint8_t> pixels = target->readPixels();
         RenderTarget::bindDefault();
-        const std::size_t centerIndex =
-            (static_cast<std::size_t>(target->height() / 2) *
-                 static_cast<std::size_t>(target->width()) +
-             static_cast<std::size_t>(target->width() / 2)) *
-            4;
+        const std::size_t centerIndex = (static_cast<std::size_t>(target->height() / 2) *
+                                             static_cast<std::size_t>(target->width()) +
+                                         static_cast<std::size_t>(target->width() / 2)) *
+                                        4;
         return static_cast<int>(pixels[centerIndex]);
     };
 
@@ -217,7 +216,8 @@ TEST(RendererFramebuffer, PerInstanceLightMultiplierActuallyDarkensAnInstance) {
     const int shadowedBrightness = renderAtLightMultiplier(0.0f);
 
     EXPECT_GT(litBrightness, shadowedBrightness)
-        << "lightMultiplier=0 must read darker than lightMultiplier=1 on the same instance (lit="
+        << "lightMultiplier=0 must read darker than lightMultiplier=1 on the same "
+           "instance (lit="
         << litBrightness << ", shadowed=" << shadowedBrightness << ")";
     // lightMultiplier=0 should leave only the ambient term (material.ambient
     // = 0.1, well under the fully-lit ambient+diffuse response), not zero

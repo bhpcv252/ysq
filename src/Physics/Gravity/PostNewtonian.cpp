@@ -33,7 +33,8 @@ Acceleration3 postNewtonianCorrection(const Body& testParticle, const Body& sour
     return Acceleration3{relativisticAccelerationTerm(r, v, gm)};
 }
 
-double perihelionPrecessionPerOrbit(double gm, double semiMajorAxis, double eccentricity) {
+double perihelionPrecessionPerOrbit(double gm, double semiMajorAxis,
+                                    double eccentricity) {
     const double c = constants::speedOfLight.value();
     return 6.0 * kPi<double> * gm /
            (c * c * semiMajorAxis * (1.0 - eccentricity * eccentricity));
@@ -82,8 +83,10 @@ RelativisticNBodyJerkSystem::RelativisticNBodyJerkSystem(std::span<const Body> b
     }
 }
 
-std::pair<Vec3, Vec3> RelativisticNBodyJerkSystem::operator()(
-    std::size_t bodyIndex, const NBodyState& positions, const NBodyState& velocities) const {
+std::pair<Vec3, Vec3>
+RelativisticNBodyJerkSystem::operator()(std::size_t bodyIndex,
+                                        const NBodyState& positions,
+                                        const NBodyState& velocities) const {
     auto [acceleration, jerk] = m_newtonian(bodyIndex, positions, velocities);
 
     const int primary = m_primaryIndex[bodyIndex];
@@ -116,8 +119,9 @@ RelativisticNBodySystem::RelativisticNBodySystem(std::span<const Body> bodies,
     }
 }
 
-PhaseState<NBodyState> RelativisticNBodySystem::operator()(
-    double time, const PhaseState<NBodyState>& state) const {
+PhaseState<NBodyState>
+RelativisticNBodySystem::operator()(double time,
+                                    const PhaseState<NBodyState>& state) const {
     NBodyState acceleration = m_newtonian(time, state.position);
 
     for (std::size_t i = 0; i < m_primaryIndex.size(); ++i) {

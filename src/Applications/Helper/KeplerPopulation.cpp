@@ -6,10 +6,11 @@
 
 namespace ysq::applications {
 
-std::vector<KeplerParticle> generateKeplerPopulation(
-    int parentIndex, double parentGm, double minSemiMajorAxis, double maxSemiMajorAxis,
-    double maxEccentricity, double maxInclination, int count, std::uint64_t seed,
-    double realRadiusMeters, const Vec3f& color) {
+std::vector<KeplerParticle>
+generateKeplerPopulation(int parentIndex, double parentGm, double minSemiMajorAxis,
+                         double maxSemiMajorAxis, double maxEccentricity,
+                         double maxInclination, int count, std::uint64_t seed,
+                         double realRadiusMeters, const Vec3f& color) {
     std::vector<KeplerParticle> result;
     if (count <= 0) {
         return result;
@@ -18,7 +19,7 @@ std::vector<KeplerParticle> generateKeplerPopulation(
 
     std::mt19937_64 rng(seed);
     std::uniform_real_distribution<double> semiMajorAxisDist(minSemiMajorAxis,
-                                                              maxSemiMajorAxis);
+                                                             maxSemiMajorAxis);
     std::uniform_real_distribution<double> eccentricityDist(0.0, maxEccentricity);
     std::uniform_real_distribution<double> inclinationDist(0.0, maxInclination);
     std::uniform_real_distribution<double> angleDist(0.0, kTau<double>);
@@ -35,8 +36,8 @@ std::vector<KeplerParticle> generateKeplerPopulation(
         // negligible at belt/ring scale, and a synthetic swarm has no
         // per-particle need for it the way a named body might.
 
-        result.push_back(KeplerParticle{parentIndex, parentGm, elements, realRadiusMeters,
-                                        color});
+        result.push_back(
+            KeplerParticle{parentIndex, parentGm, elements, realRadiusMeters, color});
     }
 
     return result;

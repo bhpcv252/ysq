@@ -21,11 +21,12 @@ namespace ysq {
 /// whichever matches its regime, the same way it picks a rung of the
 /// gravity ladder.
 ///
-/// **Scope: one spatial dimension**, per Math/Grid.hpp. A full 3D Yee-grid
-/// solver, which is what a genuine radiating source (a dipole, say) needs,
-/// is future work; this rung validates against what 1D vacuum
-/// electrodynamics actually predicts: a wave travelling at exactly c, and a
-/// closed system's energy staying constant. See src/Physics/README.md.
+/// **Scope: one spatial dimension**, per Math/Grid.hpp; this rung validates
+/// against what 1D vacuum electrodynamics actually predicts: a wave
+/// travelling at exactly c, and a closed system's energy staying constant.
+/// The full 3D Yee grid, which is what a genuine radiating source (a
+/// dipole, say) needs, is `Electromagnetism/Maxwell3D.hpp`. See
+/// src/Physics/README.md.
 ///
 /// Ey lives at the grid's integer points, Bz at the half-integer points in
 /// between (the Yee staggering): magneticField(i) is Bz at x_i +

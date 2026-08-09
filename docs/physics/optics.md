@@ -37,6 +37,9 @@ actually the same computation:
 | `Optics/RefractiveMedium.hpp` | A graded-index medium (air, glass, anything) as a metric: refraction is a null geodesic too |
 | `Optics/RayleighScattering.hpp` | A gas's scattering cross-section and the wavelength-dependent transmission along a path |
 | `Optics/Illumination.hpp` | How much of an extended light source is visible from a point, through occlusion and one refracting medium |
+| `Optics/RadiationPressure.hpp` | The force light's own momentum exerts on a surface: irradiance to force |
+| `Optics/Diffraction.hpp` | Fraunhofer diffraction and two-slit interference: wave optics, not ray propagation |
+| `Optics/Aberration.hpp` | How a light ray's direction, not just its frequency, changes between frames in relative motion |
 
 **A subtlety worth knowing about, because it's a real bug that was caught
 this way.** Measuring the deflection angle by comparing a ray's total
@@ -67,6 +70,20 @@ comes out reddened, not just dimmer. `Illumination.hpp` composes both with
 straight-line occlusion into one answer, "how much of an extended source
 reaches this point", for any scene shaped that way, not only an eclipse.
 
+Three more headers round the module out, each a genuinely separate piece
+of optics rather than another view of the same null-geodesic idea.
+**Radiation pressure** turns `Illumination.hpp`'s irradiance into an
+actual force, light's own momentum pushing on whatever it hits.
+**Diffraction and interference** are wave-optics effects a ray, by
+definition, cannot show: `fraunhoferDiffraction` gets the far-field
+pattern of an arbitrary aperture directly from its Fourier transform, and
+`twoSlitIntensity` is the classic Young's double-slit result in closed
+form. **Aberration** is the direction counterpart to frequency shift: the
+same relative motion that Doppler-shifts a photon's frequency also bends
+its apparent direction, `aberratedDirection` being exactly relativistic
+velocity addition (see [docs/physics/mechanics.md](mechanics.md)) applied
+to a velocity of magnitude `c`.
+
 ## Using it
 
 ```cpp
@@ -87,17 +104,34 @@ const double shift = ysq::frequencyShift(
 deep in a gravity well, or an expanding universe between source and
 observer.
 
+Radiation pressure and aberration, which don't need a metric at all:
+
+```cpp
+#include <Physics/Optics/RadiationPressure.hpp>
+#include <Physics/Optics/Aberration.hpp>
+
+const ysq::Force3 pressure = ysq::radiationPressureForce(
+    starLuminosity, starPosition, bodyPosition, bodyRadius, radiationPressureCoefficient);
+
+const ysq::Vec3 seenDirection = ysq::aberratedDirection(emittedDirection, observerVelocity);
+```
+
 ## Go deeper
 
 [docs/api/physics/optics.md](../api/physics/optics.md) has every signature:
-`nullTangent`/`propagate`, `deflectionAngle` and its helpers, and
-`frequencyShift`/`staticObserverFourVelocity`.
+`nullTangent`/`propagate`, `deflectionAngle` and its helpers,
+`frequencyShift`/`staticObserverFourVelocity`, `RefractiveMedium`,
+`RayleighScattering.hpp`'s cross-section and transmission, `illuminate`
+and `discOcclusionFraction`, both `radiationPressureForce` overloads,
+`fraunhoferDiffraction`/`twoSlitIntensity`, and both aberration functions.
 
 [src/Physics/README.md](../../src/Physics/README.md) has the full
 derivations: `nullTangent`'s quadratic solve for a future-directed photon,
-the exact flat-space sweep formula the lensing correction above uses, and
+the exact flat-space sweep formula the lensing correction above uses,
 `staticObserverFourVelocity`, which covers both the gravitational and
-cosmological observer cases from one function.
+cosmological observer cases from one function, the optical-metric
+construction `RefractiveMedium` builds on, and the real, measured
+horizontal-refraction test it's validated against.
 
 ---
 Notice something missing or wrong on this page?

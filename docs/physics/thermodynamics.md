@@ -23,14 +23,25 @@ space or time dependence, a single number in, a single number out. The heat
 equation describes how temperature actually *spreads*, a hot spot cooling
 into its surroundings over time, which needs a grid, the same kind
 `Physics/Fluids`' Eulerian solver and `Physics/Electromagnetism`'s Maxwell
-solver use.
+solver use — in 1D and in full 3D.
+
+The ideal gas law and black-body radiation are both macroscopic, bulk
+descriptions of what's really a distribution of individual molecular
+speeds; **statistical mechanics** is that underlying distribution made
+explicit (the Maxwell-Boltzmann speed distribution). **Radiative
+transfer** generalizes black-body radiation the other direction: not
+radiating into empty space, but exchanging heat with a second surface
+that only intercepts part of what's radiated.
 
 ## What YSQ gives you
 
 | Header | Purpose |
 | --- | --- |
 | `Thermodynamics/Thermodynamics.hpp` | Ideal gas law, adiabatic relation, black-body luminosity, Wien's law, isothermal barometric profile |
+| `Thermodynamics/StatisticalMechanics.hpp` | The Maxwell-Boltzmann speed distribution: density, CDF, moments, characteristic speeds |
+| `Thermodynamics/RadiativeTransfer.hpp` | Radiative exchange between two finite surfaces; the coaxial-disk view factor in closed form |
 | `Thermodynamics/HeatEquation.hpp` | `HeatEquation1D`: 1D diffusion, explicit finite-difference |
+| `Thermodynamics/HeatEquation3D.hpp` | `HeatEquation3D`: the same scheme on a 3D grid |
 
 An atmosphere in hydrostatic equilibrium (weight balanced by pressure) with
 the ideal gas law held at constant temperature gives one more closed form:
@@ -58,6 +69,21 @@ const ysq::Density atThatHeight =
 ```
 
 ```cpp
+#include <Physics/Thermodynamics/StatisticalMechanics.hpp>
+
+const ysq::Speed mean = ysq::maxwellBoltzmannMeanSpeed(particleMass, temperature);
+const double escapeFraction = ysq::maxwellBoltzmannSpeedCdf(escapeSpeed, particleMass, temperature);
+```
+
+```cpp
+#include <Physics/Thermodynamics/RadiativeTransfer.hpp>
+
+const double viewFactor = ysq::coaxialDiskViewFactor(radius1, radius2, distance);
+const ysq::Power netFlow =
+    ysq::netRadiativeExchange(area1, viewFactor, temperature1, temperature2);
+```
+
+```cpp
 #include <Physics/Thermodynamics/HeatEquation.hpp>
 
 ysq::HeatEquation1D heat(cellCount, spacing, diffusivity);
@@ -65,18 +91,31 @@ heat.setTemperature(cell, value);
 heat.step(heat.stableTimeStep(/*safetyFactor=*/0.9));
 ```
 
+The same equation in 3D:
+
+```cpp
+#include <Physics/Thermodynamics/HeatEquation3D.hpp>
+
+ysq::HeatEquation3D heat(nx, ny, nz, spacing, diffusivity);
+heat.setTemperature(i, j, k, value);
+heat.step(heat.stableTimeStep(/*safetyFactor=*/0.9));
+```
+
 ## Go deeper
 
 [docs/api/physics/thermodynamics.md](../api/physics/thermodynamics.md) has
-every signature: the gas-law and black-body functions, and
-`HeatEquation1D`'s full interface.
+every signature: the gas-law and black-body functions, the
+Maxwell-Boltzmann distribution, radiative exchange, and both
+`HeatEquation1D`'s and `HeatEquation3D`'s full interfaces.
 
 [src/Physics/README.md](../../src/Physics/README.md) has the exact
 Stefan-Boltzmann constant and why it's computed from the SI-defining
 constants rather than typed as its own measured value, the FTCS stability
-condition `HeatEquation1D` enforces, and how the heat equation is validated
-against its known exact solution (a Gaussian temperature profile stays
-Gaussian, with its width growing predictably over time).
+condition each heat-equation solver enforces, how the heat equation is
+validated against its known exact solution (a Gaussian temperature profile
+stays Gaussian in 1D, and separates into a product of three such Gaussians
+in 3D), and the numerically-stable form `coaxialDiskViewFactor` evaluates
+to avoid cancellation at large separations.
 
 ---
 Notice something missing or wrong on this page?

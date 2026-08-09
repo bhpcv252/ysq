@@ -90,7 +90,8 @@ illuminate(const Vec3& sourceCenter, double sourceRadius,
 /// `occluder` is not even nearer to `point` than `sourceCenter` is, since
 /// it cannot be sitting between them.
 [[nodiscard]] double discOcclusionFraction(const Vec3& point, const Vec3& sourceCenter,
-                                           double sourceRadius, const Vec3& occluderCenter,
+                                           double sourceRadius,
+                                           const Vec3& occluderCenter,
                                            double occluderRadius);
 
 }  // namespace ysq

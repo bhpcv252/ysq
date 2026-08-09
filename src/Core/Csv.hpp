@@ -68,7 +68,8 @@ public:
         [[nodiscard]] T get(std::string_view column, const T& fallback) const;
         /// So get(column, "default") works without spelling out
         /// get<std::string>.
-        [[nodiscard]] std::string get(std::string_view column, const char* fallback) const;
+        [[nodiscard]] std::string get(std::string_view column,
+                                      const char* fallback) const;
 
         [[nodiscard]] bool has(std::string_view column) const;
 
@@ -123,7 +124,9 @@ public:
 
     [[nodiscard]] Row row(std::size_t index) const;
     [[nodiscard]] RowIterator begin() const noexcept { return RowIterator{*this, 0}; }
-    [[nodiscard]] RowIterator end() const noexcept { return RowIterator{*this, rowCount()}; }
+    [[nodiscard]] RowIterator end() const noexcept {
+        return RowIterator{*this, rowCount()};
+    }
 
     /// Refuses a file larger than maxBytes rather than allocating whatever
     /// it was pointed at. The default is generous for a data table
@@ -132,7 +135,7 @@ public:
     static constexpr std::uintmax_t kDefaultMaxFileBytes = 64u * 1024u * 1024u;
 
     [[nodiscard]] static std::optional<Csv> parse(std::string_view text,
-                                                   CsvError* error = nullptr);
+                                                  CsvError* error = nullptr);
     [[nodiscard]] static std::optional<Csv>
     load(const std::filesystem::path& path, CsvError* error = nullptr,
          std::uintmax_t maxBytes = kDefaultMaxFileBytes);

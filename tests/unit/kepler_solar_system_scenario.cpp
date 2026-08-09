@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -23,7 +24,7 @@ namespace {
 using namespace ysq::kepler_solar_system;
 
 const ysq::applications::KeplerCatalogBody& findByName(const Scenario& scenario,
-                                                   const std::string& name) {
+                                                       std::string_view name) {
     for (const auto& body : scenario.bodies) {
         if (body.name == name) {
             return body;
@@ -46,7 +47,8 @@ TEST(KeplerSolarSystemScenario, LoadsTheRealDataFileSuccessfully) {
 TEST(KeplerSolarSystemScenario, SunIsTheOneRootAndSitsFirst) {
     const std::optional<Scenario> scenario = makeScenario();
     ASSERT_TRUE(scenario.has_value());
-    EXPECT_TRUE(scenario->bodies.front().parent.empty()) << "index 0 must be the one root";
+    EXPECT_TRUE(scenario->bodies.front().parent.empty())
+        << "index 0 must be the one root";
     EXPECT_EQ(scenario->bodies.front().name, "Sun");
     EXPECT_EQ(scenario->bodies.front().parentIndex, -1);
     EXPECT_FALSE(scenario->bodies.front().elements.has_value());
@@ -65,7 +67,7 @@ TEST(KeplerSolarSystemScenario, EveryNonRootBodyHasElementsAndAValidParentIndex)
         EXPECT_LT(static_cast<std::size_t>(body.parentIndex), scenario->bodies.size())
             << body.name;
         EXPECT_EQ(scenario->bodies[static_cast<std::size_t>(body.parentIndex)].name,
-                 body.parent)
+                  body.parent)
             << body.name;
     }
 }
@@ -96,16 +98,18 @@ TEST(KeplerSolarSystemScenario, TheFiveDwarfPlanetsArePresentWithRealSemiMajorAx
     // orbit's own shape, independent of where each body happens to sit on
     // it right now, so this can check against the real semi-major axis
     // directly rather than needing a wide "instantaneous distance" margin.
-    const std::vector<std::pair<std::string, double>> expectedAu{
-        {"Ceres", 2.7656}, {"Pluto", 39.59}, {"Haumea", 43.06},
-        {"Makemake", 45.57}, {"Eris", 67.93}};
+    const std::vector<std::pair<std::string, double>> expectedAu{{"Ceres", 2.7656},
+                                                                 {"Pluto", 39.59},
+                                                                 {"Haumea", 43.06},
+                                                                 {"Makemake", 45.57},
+                                                                 {"Eris", 67.93}};
 
     for (const auto& [name, semiMajorAxisAu] : expectedAu) {
         const ysq::applications::KeplerCatalogBody& body = findByName(*scenario, name);
         EXPECT_EQ(body.parent, "Sun") << name;
         ASSERT_TRUE(body.elements.has_value()) << name;
         EXPECT_NEAR(body.elements->semiMajorAxis, semiMajorAxisAu * auMeters,
-                   semiMajorAxisAu * auMeters * 1e-3)
+                    semiMajorAxisAu * auMeters * 1e-3)
             << name;
     }
 }
@@ -114,7 +118,8 @@ TEST(KeplerSolarSystemScenario, SunParentedBodiesPrecessAndMoonsDoNot) {
     const std::optional<Scenario> scenario = makeScenario();
     ASSERT_TRUE(scenario.has_value());
 
-    const ysq::applications::KeplerCatalogBody& mercury = findByName(*scenario, "Mercury");
+    const ysq::applications::KeplerCatalogBody& mercury =
+        findByName(*scenario, "Mercury");
     ASSERT_TRUE(mercury.elements.has_value());
     EXPECT_GT(mercury.elements->precessionRatePerSecond, 0.0)
         << "a Sun-parented body's own real GR precession rate must be positive, not left "
@@ -127,7 +132,8 @@ TEST(KeplerSolarSystemScenario, SunParentedBodiesPrecessAndMoonsDoNot) {
            "not apply to it here";
 }
 
-TEST(KeplerSolarSystemScenario, AsteroidBeltParticlesAreSunParentedAndWithinTheRealRange) {
+TEST(KeplerSolarSystemScenario,
+     AsteroidBeltParticlesAreSunParentedAndWithinTheRealRange) {
     const std::optional<Scenario> scenario = makeScenario();
     ASSERT_TRUE(scenario.has_value());
     ASSERT_FALSE(scenario->asteroidBelt.empty());
@@ -180,8 +186,10 @@ TEST(KeplerSolarSystemScenario, EveryRingNamesARealPlanetAndItsParticlesOrbitTha
             EXPECT_LT(particle.elements.semiMajorAxis, 0.01 * auMeters) << ring.parent;
             EXPECT_GT(particle.realRadiusMeters, 0.0) << ring.parent;
         }
-        EXPECT_EQ(scenario->bodies[static_cast<std::size_t>(parentIndex)].name, ring.parent);
-        EXPECT_NE(parentIndex, 0) << ring.parent << " must orbit its own planet, not the Sun";
+        EXPECT_EQ(scenario->bodies[static_cast<std::size_t>(parentIndex)].name,
+                  ring.parent);
+        EXPECT_NE(parentIndex, 0)
+            << ring.parent << " must orbit its own planet, not the Sun";
         ringedPlanets.insert(ring.parent);
     }
     for (const char* planet : {"Jupiter", "Saturn", "Uranus", "Neptune"}) {

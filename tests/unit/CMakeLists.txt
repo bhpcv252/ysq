@@ -2,6 +2,7 @@ ysq_add_test(test_core_clock SOURCES core_clock.cpp LIBS ysq::Core)
 ysq_add_test(test_core_config SOURCES core_config.cpp LIBS ysq::Core)
 ysq_add_test(test_core_csv SOURCES core_csv.cpp LIBS ysq::Core)
 ysq_add_test(test_core_event SOURCES core_event.cpp LIBS ysq::Core)
+ysq_add_test(test_core_executablepath SOURCES core_executablepath.cpp LIBS ysq::Core)
 ysq_add_test(test_core_logger SOURCES core_logger.cpp LIBS ysq::Core)
 ysq_add_test(test_core_timer SOURCES core_timer.cpp LIBS ysq::Core)
 ysq_add_test(test_core_uuid SOURCES core_uuid.cpp LIBS ysq::Core)
@@ -11,7 +12,19 @@ ysq_add_test(test_math_vector SOURCES math_vector.cpp
     LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_matrix SOURCES math_matrix.cpp
     LIBS ysq::Math ysq::TestSupport)
-ysq_add_test(test_math_intersection SOURCES math_intersection.cpp
+ysq_add_test(test_math_geometry_intersection SOURCES math_geometry_intersection.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_geometry_queries SOURCES math_geometry_queries.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_geometry_convexhull SOURCES math_geometry_convexhull.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_spatialpartition_kdtree SOURCES math_spatialpartition_kdtree.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_spatialpartition_bvh SOURCES math_spatialpartition_bvh.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_spatialpartition_octree SOURCES math_spatialpartition_octree.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_fft SOURCES math_fft.cpp
     LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_quaternion SOURCES math_quaternion.cpp
     LIBS ysq::Math ysq::TestSupport)
@@ -31,6 +44,20 @@ ysq_add_test(test_math_statistics SOURCES math_statistics.cpp
 ysq_add_test(test_math_interpolation SOURCES math_interpolation.cpp
     LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_calculus SOURCES math_calculus.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_rootfinding SOURCES math_rootfinding.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_linearsolve SOURCES math_linearsolve.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_eigen SOURCES math_eigen.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_specialfunctions SOURCES math_specialfunctions.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_polynomial SOURCES math_polynomial.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_random SOURCES math_random.cpp
+    LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_optimization SOURCES math_optimization.cpp
     LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_coordinates SOURCES math_coordinates.cpp
     LIBS ysq::Math ysq::TestSupport)
@@ -90,6 +117,30 @@ ysq_add_test(test_physics_mechanics SOURCES physics_mechanics.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_physics_mechanics_hermite SOURCES physics_mechanics_hermite.cpp
     LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_mechanics_spring SOURCES physics_mechanics_spring.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_mechanics_drag SOURCES physics_mechanics_drag.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_mechanics_collision SOURCES physics_mechanics_collision.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_mechanics_friction SOURCES physics_mechanics_friction.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_mechanics_constraints SOURCES physics_mechanics_constraints.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_gravity_sphericalharmonics SOURCES physics_gravity_sphericalharmonics.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_optics_radiationpressure SOURCES physics_optics_radiationpressure.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_optics_diffraction SOURCES physics_optics_diffraction.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_optics_aberration SOURCES physics_optics_aberration.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_thermodynamics_statisticalmechanics
+    SOURCES physics_thermodynamics_statisticalmechanics.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_thermodynamics_radiativetransfer
+    SOURCES physics_thermodynamics_radiativetransfer.cpp
+    LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_physics_rigidbody SOURCES physics_rigidbody.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_physics_gravity SOURCES physics_gravity.cpp
@@ -131,15 +182,41 @@ ysq_add_test(test_em_lorentz SOURCES em_lorentz.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_em_maxwell SOURCES em_maxwell.cpp
     LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_em_maxwell3d SOURCES em_maxwell3d.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_acoustics_acoustic SOURCES acoustics_acoustic.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_acoustics_acoustic3d SOURCES acoustics_acoustic3d.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_continuum_elasticity SOURCES physics_continuum_elasticity.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_continuum_elasticchain SOURCES physics_continuum_elasticchain.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_quantummechanics_schrodinger
+    SOURCES physics_quantummechanics_schrodinger.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_quantummechanics_wavepacket
+    SOURCES physics_quantummechanics_wavepacket.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_quantummechanics_schrodinger3d
+    SOURCES physics_quantummechanics_schrodinger3d.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_physics_quantummechanics_wavepacket3d
+    SOURCES physics_quantummechanics_wavepacket3d.cpp
+    LIBS ysq::Physics ysq::TestSupport)
 
 ysq_add_test(test_fluids_sph SOURCES fluids_sph.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_fluids_eulerian SOURCES fluids_eulerian.cpp
     LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_fluids_eulerian3d SOURCES fluids_eulerian3d.cpp
+    LIBS ysq::Physics ysq::TestSupport)
 
 ysq_add_test(test_thermodynamics SOURCES thermodynamics.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_thermodynamics_heatequation SOURCES thermodynamics_heatequation.cpp
+    LIBS ysq::Physics ysq::TestSupport)
+ysq_add_test(test_thermodynamics_heatequation3d SOURCES thermodynamics_heatequation3d.cpp
     LIBS ysq::Physics ysq::TestSupport)
 
 # Applications' scenario-construction code, not the windowed executables

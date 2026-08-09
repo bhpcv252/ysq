@@ -33,8 +33,8 @@ namespace {
 /// |delta|^2 + softeningSquared not depending on time. Same convention as
 /// `softenedTerm`: points however the acceleration contribution it is the
 /// derivative of already does.
-[[nodiscard]] Vec3 softenedJerkTerm(const Vec3& delta, const Vec3& deltaVelocity, double gm,
-                                    double softeningSquared) {
+[[nodiscard]] Vec3 softenedJerkTerm(const Vec3& delta, const Vec3& deltaVelocity,
+                                    double gm, double softeningSquared) {
     const double r2 = lengthSquared(delta) + softeningSquared;
     const double r = std::sqrt(r2);
     const double r3 = r2 * r;

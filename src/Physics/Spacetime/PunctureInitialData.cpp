@@ -22,8 +22,8 @@ namespace {
 [[nodiscard]] Vec3 cellCenter(std::ptrdiff_t i, std::ptrdiff_t j, std::ptrdiff_t k,
                               double spacing, double halfX, double halfY, double halfZ) {
     return Vec3{(static_cast<double>(i) + 0.5) * spacing - halfX,
-               (static_cast<double>(j) + 0.5) * spacing - halfY,
-               (static_cast<double>(k) + 0.5) * spacing - halfZ};
+                (static_cast<double>(j) + 0.5) * spacing - halfY,
+                (static_cast<double>(k) + 0.5) * spacing - halfZ};
 }
 
 /// The flat-space Bowen-York extrinsic curvature (Bowen & York, Phys. Rev. D
@@ -35,7 +35,7 @@ namespace {
 ///   AbarIJ = (3 / 2 r^2) [ P^i n^j + P^j n^i - (delta^ij - n^i n^j) P.n ]
 ///          + (3 / r^3) [ (S x n)^i n^j + (S x n)^j n^i ]
 [[nodiscard]] Tensor<double, 2, 3> bowenYorkAt(const std::vector<PunctureSpec>& punctures,
-                                              const Vec3& point) {
+                                               const Vec3& point) {
     Tensor<double, 2, 3> total{};
     for (const PunctureSpec& puncture : punctures) {
         const Vec3 delta = point - puncture.position;
@@ -66,9 +66,10 @@ namespace {
                                      nArr[static_cast<std::size_t>(b)]) *
                          pDotN);
                 const double spinTerm =
-                    (3.0 / (r * r * r)) *
-                    (sxn[static_cast<std::size_t>(a)] * nArr[static_cast<std::size_t>(b)] +
-                     sxn[static_cast<std::size_t>(b)] * nArr[static_cast<std::size_t>(a)]);
+                    (3.0 / (r * r * r)) * (sxn[static_cast<std::size_t>(a)] *
+                                               nArr[static_cast<std::size_t>(b)] +
+                                           sxn[static_cast<std::size_t>(b)] *
+                                               nArr[static_cast<std::size_t>(a)]);
                 total(a, b) += linear + spinTerm;
             }
         }
@@ -80,7 +81,7 @@ namespace {
 /// factor factored out analytically so the numerically solved correction
 /// `u` is smooth (including at every puncture): psi_BL = 1 + sum m_i / (2 r_i).
 [[nodiscard]] double brillLindquistPsi(const std::vector<PunctureSpec>& punctures,
-                                      const Vec3& point) {
+                                       const Vec3& point) {
     double psi = 1.0;
     for (const PunctureSpec& puncture : punctures) {
         const double r = length(point - puncture.position);
@@ -91,12 +92,11 @@ namespace {
 
 }  // namespace
 
-PunctureInitialDataResult solvePunctureInitialData(const std::vector<PunctureSpec>& punctures,
-                                                   std::size_t cellCountX,
-                                                   std::size_t cellCountY,
-                                                   std::size_t cellCountZ, double spacing,
-                                                   std::size_t ghostCells,
-                                                   const MultigridSettings& settings) {
+PunctureInitialDataResult
+solvePunctureInitialData(const std::vector<PunctureSpec>& punctures,
+                         std::size_t cellCountX, std::size_t cellCountY,
+                         std::size_t cellCountZ, double spacing, std::size_t ghostCells,
+                         const MultigridSettings& settings) {
     // Deliberately integer division, truncated before the cast: an odd cell
     // count centers the domain within half a cell of the origin rather than
     // failing to compile, and cellCenter's own +0.5 offset is what actually
@@ -141,23 +141,23 @@ PunctureInitialDataResult solvePunctureInitialData(const std::vector<PunctureSpe
     };
 
     const auto applyOperator = [&](const Grid3D<double>& field, std::ptrdiff_t i,
-                                  std::ptrdiff_t j, std::ptrdiff_t k, double h) {
+                                   std::ptrdiff_t j, std::ptrdiff_t k, double h) {
         const Vec3 point = cellCenter(i, j, k, h, halfX, halfY, halfZ);
-        const double laplacian = (field(i + 1, j, k) + field(i - 1, j, k) +
-                                 field(i, j + 1, k) + field(i, j - 1, k) +
-                                 field(i, j, k + 1) + field(i, j, k - 1) -
-                                 6.0 * field(i, j, k)) /
-                                (h * h);
+        const double laplacian =
+            (field(i + 1, j, k) + field(i - 1, j, k) + field(i, j + 1, k) +
+             field(i, j - 1, k) + field(i, j, k + 1) + field(i, j, k - 1) -
+             6.0 * field(i, j, k)) /
+            (h * h);
         return laplacian + punctureTerm(point, field(i, j, k));
     };
 
     const auto relaxPoint = [&](Grid3D<double>& field, std::ptrdiff_t i, std::ptrdiff_t j,
-                               std::ptrdiff_t k, double h, double target) {
+                                std::ptrdiff_t k, double h, double target) {
         const Vec3 point = cellCenter(i, j, k, h, halfX, halfY, halfZ);
         const double term = punctureTerm(point, field(i, j, k));
         const double neighborSum = field(i + 1, j, k) + field(i - 1, j, k) +
-                                  field(i, j + 1, k) + field(i, j - 1, k) +
-                                  field(i, j, k + 1) + field(i, j, k - 1);
+                                   field(i, j + 1, k) + field(i, j - 1, k) +
+                                   field(i, j, k + 1) + field(i, j, k - 1);
         field(i, j, k) = (neighborSum - h * h * (target - term)) / 6.0;
     };
 
@@ -209,9 +209,10 @@ PunctureInitialDataResult solvePunctureInitialData(const std::vector<PunctureSpe
         for (std::ptrdiff_t j = -ig; j < ny + ig; ++j) {
             for (std::ptrdiff_t k = -ig; k < nz + ig; ++k) {
                 const Vec3 point = cellCenter(i, j, k, spacing, halfX, halfY, halfZ);
-                const double uValue = (i >= 0 && i < nx && j >= 0 && j < ny && k >= 0 && k < nz)
-                                         ? u(i, j, k)
-                                         : 0.0;
+                const double uValue =
+                    (i >= 0 && i < nx && j >= 0 && j < ny && k >= 0 && k < nz)
+                        ? u(i, j, k)
+                        : 0.0;
                 const double psi = brillLindquistPsi(punctures, point) + uValue;
                 const double conformalFactor4 = psi * psi * psi * psi;
 
@@ -235,7 +236,8 @@ PunctureInitialDataResult solvePunctureInitialData(const std::vector<PunctureSpe
         }
     }
 
-    return PunctureInitialDataResult{std::move(adm), iterationsUsed, finalResidual, converged};
+    return PunctureInitialDataResult{std::move(adm), iterationsUsed, finalResidual,
+                                     converged};
 }
 
 double newtonianCircularMomentum(double mass1, double mass2, double separation) {

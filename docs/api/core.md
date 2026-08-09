@@ -478,6 +478,32 @@ error naming its line. Every data row must have exactly as many fields as the
 header has columns, and header names must be non-empty and unique -- both are
 parse errors, not silently padded, truncated, or overwritten rows.
 
+## `Core/ExecutablePath.hpp`
+
+Where the currently running process's own executable actually lives on
+disk: a general OS-process fact, not a graphics one, so it lives in `Core`
+rather than `Platform` and works in a headless build too.
+
+```cpp
+std::optional<std::filesystem::path> executablePath();
+std::optional<std::filesystem::path> executableDirectory();
+```
+
+| Function | Description |
+| --- | --- |
+| `executablePath()` | The absolute, symlink-resolved path to the running executable. `std::nullopt` only if the underlying OS call itself fails, which does not happen in ordinary use. Implemented per platform: `/proc/self/exe` (Linux), `_NSGetExecutablePath` (macOS), `GetModuleFileNameW` (Windows). |
+| `executableDirectory()` | `executablePath()`'s own parent directory; `std::nullopt` under the same condition. |
+
+```cpp
+if (const std::optional<std::filesystem::path> dir = ysq::executableDirectory()) {
+    const std::filesystem::path shipped = *dir / "data" / "planets.csv";
+}
+```
+
+This is the mechanism an application uses to find data shipped alongside
+its own executable regardless of what directory it was unzipped into --
+see `src/Applications/README.md`'s convention section.
+
 ---
 Notice something missing or wrong on this page?
 [Open an issue](https://github.com/bhpcv252/ysq/issues/new?title=docs:+api/core)

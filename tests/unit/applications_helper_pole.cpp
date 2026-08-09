@@ -9,8 +9,8 @@
 
 namespace {
 
-using ysq::applications::poleRotation;
 using ysq::radians;
+using ysq::applications::poleRotation;
 
 ysq::Vec3 expectedPoleDirection(double rightAscension, double declination) {
     return ysq::Vec3{std::cos(declination) * std::cos(rightAscension),
@@ -27,9 +27,12 @@ TEST(ApplicationsHelperPole, RotatesLocalZToThePublishedDirectionForARangeOfPole
             const double dec = radians(decDeg);
             const ysq::Vec3 rotated = rotate(poleRotation(ra, dec), ysq::Vec3::unitZ());
             const ysq::Vec3 expected = expectedPoleDirection(ra, dec);
-            EXPECT_NEAR(rotated.x, expected.x, 1e-12) << "RA=" << raDeg << " Dec=" << decDeg;
-            EXPECT_NEAR(rotated.y, expected.y, 1e-12) << "RA=" << raDeg << " Dec=" << decDeg;
-            EXPECT_NEAR(rotated.z, expected.z, 1e-12) << "RA=" << raDeg << " Dec=" << decDeg;
+            EXPECT_NEAR(rotated.x, expected.x, 1e-12)
+                << "RA=" << raDeg << " Dec=" << decDeg;
+            EXPECT_NEAR(rotated.y, expected.y, 1e-12)
+                << "RA=" << raDeg << " Dec=" << decDeg;
+            EXPECT_NEAR(rotated.z, expected.z, 1e-12)
+                << "RA=" << raDeg << " Dec=" << decDeg;
         }
     }
 }
@@ -54,8 +57,10 @@ TEST(ApplicationsHelperPole, ZeroRightAscensionAndDeclinationPointsAlongPlusX) {
     EXPECT_NEAR(rotated.z, 0.0, 1e-12);
 }
 
-TEST(ApplicationsHelperPole, NinetyDegreeRightAscensionAtZeroDeclinationPointsAlongPlusY) {
-    const ysq::Vec3 rotated = rotate(poleRotation(radians(90.0), 0.0), ysq::Vec3::unitZ());
+TEST(ApplicationsHelperPole,
+     NinetyDegreeRightAscensionAtZeroDeclinationPointsAlongPlusY) {
+    const ysq::Vec3 rotated =
+        rotate(poleRotation(radians(90.0), 0.0), ysq::Vec3::unitZ());
     EXPECT_NEAR(rotated.x, 0.0, 1e-12);
     EXPECT_NEAR(rotated.y, 1.0, 1e-12);
     EXPECT_NEAR(rotated.z, 0.0, 1e-12);

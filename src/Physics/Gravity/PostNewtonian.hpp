@@ -82,12 +82,13 @@ public:
     RelativisticNBodySystem(std::span<const Body> bodies, std::vector<int> primaryIndex,
                             Length softening = Length::zero());
 
-    [[nodiscard]] PhaseState<NBodyState> operator()(
-        double time, const PhaseState<NBodyState>& state) const;
+    [[nodiscard]] PhaseState<NBodyState>
+    operator()(double time, const PhaseState<NBodyState>& state) const;
 
 private:
     NewtonianField m_newtonian;
-    std::vector<double> m_primaryGravitationalParameters;  // 0 wherever primaryIndex[i] < 0
+    std::vector<double>
+        m_primaryGravitationalParameters;  // 0 wherever primaryIndex[i] < 0
     std::vector<int> m_primaryIndex;
 };
 
@@ -118,7 +119,8 @@ private:
 /// `IndividualJerkField`.
 class RelativisticNBodyJerkSystem {
 public:
-    RelativisticNBodyJerkSystem(std::span<const Body> bodies, std::vector<int> primaryIndex,
+    RelativisticNBodyJerkSystem(std::span<const Body> bodies,
+                                std::vector<int> primaryIndex,
                                 Length softening = Length::zero());
 
     [[nodiscard]] std::pair<Vec3, Vec3> operator()(std::size_t bodyIndex,

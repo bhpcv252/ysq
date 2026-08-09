@@ -4,6 +4,24 @@
 add_library(ysq_physics STATIC
     Body.hpp
 
+    Acoustics/Acoustic.hpp
+    Acoustics/Acoustic.cpp
+    Acoustics/Acoustic3D.hpp
+    Acoustics/Acoustic3D.cpp
+
+    Continuum/Elasticity.hpp
+    Continuum/ElasticChain1D.hpp
+    Continuum/ElasticChain1D.cpp
+
+    QuantumMechanics/Schrodinger.hpp
+    QuantumMechanics/Schrodinger.cpp
+    QuantumMechanics/Schrodinger3D.hpp
+    QuantumMechanics/Schrodinger3D.cpp
+    QuantumMechanics/WavePacket.hpp
+    QuantumMechanics/WavePacket.cpp
+    QuantumMechanics/WavePacket3D.hpp
+    QuantumMechanics/WavePacket3D.cpp
+
     Mechanics/Frame.hpp
     Mechanics/Kinematics.hpp
     Mechanics/Dynamics.hpp
@@ -12,6 +30,13 @@ add_library(ysq_physics STATIC
     Mechanics/RigidBody.cpp
     Mechanics/Hermite.hpp
     Mechanics/Hermite.cpp
+    Mechanics/Spring.hpp
+    Mechanics/Drag.hpp
+    Mechanics/Collision.hpp
+    Mechanics/Collision.cpp
+    Mechanics/Friction.hpp
+    Mechanics/Constraints.hpp
+    Mechanics/Constraints.cpp
 
     Gravity/Newtonian.hpp
     Gravity/Newtonian.cpp
@@ -21,6 +46,8 @@ add_library(ysq_physics STATIC
     Gravity/BarnesHut.cpp
     Gravity/Kepler.hpp
     Gravity/Kepler.cpp
+    Gravity/SphericalHarmonics.hpp
+    Gravity/SphericalHarmonics.cpp
 
     Spacetime/Metric.hpp
     Spacetime/Minkowski.hpp
@@ -41,6 +68,10 @@ add_library(ysq_physics STATIC
     Optics/RayleighScattering.hpp
     Optics/Illumination.hpp
     Optics/Illumination.cpp
+    Optics/RadiationPressure.hpp
+    Optics/Diffraction.hpp
+    Optics/Diffraction.cpp
+    Optics/Aberration.hpp
 
     Electromagnetism/Field.hpp
     Electromagnetism/Field.cpp
@@ -48,15 +79,23 @@ add_library(ysq_physics STATIC
     Electromagnetism/Lorentz.cpp
     Electromagnetism/Maxwell.hpp
     Electromagnetism/Maxwell.cpp
+    Electromagnetism/Maxwell3D.hpp
+    Electromagnetism/Maxwell3D.cpp
 
     Fluids/SPH.hpp
     Fluids/SPH.cpp
     Fluids/Eulerian.hpp
     Fluids/Eulerian.cpp
+    Fluids/Eulerian3D.hpp
+    Fluids/Eulerian3D.cpp
 
     Thermodynamics/Thermodynamics.hpp
+    Thermodynamics/StatisticalMechanics.hpp
+    Thermodynamics/RadiativeTransfer.hpp
     Thermodynamics/HeatEquation.hpp
-    Thermodynamics/HeatEquation.cpp)
+    Thermodynamics/HeatEquation.cpp
+    Thermodynamics/HeatEquation3D.hpp
+    Thermodynamics/HeatEquation3D.cpp)
 add_library(ysq::Physics ALIAS ysq_physics)
 
 target_include_directories(ysq_physics PUBLIC ${YSQ_SOURCE_INCLUDE_DIR})

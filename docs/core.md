@@ -28,6 +28,7 @@ else may depend on it.
 | `Core/Event.hpp` | A type-keyed event bus for anything copyable |
 | `Core/Config.hpp` | Key/value settings, read from a small INI-like text format |
 | `Core/Csv.hpp` | Typed CSV table loading, for data a consumer downloaded or curated |
+| `Core/ExecutablePath.hpp` | Where the running process's own executable actually lives on disk |
 | `Core/Version.hpp` | The engine's own version, generated from the CMake project version |
 
 The one to understand first is `Clock`, because its shape is the shape of
@@ -94,6 +95,23 @@ for (const ysq::Csv::Row& row : *table) {
 
 Same totality guarantee as `Config::get`: a missing column or an unparsable
 field falls back rather than throwing.
+
+`ExecutablePath` answers a different question: not what's in a file, but
+where the running program itself actually is on disk, so it can find its
+own data relative to itself rather than a path baked in when it was built:
+
+```cpp
+#include <Core/ExecutablePath.hpp>
+
+if (const std::optional<std::filesystem::path> dir = ysq::executableDirectory()) {
+    const std::filesystem::path shipped = *dir / "data" / "planets.csv";
+}
+```
+
+This is what makes a downloaded, unzipped copy of an application find its
+own shipped data no matter what directory it ends up in — see
+[src/Applications/README.md](../src/Applications/README.md)'s convention
+section and the root `README.md`'s Downloads section.
 
 ## Go deeper
 

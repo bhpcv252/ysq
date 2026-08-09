@@ -15,7 +15,8 @@ using ysq::Axis;
 /// exactly the situation a real field on a real grid is in, not a
 /// convenience shortcut.
 template <class F>
-void fillGrid(ysq::Grid3D<double>& grid, double spacing, std::ptrdiff_t ghostCells, F&& f) {
+void fillGrid(ysq::Grid3D<double>& grid, double spacing, std::ptrdiff_t ghostCells,
+              F&& f) {
     const auto nx = static_cast<std::ptrdiff_t>(grid.cellCountX());
     const auto ny = static_cast<std::ptrdiff_t>(grid.cellCountY());
     const auto nz = static_cast<std::ptrdiff_t>(grid.cellCountZ());
@@ -133,9 +134,10 @@ TEST(FiniteDifference, ThreeDSumIsTheSumOfEachAxis) {
         return x * x * x + y * y * y - 2.0 * z * z * z;
     });
     const double total = ysq::kreissOligerDissipation3D(grid, 0, 0, 0, spacing, 0.3);
-    const double sumOfAxes = ysq::kreissOligerDissipation(grid, 0, 0, 0, Axis::X, spacing, 0.3) +
-                             ysq::kreissOligerDissipation(grid, 0, 0, 0, Axis::Y, spacing, 0.3) +
-                             ysq::kreissOligerDissipation(grid, 0, 0, 0, Axis::Z, spacing, 0.3);
+    const double sumOfAxes =
+        ysq::kreissOligerDissipation(grid, 0, 0, 0, Axis::X, spacing, 0.3) +
+        ysq::kreissOligerDissipation(grid, 0, 0, 0, Axis::Y, spacing, 0.3) +
+        ysq::kreissOligerDissipation(grid, 0, 0, 0, Axis::Z, spacing, 0.3);
     EXPECT_DOUBLE_EQ(total, sumOfAxes);
 }
 

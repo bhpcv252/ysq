@@ -255,8 +255,8 @@ void Mesh::setInstanceLightMultipliers(std::span<const float> factors) {
 
     glBindVertexArray(m_vao);
     glBindBuffer(GL_ARRAY_BUFFER, m_instanceLightMultiplierVbo);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(factors.size_bytes()), factors.data(),
-                GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(factors.size_bytes()),
+                 factors.data(), GL_DYNAMIC_DRAW);
 
     constexpr unsigned kLocation = 7;
     glEnableVertexAttribArray(kLocation);

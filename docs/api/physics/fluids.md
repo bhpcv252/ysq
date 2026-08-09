@@ -95,11 +95,59 @@ large enough relative to the run length keeps a wave from wrapping around
 and contaminating the result. **A periodic domain split into a left/right
 half creates two shock tubes, not one**, since the domain wraps at the
 edges too, a real pitfall the module's own test walked into; see
-`src/Physics/README.md`.
+`src/Physics/README.md`. `Eulerian3D.hpp` below is the 3D extension.
 
 ```cpp
 ysq::EulerianFluid1D fluid(cellCount, spacing, adiabaticIndex);
 fluid.setState(cell, density, velocity, pressure);
+fluid.step(fluid.stableTimeStep(/*courantNumber=*/0.4));
+```
+
+## `Physics/Fluids/Eulerian3D.hpp`
+
+The same compressible Euler equations in 3D, by **dimensional (Godunov)
+splitting**: a full x-sweep, then a full y-sweep, then a full z-sweep,
+each `dt`, each `EulerianFluid1D`'s own Rusanov update generalized to
+carry the two transverse momentum components through every flux
+passively (`flux = rho u v`, no pressure term — a 1D-normal Riemann
+problem has nothing to say about the other two components) while the
+Rusanov dissipation term still applies uniformly to all five conserved
+quantities. Splitting adds no accuracy and removes none: both pieces are
+already first order.
+
+```cpp
+class EulerianFluid3D {
+public:
+    EulerianFluid3D(std::size_t cellCountX, std::size_t cellCountY, std::size_t cellCountZ,
+                    double spacing, double adiabaticIndex);
+
+    std::size_t cellCountX/cellCountY/cellCountZ() const noexcept;
+    double spacing() const noexcept;
+    double adiabaticIndex() const noexcept;
+
+    void setState(std::size_t i, std::size_t j, std::size_t k, double density,
+                 double velocityX, double velocityY, double velocityZ, double pressure);
+    double density/velocityX/velocityY/velocityZ/pressure(std::size_t i, std::size_t j,
+                                                           std::size_t k) const;
+
+    void step(double dt);                              // one x-then-y-then-z sweep
+    double stableTimeStep(double courantNumber) const;  // 0 < courantNumber <= 1
+
+    double totalMass() const;
+    double totalMomentumX/totalMomentumY/totalMomentumZ() const;
+    double totalEnergy() const;
+};
+```
+
+| Member | Description |
+| --- | --- |
+| `step(dt)` | Sweeps x, then y, then z, each a full periodic-boundary-then-flux-then-update pass, generalizing `EulerianFluid1D::step`'s own structure. |
+| `stableTimeStep(courantNumber)` | CFL-safe `dt` from the fastest signal speed (`\|u\|+c`, `\|v\|+c`, `\|w\|+c`) over every cell and axis. |
+| `totalMass`/`totalMomentumX/Y/Z`/`totalEnergy` | Exact under periodic boundaries, the same as the 1D version, now checked per momentum component. |
+
+```cpp
+ysq::EulerianFluid3D fluid(nx, ny, nz, spacing, adiabaticIndex);
+fluid.setState(i, j, k, density, velocityX, velocityY, velocityZ, pressure);
 fluid.step(fluid.stableTimeStep(/*courantNumber=*/0.4));
 ```
 

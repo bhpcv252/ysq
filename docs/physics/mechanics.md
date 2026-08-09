@@ -35,9 +35,22 @@ view" a well-defined question independent of who's watching.
 | `Mechanics/Frame.hpp` | Inertial reference frames, Galilean transforms |
 | `Mechanics/Kinematics.hpp` | Lorentz factor, four-velocity, proper time, relativistic velocity addition |
 | `Mechanics/Dynamics.hpp` | `NBodyState`: the boundary between a span of `Body` and `Math`'s integrators |
-| `Mechanics/RigidBody.hpp` | Gravity-gradient torque and Euler's rotation equation, for any body that spins |
+| `Mechanics/RigidBody.hpp` | Gravity-gradient torque and Euler's rotation equation, for any body that spins; `diagonalizeInertia` for an arbitrarily shaped body |
+| `Mechanics/Spring.hpp` | Hooke's law with optional damping, against a fixed anchor or between two bodies |
+| `Mechanics/Drag.hpp` | Linear (Stokes) and quadratic drag |
+| `Mechanics/Friction.hpp` | Coulomb friction: kinetic and static |
+| `Mechanics/Collision.hpp` | Sphere-sphere and sphere-box contact detection, impulse-based resolution |
+| `Mechanics/Constraints.hpp` | Sequential-impulse distance and point constraints, for rods, pendulums, and chains |
+| `Mechanics/Hermite.hpp` | A 4th-order predictor-corrector with per-body individual timesteps, an alternative to a shared-step `Math` integrator |
 
-That last one is worth understanding on its own. `Math`'s integrators only
+Springs, drag, friction, collisions, and constraints are all general force
+laws or contact resolutions, exactly as reusable as gravity or
+electromagnetism: nothing about them is specific to one scenario. A
+scenario picks which of these its bodies actually need (a suspension
+bridge assembles springs and constraints; a billiard table assembles
+collisions and friction) the same way it picks which gravity model to use.
+
+That `Dynamics.hpp` row is worth understanding on its own. `Math`'s integrators only
 need a plain vector space, values that can be added, subtracted, and scaled
 (see [docs/math/integrators.md](../math/integrators.md)); a dimensioned
 `Quantity` from `Units` deliberately isn't that. So the actual state an
@@ -84,15 +97,42 @@ ysq::stepRigidBody(bodies[earthIndex], otherBodies, stepSize);
 stepper needs; `applyState` writes the result back. Every gravity model in
 [docs/physics/gravity.md](gravity.md) plugs into a stepper exactly this way.
 
+A mechanism assembled entirely from `Mechanics`' own general-purpose
+forces and constraints, no gravity or grid involved:
+
+```cpp
+#include <Physics/Mechanics/Spring.hpp>
+#include <Physics/Mechanics/Drag.hpp>
+#include <Physics/Mechanics/Constraints.hpp>
+
+const ysq::Force3 tether = ysq::springForce(bob, pivot, stiffness, restLength, damping);
+const ysq::Force3 drag = ysq::quadraticDragForce(bob, airDensity, 0.47, crossSection);
+// apply (tether + drag) to bob's momentum via an integrator, then:
+ysq::solveDistanceConstraint(bob, pivot, ropeLength, dt);
+```
+
+`Mechanics/Hermite.hpp` is a different kind of integrator entirely: instead
+of one shared step for every body, each body gets its own, chosen from its
+own acceleration and jerk, useful whenever bodies in the same simulation
+move on very different timescales (a tight binary alongside a distant,
+slowly-orbiting third body). See
+[docs/api/physics/mechanics.md](../api/physics/mechanics.md) for its full
+interface and [src/Physics/README.md](../../src/Physics/README.md)'s
+"Individual timesteps" section for the derivation.
+
 ## Go deeper
 
 [docs/api/physics/mechanics.md](../api/physics/mechanics.md) has every
 signature: `Body`, `Frame`'s Galilean transform, the relativistic
-`Kinematics` functions, and `NBodyState`.
+`Kinematics` functions, `NBodyState`, `RigidBody.hpp`'s torque and inertia
+functions, every general-purpose force and constraint, and
+`Hermite.hpp`'s individual-timestep scheduler.
 
 [src/Physics/README.md](../../src/Physics/README.md) has the full
-interface, including the exact `Body` layout and the concept boundary
-(`NBodyState` satisfying `OdeState` while `Body` itself doesn't need to).
+interface, including the exact `Body` layout, the concept boundary
+(`NBodyState` satisfying `OdeState` while `Body` itself doesn't need to),
+the gravity-gradient torque derivation, and the individual-timestep
+scheduler's measured performance against the real Solar System catalog.
 
 ---
 Notice something missing or wrong on this page?

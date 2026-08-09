@@ -96,10 +96,10 @@ double magicTimeStep(double spacing);   // spacing / c: zero numerical dispersio
 | `totalEnergy()` | For a conservation check. `Bz` is averaged from its two neighbors to approximate its value at `Ey`'s grid points, since the two live half a cell apart. |
 
 **Scope: one spatial dimension**, periodic boundaries (via `Math::Grid1D`
-underneath). A full 3D Yee-grid solver, needed for a genuinely radiating
-source like a dipole, is not implemented; this rung validates against what
-1D vacuum electrodynamics predicts: a wave traveling at exactly `c`, and a
-closed system's energy staying constant.
+underneath); this rung validates against what 1D vacuum electrodynamics
+predicts: a wave traveling at exactly `c`, and a closed system's energy
+staying constant. The full 3D Yee-grid solver, needed for a genuinely
+radiating source like a dipole, is `Maxwell3D.hpp` below.
 
 ```cpp
 ysq::MaxwellField1D field(cellCount, spacing);
@@ -107,6 +107,51 @@ field.setElectricField(sourceCell, initialPulse);
 
 field.step(ysq::magicTimeStep(spacing));   // exact propagation, no dispersion
 const double energy = field.totalEnergy(); // conserved, checked over many steps
+```
+
+## `Physics/Electromagnetism/Maxwell3D.hpp`
+
+The full 3D Yee grid, vacuum Maxwell curl equations:
+
+```
+dEx/dt = c^2 (dBz/dy - dBy/dz)     dBx/dt = -(dEz/dy - dEy/dz)
+dEy/dt = c^2 (dBx/dz - dBz/dx)     dBy/dt = -(dEx/dz - dEz/dx)
+dEz/dt = c^2 (dBy/dx - dBx/dy)     dBz/dt = -(dEy/dx - dEx/dy)
+```
+
+```cpp
+class MaxwellField3D {
+public:
+    MaxwellField3D(std::size_t cellCountX, std::size_t cellCountY, std::size_t cellCountZ,
+                  double spacing);
+
+    std::size_t cellCountX/cellCountY/cellCountZ() const noexcept;
+    double spacing() const noexcept;
+
+    double electricFieldX/Y/Z(std::size_t i, std::size_t j, std::size_t k) const;
+    void setElectricFieldX/Y/Z(std::size_t i, std::size_t j, std::size_t k, double value);
+    double magneticFieldX/Y/Z(std::size_t i, std::size_t j, std::size_t k) const;
+    void setMagneticFieldX/Y/Z(std::size_t i, std::size_t j, std::size_t k, double value);
+
+    void step(double dt);                              // dt must satisfy the 3D CFL condition
+    double stableTimeStep(double courantFactor) const;  // 0 < courantFactor <= 1
+
+    double totalEnergy() const;
+};
+```
+
+| Member | Description |
+| --- | --- |
+| Six field components | Each keeps its own Yee staggering (`Ex` at `(i+1/2,j,k)`, `Bx` at `(i,j+1/2,k+1/2)`, and so on), chosen so every curl term a component needs is a plain adjacent-index difference of another component already staggered to the right position. |
+| `step(dt)` | Same leapfrog structure as `MaxwellField1D`: a `B` half-step reading a forward difference of `E`, then an `E` full step reading a backward difference of the just-updated `B`. |
+| `stableTimeStep(courantFactor)` | The 3D CFL limit, `spacing() / (c sqrt(3))`. **No exact "magic timestep" exists in 3D** — the 1D scheme's zero-dispersion step is a coincidence of that specific 1D discretization; a Cartesian Yee grid's dispersion is direction-dependent once there's more than one dimension. |
+| `totalEnergy()` | Each component bilinearly interpolated onto the grid's integer vertices before combining (`E`'s two neighbors along its own stagger axis; `B`'s four, since each `B` component is staggered along two axes at once). Bounded over many steps off the (nonexistent) magic step, not exactly conserved. |
+
+```cpp
+ysq::MaxwellField3D field(nx, ny, nz, spacing);
+field.setElectricFieldY(i, j, k, initialValue);
+field.step(field.stableTimeStep(/*courantFactor=*/0.9));
+const double energy = field.totalEnergy();
 ```
 
 ---

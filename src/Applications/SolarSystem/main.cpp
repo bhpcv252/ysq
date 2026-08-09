@@ -141,9 +141,8 @@ int main() {
     constexpr std::array<const char*, 7> kSimSpeedUnitNames{
         "second", "minute", "hour", "day", "week", "month", "year"};
     constexpr std::array<double, 7> kSecondsPerUnit{
-        ysq::units::second.value(), ysq::units::minute.value(),
-        ysq::units::hour.value(),   ysq::units::day.value(),
-        ysq::units::week.value(),   ysq::units::month.value(),
+        ysq::units::second.value(), ysq::units::minute.value(), ysq::units::hour.value(),
+        ysq::units::day.value(),    ysq::units::week.value(),   ysq::units::month.value(),
         ysq::units::year.value()};
 
     float simSpeedValue =
@@ -241,13 +240,13 @@ int main() {
     for (std::size_t i = 0; i < bodies.size(); ++i) {
         const auto [acceleration, jerk] =
             useRelativity ? relativisticJerkSystem(i, initialPositions, initialVelocities)
-                         : newtonianJerkField(i, initialPositions, initialVelocities);
+                          : newtonianJerkField(i, initialPositions, initialVelocities);
         initialAccelerations[i] = acceleration;
         initialJerks[i] = jerk;
     }
     ysq::IndividualTimestepScheduler scheduler(initialPositions, initialVelocities,
-                                               initialAccelerations, initialJerks, 0.0, eta,
-                                               baseInterval);
+                                               initialAccelerations, initialJerks, 0.0,
+                                               eta, baseInterval);
 
     ysq::EventBus bus;
     ysq::TimeSeriesPlot energyPlot("Energy drift");
@@ -303,10 +302,11 @@ int main() {
     std::vector<ysq::NamedSphere> povNameSeeds;
     povNameSeeds.reserve(scenario.bodies.size());
     for (const ysq::applications::CatalogBody& catalogBody : scenario.bodies) {
-        const bool isPlanetOrSun = catalogBody.parent.empty() || catalogBody.parent == "Sun";
+        const bool isPlanetOrSun =
+            catalogBody.parent.empty() || catalogBody.parent == "Sun";
         const std::string displayName =
             isPlanetOrSun ? catalogBody.name
-                         : std::format("{} ({})", catalogBody.name, catalogBody.parent);
+                          : std::format("{} ({})", catalogBody.name, catalogBody.parent);
         povNameSeeds.push_back(ysq::NamedSphere{displayName, ysq::Vec3f::zero(), 0.0f});
     }
     const std::vector<std::string> povOptions = sceneCamera.povOptions(povNameSeeds);
@@ -376,7 +376,8 @@ int main() {
         // simulationTime rather than letting it fall behind under a budget.
         constexpr int kUnboundedUpdates = std::numeric_limits<int>::max();
         if (useRelativity) {
-            scheduler.advanceTo(relativisticJerkSystem, simulationTime, kUnboundedUpdates);
+            scheduler.advanceTo(relativisticJerkSystem, simulationTime,
+                                kUnboundedUpdates);
         } else {
             scheduler.advanceTo(newtonianJerkField, simulationTime, kUnboundedUpdates);
         }
@@ -415,7 +416,8 @@ int main() {
             kineticEnergies.push_back(
                 static_cast<float>(0.5 * body.mass.value() * speed * speed));
         }
-        const double totalKinetic = static_cast<double>(computeBackend->sum(kineticEnergies));
+        const double totalKinetic =
+            static_cast<double>(computeBackend->sum(kineticEnergies));
         const double totalPotential =
             ysq::newtonianPotentialEnergy(bodies, softening).value();
 
@@ -424,8 +426,8 @@ int main() {
             totalMomentum += body.momentum.value();
         }
 
-        bus.publish(
-            StepCompleted{simulationTime, totalKinetic + totalPotential, length(totalMomentum)});
+        bus.publish(StepCompleted{simulationTime, totalKinetic + totalPotential,
+                                  length(totalMomentum)});
 
         if (showTrails) {
             const double trailDurationSeconds =
@@ -476,8 +478,8 @@ int main() {
         std::vector<ysq::NamedSphere> objects;
         objects.reserve(scenario.bodies.size());
         for (std::size_t i = 0; i < scenario.bodies.size(); ++i) {
-            objects.push_back(
-                ysq::NamedSphere{scenario.bodies[i].name, renderPositions[i], renderRadii[i]});
+            objects.push_back(ysq::NamedSphere{scenario.bodies[i].name,
+                                               renderPositions[i], renderRadii[i]});
         }
 
         sceneCamera.povIndex =
@@ -497,7 +499,8 @@ int main() {
             previousFocusSelection = focusSelection;
             if (sceneCamera.focusIndex >= 0) {
                 sceneCamera.orbit.distance = std::max(
-                    objects[static_cast<std::size_t>(sceneCamera.focusIndex)].radius * 4.0f,
+                    objects[static_cast<std::size_t>(sceneCamera.focusIndex)].radius *
+                        4.0f,
                     1.0e-5f);
             }
         }
@@ -588,9 +591,10 @@ int main() {
                 material.shininess = 16.0f;
             }
 
-            renderer.draw(sphereMesh, material,
-                          ysq::Matrix4<float>::translation(renderPosition) *
-                              ysq::Matrix4<float>::scale(ysq::Vec3f::splat(renderRadius)));
+            renderer.draw(
+                sphereMesh, material,
+                ysq::Matrix4<float>::translation(renderPosition) *
+                    ysq::Matrix4<float>::scale(ysq::Vec3f::splat(renderRadius)));
 
             if (showLabels) {
                 const float labelWorldHeight = labelWorldHeightAt(renderPosition);
@@ -628,7 +632,8 @@ int main() {
              static_cast<std::size_t>(simSpeedUnitSelection) < kSecondsPerUnit.size())
                 ? static_cast<std::size_t>(simSpeedUnitSelection)
                 : 2;  // hour
-        timeScale = static_cast<double>(simSpeedValue) * kSecondsPerUnit[simSpeedUnitIndex];
+        timeScale =
+            static_cast<double>(simSpeedValue) * kSecondsPerUnit[simSpeedUnitIndex];
         statsOverlay.draw();
         cameraOverlay.draw();
         energyPlot.draw();

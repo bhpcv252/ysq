@@ -1,7 +1,8 @@
 # Physics/Gravity API reference
 
-The gravity ladder: Newtonian direct summation, Barnes-Hut, and the 1PN
-correction. Start with
+The gravity ladder: Newtonian direct summation, Barnes-Hut, the 1PN
+correction, general spherical-harmonics oblateness, and closed-form
+Kepler orbital elements. Start with
 [docs/physics/gravity.md](../../physics/gravity.md) for which rung to reach
 for; [src/Physics/README.md](../../../src/Physics/README.md) has softening,
 the opening-angle tradeoff, and the precession derivation in full.
@@ -125,6 +126,18 @@ where `r`, `v` are the position and velocity of `testParticle` relative to
 `source`, `n` is the unit vector from source to test particle, and `GM` uses
 only the source's mass.
 
+```cpp
+double perihelionPrecessionPerOrbit(double gm, double semiMajorAxis, double eccentricity);
+```
+
+The relativistic perihelion advance a bound orbit accumulates over one full
+orbit, in radians: `6 pi GM / (c^2 a (1 - e^2))`, the same closed form
+`postNewtonianCorrection` is validated against. A caller not running a real
+integrator over `postNewtonianCorrection` (a closed-form Kepler propagator,
+say) can still show this real effect by dividing this by the orbital
+period to get radians per second and feeding that into
+`OrbitalElementsAtEpoch::precessionRatePerSecond` below.
+
 **Scope: two bodies, one a test particle.** Exact in the limit that
 `source`'s mass dominates (Mercury around the Sun, not two comparable
 masses), the same regime the analytic precession formula it's validated
@@ -199,6 +212,100 @@ public:
     std::pair<Vec3, Vec3> operator()(std::size_t bodyIndex, const NBodyState& positions,
                                      const NBodyState& velocities) const;
 };
+```
+
+## `Physics/Gravity/SphericalHarmonics.hpp`
+
+A general spherical-harmonics gravity field: the generalization of
+`Newtonian.hpp`'s single J2 term to a body whose real shape needs more
+than one oblateness coefficient (a tumbling asteroid, north-south or
+longitudinal mass asymmetry J2 alone cannot represent).
+
+```cpp
+struct SphericalHarmonicsField {
+    Mass mass;
+    Length referenceRadius;
+    std::vector<std::vector<double>> cosine;   // cosine[i][m]: degree n = i+2, order m = 0..n
+    std::vector<std::vector<double>> sine;
+};
+
+double sphericalHarmonicsPotential(const SphericalHarmonicsField& field, const Vec3& position);
+Acceleration3 sphericalHarmonicsAcceleration(const SphericalHarmonicsField& field,
+                                             const Length3& position);
+```
+
+| Function | Description |
+| --- | --- |
+| `cosine`/`sine` | Standard geodesy `C_nm`/`S_nm` coefficients, unnormalized convention. `C_2,0 = -J2`, every other coefficient zero, reproduces `Newtonian.hpp`'s oblateness term exactly. Coefficients are expressed in the source body's own (generally rotating) frame; a caller rotates `position` into that frame first. |
+| `sphericalHarmonicsPotential` | The geopotential in the geodesy sign convention (positive, increasing toward the source), `U(r) = (GM/r)[1 + sum_n (Re/r)^n sum_m P_n^m(sin phi)(C_nm cos(m lambda) + S_nm sin(m lambda))]`. |
+| `sphericalHarmonicsAcceleration` | `+grad(U)`, by central-difference numerical differentiation (`Math/Calculus.hpp`'s `numericalGradient`) rather than an analytic partial derivative, sidestepping the associated Legendre functions' own pole singularities at the cost of finite-difference (about eight-digit) rather than machine precision. |
+
+```cpp
+ysq::SphericalHarmonicsField field{mass, referenceRadius, cosineCoefficients, sineCoefficients};
+const ysq::Acceleration3 accel = ysq::sphericalHarmonicsAcceleration(field, bodyFramePosition);
+```
+
+## `Physics/Gravity/Kepler.hpp`
+
+Classical orbital elements: the standard six-number description of an
+unperturbed two-body ellipse, used to build a physically sensible initial
+state (or a repeatedly re-evaluated closed-form propagation) for a real
+n-body integrator to take over from. Nothing here is re-consulted once a
+simulation actually starts.
+
+```cpp
+struct OrbitalElements {
+    double semiMajorAxis;
+    double eccentricity;
+    double inclination;               // radians
+    double longitudeOfAscendingNode;  // radians
+    double argumentOfPeriapsis;       // radians
+    double trueAnomaly;               // radians
+};
+
+struct KeplerStateVector {
+    Vec3 position;
+    Vec3 velocity;
+};
+
+KeplerStateVector stateVectorFromElements(const OrbitalElements& elements, double gm);
+
+double trueAnomalyFromMeanAnomaly(double meanAnomaly, double eccentricity);
+double keplerMeanMotion(double gm, double semiMajorAxis);
+double keplerOrbitalPeriod(double gm, double semiMajorAxis);
+
+struct OrbitalElementsAtEpoch {
+    double semiMajorAxis;
+    double eccentricity;
+    double inclination;
+    double longitudeOfAscendingNode;
+    double argumentOfPeriapsis;
+    double meanAnomalyAtEpoch;
+    double precessionRatePerSecond = 0.0;
+};
+
+KeplerStateVector stateVectorAtTime(const OrbitalElementsAtEpoch& elements, double gm,
+                                    double elapsedSeconds);
+```
+
+| Function | Description |
+| --- | --- |
+| `stateVectorFromElements` | The standard perifocal-to-reference-frame rotation applied to the perifocal-plane position/velocity formulas. `gm` is the *central* body's own gravitational parameter; the caller adds the central body's own position/velocity afterward. |
+| `trueAnomalyFromMeanAnomaly` | Solves Kepler's equation `M = E - e sin(E)` for the eccentric anomaly (`Math/RootFinding.hpp`'s `newtonRaphson`), then converts to true anomaly by the standard half-angle relation. Published elements (JPL's included) give mean anomaly, not the true anomaly `stateVectorFromElements` needs. |
+| `keplerMeanMotion`/`keplerOrbitalPeriod` | The two-body mean motion `n = sqrt(gm/a^3)` and period `2 pi / n`. |
+| `OrbitalElementsAtEpoch` | An orbit anchored at an epoch for repeated re-evaluation at any later time. `precessionRatePerSecond` rotates `argumentOfPeriapsis` at a constant rate; zero reproduces a fixed ellipse exactly. `PostNewtonian.hpp`'s `perihelionPrecessionPerOrbit`, divided by the orbital period, gives the physical rate for a real relativistic effect. |
+| `stateVectorAtTime` | `stateVectorFromElements` at `elapsedSeconds` after the epoch: advances mean anomaly (and, if nonzero, the periapsis) at constant cost regardless of how large `elapsedSeconds` is, unlike stepping a real integrator forward. |
+
+```cpp
+const ysq::KeplerStateVector initial = ysq::stateVectorFromElements(elements, gm);
+
+ysq::OrbitalElementsAtEpoch precessing{elements.semiMajorAxis, elements.eccentricity,
+                                       elements.inclination, elements.longitudeOfAscendingNode,
+                                       elements.argumentOfPeriapsis, meanAnomalyAtEpoch,
+                                       ysq::perihelionPrecessionPerOrbit(gm, elements.semiMajorAxis,
+                                                                        elements.eccentricity) /
+                                           ysq::keplerOrbitalPeriod(gm, elements.semiMajorAxis)};
+const ysq::KeplerStateVector later = ysq::stateVectorAtTime(precessing, gm, elapsedSeconds);
 ```
 
 ---

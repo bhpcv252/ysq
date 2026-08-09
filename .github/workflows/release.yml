@@ -1,0 +1,139 @@
+name: Release
+
+# A rolling build, not a versioned one: every push to main replaces a single
+# "latest" GitHub Release's assets, so there is always a current, working
+# download for every app on every platform. Nothing here is tied to a fixed
+# list of apps: each Applications/<Name>/CMakeLists.txt installs itself into
+# its own stage/<Name>/ directory (see that convention in
+# src/Applications/README.md), and this workflow just zips whatever
+# directories show up, per platform, plus one combined zip of all of them.
+# Adding a new application needs no change here.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release-main
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: package / ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Pinned rather than *-latest: an older glibc baseline is broadly
+          # forward-compatible with newer user distros, the safer direction
+          # for a binary built once and downloaded onto an unknown machine.
+          - os: ubuntu-22.04
+            label: linux
+          # Apple Silicon only; macos-latest already resolves to this, but
+          # pinning it keeps that an explicit choice rather than whatever
+          # GitHub defaults to next.
+          - os: macos-14
+            label: macos
+          - os: windows-latest
+            label: windows
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Same GLFW/X11/Wayland build dependencies as ci.yml's Linux
+      # graphics=ON job. No OSMesa here: this build never runs the test
+      # suite, only a real windowed build.
+      - name: Install GLFW build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorg-dev libwayland-dev libwayland-bin libxkbcommon-dev
+
+      # CMAKE_MSVC_RUNTIME_LIBRARY is MSVC-only and ignored on the other two
+      # platforms. Static, so a downloaded .exe needs no separately
+      # installed Visual C++ Redistributable; see CMakeLists.txt's CMP0091
+      # comment for why this is safe to set here without touching the
+      # project's own default.
+      - name: Configure
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DYSQ_BUILD_GRAPHICS=ON
+          -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      # Each app installs into its own top-level directory, stage/<App>/<exe>,
+      # plus its own data/ directory alongside it if it has one (see e.g.
+      # src/Applications/SolarSystem/CMakeLists.txt's install(DIRECTORY ...)):
+      # Core::executableDirectory() is what lets the app find that data
+      # relative to itself once unzipped, wherever that ends up being.
+      - name: Install
+        run: cmake --install build --config Release --prefix stage
+
+      - name: Package (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          cd stage
+          for app in */; do
+            name="${app%/}"
+            zip -r "../artifacts/${name}-${{ matrix.label }}.zip" "$app"
+          done
+          zip -r "../artifacts/AllApps-${{ matrix.label }}.zip" */
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          Get-ChildItem -Path stage -Directory | ForEach-Object {
+            Compress-Archive -Path $_.FullName -DestinationPath "artifacts/$($_.Name)-${{ matrix.label }}.zip"
+          }
+          Compress-Archive -Path stage/* -DestinationPath "artifacts/AllApps-${{ matrix.label }}.zip"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.label }}
+          path: artifacts/*.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish latest release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: artifacts
+          merge-multiple: true
+
+      # Delete-then-recreate rather than appending: a rolling release
+      # replaces both the release and its "latest" tag every run, so assets
+      # never accumulate stale copies from earlier pushes.
+      - name: Publish rolling "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release delete latest --yes --cleanup-tag --repo "${{ github.repository }}" || true
+          gh release create latest artifacts/*.zip \
+            --repo "${{ github.repository }}" \
+            --title "Latest build ($(date -u +%Y-%m-%d), ${GITHUB_SHA::7})" \
+            --notes "Automatically built from the latest main. One zip per app per platform, plus one combined AllApps zip per platform. Unsigned binaries: Windows SmartScreen and macOS Gatekeeper will both warn on first launch -- see the root README's Downloads section." \
+            --prerelease
