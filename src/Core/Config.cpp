@@ -1,6 +1,8 @@
 #include <Core/Config.hpp>
 
 #include <charconv>
+#include <clocale>
+#include <cstdlib>
 #include <format>
 #include <fstream>
 #include <ios>
@@ -113,14 +115,50 @@ std::optional<unsigned long long> parseUnsigned(std::string_view text) {
 // std::from_chars rather than a stream or strtod: it is locale-independent, so
 // the file format cannot start depending on the host's LC_NUMERIC, and it round
 // trips what std::format writes exactly, including denormals and infinities.
+//
+// Not every standard library has caught up: Apple's libc++ (through at least
+// Xcode 15.4) implements std::from_chars for integers but not yet for
+// floating-point types, so the call below would not compile there. Where
+// that overload genuinely does not exist, strtod is the fallback -- with its
+// only locale sensitivity (the decimal-point character) neutralized by
+// substituting the process's own one, rather than the '.' std::format always
+// writes. strtod's own grammar already accepts "inf"/"-inf"/"nan" the same
+// way std::format writes them, so this round-trips identically to
+// std::from_chars for every value this codebase's own std::format output can
+// produce, non-finite and denormal included.
 std::optional<double> parseDouble(std::string_view text) {
     double value = 0.0;
     const char* const end = text.data() + text.size();
-    const std::from_chars_result result = std::from_chars(text.data(), end, value);
-    if (result.ec != std::errc{} || result.ptr != end) {
-        return std::nullopt;
+    if constexpr (requires { std::from_chars(text.data(), end, value); }) {
+        const std::from_chars_result result = std::from_chars(text.data(), end, value);
+        if (result.ec != std::errc{} || result.ptr != end) {
+            return std::nullopt;
+        }
+        return value;
+    } else {
+        // from_chars neither accepts an empty range nor skips leading
+        // whitespace; strtod does both, so both are rejected by hand here to
+        // keep the two code paths behaviorally identical.
+        if (text.empty() || isSpace(text.front())) {
+            return std::nullopt;
+        }
+        std::string localized(text);
+        const char decimalPoint = *std::localeconv()->decimal_point;
+        if (decimalPoint != '.') {
+            for (char& c : localized) {
+                if (c == '.') {
+                    c = decimalPoint;
+                }
+            }
+        }
+        const char* const start = localized.c_str();
+        char* parseEnd = nullptr;
+        value = std::strtod(start, &parseEnd);
+        if (parseEnd != start + localized.size()) {
+            return std::nullopt;
+        }
+        return value;
     }
-    return value;
 }
 
 std::string formatSigned(long long value) {

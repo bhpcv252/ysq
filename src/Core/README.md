@@ -214,9 +214,12 @@ Round-tripping is total rather than nearly total, which costs a few rules:
 - Booleans write as `true` or `false`, and read `true`, `false`, `1` or `0` in any
   case.
 - Doubles are written with `std::format`, whose default is the shortest form that
-  reads back bit-identical, and parsed with `std::from_chars`. Both are
-  locale-independent, so the file format cannot start depending on the host's
-  `LC_NUMERIC`. Denormals and infinities survive.
+  reads back bit-identical, and parsed with `std::from_chars` where the standard
+  library actually implements it for floating-point (not yet true of Apple's
+  libc++ as of Xcode 15.4, which falls back to a locale-neutralized `strtod`
+  instead). Both paths are locale-independent, so the file format cannot start
+  depending on the host's `LC_NUMERIC`. Denormals and infinities survive either
+  way.
 
 `toString()` is a fixed point: parsing its output and emitting again gives the
 same bytes, so a config file does not churn every time something rewrites it.
