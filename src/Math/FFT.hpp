@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Compute/ComputeBackend.hpp>
 #include <Math/Complex.hpp>
 #include <Math/Scalar.hpp>
 
@@ -136,11 +137,137 @@ void fft3DImpl(std::vector<Complex<T>>& data, std::size_t nx, std::size_t ny,
     }
 }
 
+/// Measured on the development machine (Apple Silicon, Metal backend) by
+/// `benchmarks/compute_thresholds.cpp`: the smallest transform length at
+/// which the GPU path actually beat the CPU reference. Every existing test
+/// in tests/unit/math_fft.cpp uses `Complex<double>`, which never
+/// dispatches (see below), so this threshold only bounds the
+/// `Complex<float>` path, with no existing exact-precision test to stay
+/// under. Re-run the benchmark and update this if the reference machine or
+/// backend ever changes.
+inline constexpr std::size_t kGpuDispatchThreshold = 16384;
+
+/// Marshals a single 1D transform through Compute::defaultBackend(), only
+/// ever called for `Complex<float>`: `fftBatched` is a `float`-only
+/// interface (see src/Compute/README.md), so a `Complex<double>` caller
+/// would lose precision silently if this ran for it, the same reason
+/// CpuBackend keeps saxpyD/sumD outside the shared ComputeBackend interface
+/// entirely rather than narrowing through it. `fft`/`ifft` below gate this
+/// with `if constexpr` so a `double` instantiation never even mentions it.
+inline void fftGpu(std::vector<Complex<float>>& data, bool inverse) {
+    const std::size_t n = data.size();
+    std::vector<float> real(n);
+    std::vector<float> imag(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        real[i] = data[i].re;
+        imag[i] = data[i].im;
+    }
+
+    std::vector<float> nextReal(n);
+    std::vector<float> nextImag(n);
+    defaultBackend().fftBatched(real, imag, n, 1, inverse, nextReal, nextImag);
+
+    for (std::size_t i = 0; i < n; ++i) {
+        data[i] = Complex<float>{nextReal[i], nextImag[i]};
+    }
+}
+
+/// The 3D row-column algorithm's GPU counterpart, only ever called for
+/// `Complex<float>` (see fftGpu). Each axis pass is one batched
+/// `fftBatched` dispatch: the x and y passes extract their (strided) lines
+/// into a contiguous batched buffer first and scatter the result back
+/// (the same reason fft3DImpl uses lineX/lineY scratch buffers on the CPU
+/// side); the z pass needs no extraction, since `data`'s own flat layout
+/// (`(i * ny + j) * nz + k`) already *is* `nx * ny` contiguous batches of
+/// length `nz`.
+inline void fft3DGpu(std::vector<Complex<float>>& data, std::size_t nx, std::size_t ny,
+                     std::size_t nz, bool inverse) {
+    ComputeBackend& backend = defaultBackend();
+
+    {
+        const std::size_t batchCount = ny * nz;
+        std::vector<float> real(nx * batchCount);
+        std::vector<float> imag(nx * batchCount);
+        for (std::size_t j = 0; j < ny; ++j) {
+            for (std::size_t k = 0; k < nz; ++k) {
+                const std::size_t batch = j * nz + k;
+                for (std::size_t i = 0; i < nx; ++i) {
+                    const Complex<float>& c = data[(i * ny + j) * nz + k];
+                    real[batch * nx + i] = c.re;
+                    imag[batch * nx + i] = c.im;
+                }
+            }
+        }
+        std::vector<float> nextReal(nx * batchCount);
+        std::vector<float> nextImag(nx * batchCount);
+        backend.fftBatched(real, imag, nx, batchCount, inverse, nextReal, nextImag);
+        for (std::size_t j = 0; j < ny; ++j) {
+            for (std::size_t k = 0; k < nz; ++k) {
+                const std::size_t batch = j * nz + k;
+                for (std::size_t i = 0; i < nx; ++i) {
+                    data[(i * ny + j) * nz + k] = Complex<float>{
+                        nextReal[batch * nx + i], nextImag[batch * nx + i]};
+                }
+            }
+        }
+    }
+
+    {
+        const std::size_t batchCount = nx * nz;
+        std::vector<float> real(ny * batchCount);
+        std::vector<float> imag(ny * batchCount);
+        for (std::size_t i = 0; i < nx; ++i) {
+            for (std::size_t k = 0; k < nz; ++k) {
+                const std::size_t batch = i * nz + k;
+                for (std::size_t j = 0; j < ny; ++j) {
+                    const Complex<float>& c = data[(i * ny + j) * nz + k];
+                    real[batch * ny + j] = c.re;
+                    imag[batch * ny + j] = c.im;
+                }
+            }
+        }
+        std::vector<float> nextReal(ny * batchCount);
+        std::vector<float> nextImag(ny * batchCount);
+        backend.fftBatched(real, imag, ny, batchCount, inverse, nextReal, nextImag);
+        for (std::size_t i = 0; i < nx; ++i) {
+            for (std::size_t k = 0; k < nz; ++k) {
+                const std::size_t batch = i * nz + k;
+                for (std::size_t j = 0; j < ny; ++j) {
+                    data[(i * ny + j) * nz + k] = Complex<float>{
+                        nextReal[batch * ny + j], nextImag[batch * ny + j]};
+                }
+            }
+        }
+    }
+
+    {
+        const std::size_t total = nx * ny * nz;
+        std::vector<float> real(total);
+        std::vector<float> imag(total);
+        for (std::size_t idx = 0; idx < total; ++idx) {
+            real[idx] = data[idx].re;
+            imag[idx] = data[idx].im;
+        }
+        std::vector<float> nextReal(total);
+        std::vector<float> nextImag(total);
+        backend.fftBatched(real, imag, nz, nx * ny, inverse, nextReal, nextImag);
+        for (std::size_t idx = 0; idx < total; ++idx) {
+            data[idx] = Complex<float>{nextReal[idx], nextImag[idx]};
+        }
+    }
+}
+
 }  // namespace detail
 
 /// The forward DFT, in place. `data.size()` must be a power of two.
 template <std::floating_point T>
 void fft(std::vector<Complex<T>>& data) {
+    if constexpr (std::same_as<T, float>) {
+        if (data.size() >= detail::kGpuDispatchThreshold) {
+            detail::fftGpu(data, false);
+            return;
+        }
+    }
     detail::fftImpl(data, false);
 }
 
@@ -148,6 +275,12 @@ void fft(std::vector<Complex<T>>& data) {
 /// (to floating-point precision). `data.size()` must be a power of two.
 template <std::floating_point T>
 void ifft(std::vector<Complex<T>>& data) {
+    if constexpr (std::same_as<T, float>) {
+        if (data.size() >= detail::kGpuDispatchThreshold) {
+            detail::fftGpu(data, true);
+            return;
+        }
+    }
     detail::fftImpl(data, true);
 }
 
@@ -172,6 +305,12 @@ template <std::floating_point T>
 template <std::floating_point T>
 void fft3D(std::vector<Complex<T>>& data, std::size_t nx, std::size_t ny,
            std::size_t nz) {
+    if constexpr (std::same_as<T, float>) {
+        if (nx * ny * nz >= detail::kGpuDispatchThreshold) {
+            detail::fft3DGpu(data, nx, ny, nz, false);
+            return;
+        }
+    }
     detail::fft3DImpl(data, nx, ny, nz, false);
 }
 
@@ -182,6 +321,12 @@ void fft3D(std::vector<Complex<T>>& data, std::size_t nx, std::size_t ny,
 template <std::floating_point T>
 void ifft3D(std::vector<Complex<T>>& data, std::size_t nx, std::size_t ny,
             std::size_t nz) {
+    if constexpr (std::same_as<T, float>) {
+        if (nx * ny * nz >= detail::kGpuDispatchThreshold) {
+            detail::fft3DGpu(data, nx, ny, nz, true);
+            return;
+        }
+    }
     detail::fft3DImpl(data, nx, ny, nz, true);
 }
 

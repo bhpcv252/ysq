@@ -1,10 +1,13 @@
 #pragma once
 
+#include <Compute/ComputeBackend.hpp>
 #include <Math/Grid3D.hpp>
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <vector>
 
 namespace ysq {
 
@@ -68,14 +71,71 @@ struct MultigridResult {
 
 namespace detail {
 
+/// Measured on the development machine (Apple Silicon, Metal backend) by
+/// `benchmarks/compute_thresholds.cpp`: restriction is one dispatch,
+/// straight 8-cell-average, memory-bound and trivially cheap per cell, so
+/// the GPU path never won even at 128^3 (~2.1M cells) fine-grid cells, the
+/// largest size tried -- this is a measured floor (double the largest size
+/// tried), not an observed crossover, and higher than the original
+/// provisional guess of 200000 turned out to be (O(n) work per cell stays
+/// CPU-competitive even longer than that guess assumed). Keeps
+/// tests/unit/multigrid.cpp's 16^3 grid on the exact double-precision CPU
+/// path either way. Re-run the benchmark and update this if the reference
+/// machine or backend ever changes.
+inline constexpr std::size_t kMultigridGpuDispatchThreshold = 4194304;
+
 /// The straight average of the 8 fine cells each coarse cell exactly
 /// contains, for a cell-centered grid coarsened by exactly a factor of 2 on
-/// every axis.
+/// every axis -- every cell count must be even, asserted below rather than
+/// silently handled, since an odd count has no well-defined coarsening at
+/// all (both paths below would otherwise silently drop the last plane on
+/// that axis instead). Above kMultigridGpuDispatchThreshold, dispatches
+/// through Compute::defaultBackend() (equation-independent, so this is the
+/// same kernel regardless of which elliptic equation the caller is
+/// solving); below it, the plain CPU path.
 inline Grid3D<double> restrictGrid(const Grid3D<double>& fine) {
+    assert(fine.cellCountX() % 2 == 0 && fine.cellCountY() % 2 == 0 &&
+           fine.cellCountZ() % 2 == 0);
     const std::size_t nx = fine.cellCountX() / 2;
     const std::size_t ny = fine.cellCountY() / 2;
     const std::size_t nz = fine.cellCountZ() / 2;
     Grid3D<double> coarse(nx, ny, nz, fine.spacing() * 2.0, fine.ghostCells());
+
+    const std::size_t fineNx = fine.cellCountX();
+    const std::size_t fineNy = fine.cellCountY();
+    const std::size_t fineNz = fine.cellCountZ();
+
+    if (fineNx * fineNy * fineNz >= kMultigridGpuDispatchThreshold) {
+        std::vector<float> fineData(fineNx * fineNy * fineNz);
+        for (std::size_t i = 0; i < fineNx; ++i) {
+            for (std::size_t j = 0; j < fineNy; ++j) {
+                for (std::size_t k = 0; k < fineNz; ++k) {
+                    const auto pi = static_cast<std::ptrdiff_t>(i);
+                    const auto pj = static_cast<std::ptrdiff_t>(j);
+                    const auto pk = static_cast<std::ptrdiff_t>(k);
+                    fineData[(i * fineNy + j) * fineNz + k] =
+                        static_cast<float>(fine(pi, pj, pk));
+                }
+            }
+        }
+
+        std::vector<float> coarseData(nx * ny * nz);
+        defaultBackend().multigridRestrict3D(fineData, fineNx, fineNy, fineNz,
+                                             coarseData);
+
+        for (std::size_t i = 0; i < nx; ++i) {
+            for (std::size_t j = 0; j < ny; ++j) {
+                for (std::size_t k = 0; k < nz; ++k) {
+                    const auto pi = static_cast<std::ptrdiff_t>(i);
+                    const auto pj = static_cast<std::ptrdiff_t>(j);
+                    const auto pk = static_cast<std::ptrdiff_t>(k);
+                    coarse(pi, pj, pk) =
+                        static_cast<double>(coarseData[(i * ny + j) * nz + k]);
+                }
+            }
+        }
+        return coarse;
+    }
 
     for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(nx); ++i) {
         for (std::ptrdiff_t j = 0; j < static_cast<std::ptrdiff_t>(ny); ++j) {
@@ -96,11 +156,79 @@ inline Grid3D<double> restrictGrid(const Grid3D<double>& fine) {
 }
 
 /// Adds each coarse cell's correction to the 8 fine cells it came from.
+/// `coarseCorrection`'s own dimensions must be exactly `fine`'s halved on
+/// every axis (so `fine`'s must be even), asserted below rather than
+/// silently handled: both paths index into `coarseCorrection` computed
+/// from `fine`'s cell counts (the GPU kernel does so internally, matching
+/// `multigridProlongateAndAdd3D`'s own documented layout convention), so a
+/// mismatched `coarseCorrection` would read or write out of bounds rather
+/// than merely produce a wrong answer. Same dispatch policy as
+/// restrictGrid: above kMultigridGpuDispatchThreshold (on the fine grid's
+/// own cell count), routes through Compute::defaultBackend(); below it,
+/// the plain CPU path.
 inline void prolongateAndAdd(Grid3D<double>& fine,
                              const Grid3D<double>& coarseCorrection) {
+    assert(fine.cellCountX() % 2 == 0 && fine.cellCountY() % 2 == 0 &&
+           fine.cellCountZ() % 2 == 0);
+    assert(coarseCorrection.cellCountX() == fine.cellCountX() / 2 &&
+           coarseCorrection.cellCountY() == fine.cellCountY() / 2 &&
+           coarseCorrection.cellCountZ() == fine.cellCountZ() / 2);
+
     const auto nx = static_cast<std::ptrdiff_t>(coarseCorrection.cellCountX());
     const auto ny = static_cast<std::ptrdiff_t>(coarseCorrection.cellCountY());
     const auto nz = static_cast<std::ptrdiff_t>(coarseCorrection.cellCountZ());
+
+    const std::size_t fineNx = fine.cellCountX();
+    const std::size_t fineNy = fine.cellCountY();
+    const std::size_t fineNz = fine.cellCountZ();
+
+    if (fineNx * fineNy * fineNz >= kMultigridGpuDispatchThreshold) {
+        std::vector<float> fineData(fineNx * fineNy * fineNz);
+        for (std::size_t i = 0; i < fineNx; ++i) {
+            for (std::size_t j = 0; j < fineNy; ++j) {
+                for (std::size_t k = 0; k < fineNz; ++k) {
+                    const auto pi = static_cast<std::ptrdiff_t>(i);
+                    const auto pj = static_cast<std::ptrdiff_t>(j);
+                    const auto pk = static_cast<std::ptrdiff_t>(k);
+                    fineData[(i * fineNy + j) * fineNz + k] =
+                        static_cast<float>(fine(pi, pj, pk));
+                }
+            }
+        }
+
+        const auto cnx = static_cast<std::size_t>(nx);
+        const auto cny = static_cast<std::size_t>(ny);
+        const auto cnz = static_cast<std::size_t>(nz);
+        std::vector<float> coarseData(cnx * cny * cnz);
+        for (std::size_t i = 0; i < cnx; ++i) {
+            for (std::size_t j = 0; j < cny; ++j) {
+                for (std::size_t k = 0; k < cnz; ++k) {
+                    const auto pi = static_cast<std::ptrdiff_t>(i);
+                    const auto pj = static_cast<std::ptrdiff_t>(j);
+                    const auto pk = static_cast<std::ptrdiff_t>(k);
+                    coarseData[(i * cny + j) * cnz + k] =
+                        static_cast<float>(coarseCorrection(pi, pj, pk));
+                }
+            }
+        }
+
+        std::vector<float> nextFineData(fineNx * fineNy * fineNz);
+        defaultBackend().multigridProlongateAndAdd3D(fineData, coarseData, fineNx, fineNy,
+                                                     fineNz, nextFineData);
+
+        for (std::size_t i = 0; i < fineNx; ++i) {
+            for (std::size_t j = 0; j < fineNy; ++j) {
+                for (std::size_t k = 0; k < fineNz; ++k) {
+                    const auto pi = static_cast<std::ptrdiff_t>(i);
+                    const auto pj = static_cast<std::ptrdiff_t>(j);
+                    const auto pk = static_cast<std::ptrdiff_t>(k);
+                    fine(pi, pj, pk) =
+                        static_cast<double>(nextFineData[(i * fineNy + j) * fineNz + k]);
+                }
+            }
+        }
+        return;
+    }
 
     for (std::ptrdiff_t i = 0; i < nx; ++i) {
         for (std::ptrdiff_t j = 0; j < ny; ++j) {

@@ -1,15 +1,81 @@
 #include <Physics/Gravity/Newtonian.hpp>
 
+#include <Compute/ComputeBackend.hpp>
 #include <Math/Quaternion.hpp>
 #include <Math/Vector3.hpp>
 
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <vector>
 
 namespace ysq {
 
 namespace {
+
+// Below this body count, the CPU pairwise loop (which also does half the
+// arithmetic GPU dispatch would, since it visits each pair once rather than
+// each body against every other) is faster than paying for a dispatch at
+// all: uploading positions, launching a kernel, and reading accelerations
+// back.
+//
+// benchmarks/compute_thresholds.cpp measured a raw crossover of 512
+// against Compute::CpuBackend's own (simpler, full double-loop) reference
+// kernel, but that reference does roughly twice the arithmetic this file's
+// actual below-threshold pairwise loop does (see the comment above), so
+// this doubles the raw measurement rather than using it directly: at the
+// raw crossover, GPU only barely won (a 2.14x ratio), which halving to
+// account for the real loop's own ~2x advantage would erase or reverse.
+// The next size step up (1024) still won by a comfortable, real-loop-
+// adjusted margin (an unadjusted 4.37x ratio, roughly 2.2x once halved),
+// so that is the safe, conservative choice.
+constexpr std::size_t kGpuDispatchThreshold = 1024;
+
+[[nodiscard]] bool anyBodyIsOblate(std::span<const Body> bodies) {
+    for (const Body& body : bodies) {
+        if (body.j2 != 0.0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Direct-sum Newtonian gravity through Compute::defaultBackend(), point
+/// masses only. Never called with an oblate body in `positions`: GPU
+/// dispatch is a one-sided per-target sum, which cannot carry the
+/// momentum-conserving reaction terms J2 needs between an oblate source and
+/// the body it perturbs (see ComputeBackend.hpp's gravitationalNBody), so
+/// every caller here checks anyBodyIsOblate() (or its own per-body
+/// equivalent) first and falls back to the CPU pairwise loop otherwise.
+[[nodiscard]] NBodyState gravitationalNBodyGpu(std::span<const Vec3> positions,
+                                               std::span<const double> gm,
+                                               double softeningSquared) {
+    const std::size_t n = positions.size();
+    std::vector<float> posX(n);
+    std::vector<float> posY(n);
+    std::vector<float> posZ(n);
+    std::vector<float> gmFloat(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        posX[i] = static_cast<float>(positions[i].x);
+        posY[i] = static_cast<float>(positions[i].y);
+        posZ[i] = static_cast<float>(positions[i].z);
+        gmFloat[i] = static_cast<float>(gm[i]);
+    }
+
+    std::vector<float> accX(n);
+    std::vector<float> accY(n);
+    std::vector<float> accZ(n);
+    defaultBackend().gravitationalNBody(posX, posY, posZ, gmFloat,
+                                        static_cast<float>(softeningSquared), accX, accY,
+                                        accZ);
+
+    NBodyState result(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        result[i] = Vec3{static_cast<double>(accX[i]), static_cast<double>(accY[i]),
+                         static_cast<double>(accZ[i])};
+    }
+    return result;
+}
 
 /// The shared kernel: softened Newtonian acceleration contributed by one
 /// source of gravitational parameter `gm` (already G * mass), evaluated at a
@@ -121,6 +187,23 @@ Acceleration3 newtonianAcceleration(const Length3& at, std::span<const Body> sou
 std::vector<Acceleration3> newtonianAccelerations(std::span<const Body> bodies,
                                                   Length softening) {
     const double softeningSquared = softening.value() * softening.value();
+
+    if (bodies.size() >= kGpuDispatchThreshold && !anyBodyIsOblate(bodies)) {
+        std::vector<Vec3> positions(bodies.size());
+        std::vector<double> gm(bodies.size());
+        for (std::size_t i = 0; i < bodies.size(); ++i) {
+            positions[i] = bodies[i].position.value();
+            gm[i] = constants::G.value() * bodies[i].mass.value();
+        }
+        const NBodyState accelerations =
+            gravitationalNBodyGpu(positions, gm, softeningSquared);
+        std::vector<Acceleration3> result(bodies.size());
+        for (std::size_t i = 0; i < bodies.size(); ++i) {
+            result[i] = Acceleration3{accelerations[i]};
+        }
+        return result;
+    }
+
     std::vector<Vec3> totals(bodies.size());
 
     // Pairwise (i < j), each pair visited once, is what makes it possible
@@ -219,7 +302,8 @@ Energy newtonianPotentialEnergy(std::span<const Body> bodies, Length softening) 
 }
 
 NewtonianField::NewtonianField(std::span<const Body> bodies, Length softening)
-    : m_softeningSquared(softening.value() * softening.value()) {
+    : m_softeningSquared(softening.value() * softening.value()),
+      m_hasOblateBody(anyBodyIsOblate(bodies)) {
     m_gravitationalParameters.reserve(bodies.size());
     m_j2Coefficients.reserve(bodies.size());
     m_spinAxes.reserve(bodies.size());
@@ -234,6 +318,17 @@ NewtonianField::NewtonianField(std::span<const Body> bodies, Length softening)
 
 NBodyState NewtonianField::operator()(double, const NBodyState& positions) const {
     assert(positions.size() == m_gravitationalParameters.size());
+
+    // The path this functor is actually called through every integration
+    // step (VelocityVerletStepper and friends), so this is where GPU
+    // dispatch matters most in practice, more than the one-shot
+    // newtonianAccelerations() above.
+    if (positions.size() >= kGpuDispatchThreshold && !m_hasOblateBody) {
+        return gravitationalNBodyGpu(
+            std::span<const Vec3>{positions.begin(), positions.end()},
+            m_gravitationalParameters, m_softeningSquared);
+    }
+
     NBodyState result(positions.size());
     // Pairwise, for the same Newton's-third-law reason
     // newtonianAccelerations() is; see its own comment.

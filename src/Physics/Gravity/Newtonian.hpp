@@ -101,6 +101,10 @@ private:
     std::vector<double> m_j2Coefficients;
     std::vector<Vec3> m_spinAxes;  // per body, meaningless where j2Coefficient is zero
     double m_softeningSquared;
+    /// True if any body has nonzero j2: GPU dispatch is skipped whenever
+    /// this is set, since it cannot carry J2's momentum-conserving reaction
+    /// terms; see Newtonian.cpp's gravitationalNBodyGpu.
+    bool m_hasOblateBody = false;
 };
 
 /// Direct-summation Newtonian jerk (the time-derivative of the acceleration

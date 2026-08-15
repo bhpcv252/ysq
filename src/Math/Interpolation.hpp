@@ -1,8 +1,10 @@
 #pragma once
 
+#include <Compute/ComputeBackend.hpp>
 #include <Math/Scalar.hpp>
 
 #include <algorithm>
+#include <cassert>
 #include <concepts>
 #include <cstddef>
 #include <iterator>
@@ -12,6 +14,18 @@
 #include <vector>
 
 namespace ysq {
+
+namespace detail {
+
+/// Same dispatch shape and per-call GPU overhead as
+/// `Math/SpecialFunctions.hpp`'s batch-evaluation family, whose
+/// `kSpecialFunctionsGpuDispatchThreshold` comment explains the
+/// measurement (`benchmarks/compute_thresholds.cpp`, a floor rather than
+/// an observed crossover). Uniquely named per header, matching
+/// `Math/LinearSolve.hpp`'s ODR convention.
+inline constexpr std::size_t kInterpolationGpuDispatchThreshold = 131072;
+
+}  // namespace detail
 
 /// Interpolation, from a straight line up to a natural cubic spline.
 ///
@@ -173,6 +187,8 @@ template <class R>
 ///
 /// Built once and evaluated many times. Construction solves a tridiagonal
 /// system in O(n); each evaluation is a binary search and a few multiplies.
+/// A batched `operator()` overload sits alongside the scalar one; see its
+/// own comment for the GPU dispatch policy.
 template <std::floating_point T>
 class CubicSpline {
 public:
@@ -217,6 +233,27 @@ public:
                ((left * left * left - left) * m_secondDerivative[i] +
                 (right * right * right - right) * m_secondDerivative[i + 1]) *
                    (width * width) / T{6};
+    }
+
+    /// Batched evaluation, one result per element of `at`, this spline's
+    /// knots fixed for the whole batch. Above a size threshold, and only
+    /// for `T = float` (a `double` call always stays on the CPU loop below,
+    /// gated with `if constexpr`, matching `Math/LinearSolve.hpp`'s own
+    /// convention for the same reason: no GPU backend offers `float64`),
+    /// dispatches through `Compute::defaultBackend()` transparently to the
+    /// caller.
+    void operator()(std::span<const T> at, std::span<T> result) const {
+        assert(at.size() == result.size());
+        if constexpr (std::same_as<T, float>) {
+            if (at.size() >= detail::kInterpolationGpuDispatchThreshold) {
+                defaultBackend().batchCubicSplineEval(m_x, m_y, m_secondDerivative, at,
+                                                      result);
+                return;
+            }
+        }
+        for (std::size_t i = 0; i < at.size(); ++i) {
+            result[i] = (*this)(at[i]);
+        }
     }
 
     /// The slope of the spline. Zero outside the table, where the value is

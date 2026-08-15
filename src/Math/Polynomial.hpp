@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Compute/ComputeBackend.hpp>
 #include <Math/RootFinding.hpp>
 #include <Math/Scalar.hpp>
 
@@ -11,16 +12,30 @@
 #include <initializer_list>
 #include <limits>
 #include <optional>
+#include <span>
 #include <utility>
 #include <vector>
 
 namespace ysq {
 
+namespace detail {
+
+/// Same dispatch shape and per-call GPU overhead as
+/// `Math/SpecialFunctions.hpp`'s batch-evaluation family, whose
+/// `kSpecialFunctionsGpuDispatchThreshold` comment explains the
+/// measurement (`benchmarks/compute_thresholds.cpp`, a floor rather than
+/// an observed crossover). Uniquely named per header, matching
+/// `Math/LinearSolve.hpp`'s ODR convention.
+inline constexpr std::size_t kPolynomialGpuDispatchThreshold = 131072;
+
+}  // namespace detail
+
 /// A single-variable polynomial, coefficients ascending: `coefficients()[i]`
-/// is the coefficient of `x^i`. Evaluation is Horner's method; root finding
-/// is closed-form up to degree 4 (the highest degree with a general formula
-/// in radicals) and falls back to numeric deflation above that, via
-/// `Math/RootFinding.hpp`.
+/// is the coefficient of `x^i`. Evaluation is Horner's method, with a
+/// batched `operator()` overload alongside the scalar one (see its own
+/// comment for the GPU dispatch policy); root finding is closed-form up to
+/// degree 4 (the highest degree with a general formula in radicals) and
+/// falls back to numeric deflation above that, via `Math/RootFinding.hpp`.
 template <std::floating_point T>
 class Polynomial {
 public:
@@ -51,6 +66,26 @@ public:
             result = result * x + m_coefficients[i];
         }
         return result;
+    }
+
+    /// Batched evaluation, one result per element of `x`, this polynomial's
+    /// coefficients fixed for the whole batch. Above a size threshold, and
+    /// only for `T = float` (a `double` call always stays on the CPU loop
+    /// below, gated with `if constexpr`, matching `Math/LinearSolve.hpp`'s
+    /// own convention for the same reason: no GPU backend offers
+    /// `float64`), dispatches through `Compute::defaultBackend()`
+    /// transparently to the caller.
+    void operator()(std::span<const T> x, std::span<T> result) const {
+        assert(x.size() == result.size());
+        if constexpr (std::same_as<T, float>) {
+            if (x.size() >= detail::kPolynomialGpuDispatchThreshold) {
+                defaultBackend().batchPolynomialEval(m_coefficients, x, result);
+                return;
+            }
+        }
+        for (std::size_t i = 0; i < x.size(); ++i) {
+            result[i] = (*this)(x[i]);
+        }
     }
 
     [[nodiscard]] Polynomial derivative() const {

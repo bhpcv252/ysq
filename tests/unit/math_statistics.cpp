@@ -10,6 +10,7 @@
 #include <cstddef>
 #include <limits>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -139,6 +140,31 @@ TEST(MathStatistics, QuantileInterpolatesBetweenOrderStatistics) {
 
     EXPECT_TRUE(std::isnan(ysq::quantile(ramp, -0.1)));
     EXPECT_TRUE(std::isnan(ysq::quantile(ramp, 1.1)));
+}
+
+TEST(MathStatistics, MedianAtLargeNAgreesWithTheObviousMiddleElementOnTheGpuSortPath) {
+    // Above Math/Sort.hpp's own GPU dispatch threshold and T = float (the
+    // only type that ever dispatches): exercises quantile()'s internal
+    // sortInPlace() call through the same automatic-dispatch path
+    // Math/Sort.hpp's own tests already verify in isolation. An odd count
+    // makes the median exactly one order statistic, no interpolation, so
+    // the expected value is just "the middle of the sorted ramp" rather
+    // than needing a second, independent sort here.
+    // Above kSortGpuDispatchThreshold (131072; measured by
+    // benchmarks/compute_thresholds.cpp), and odd.
+    constexpr std::size_t n = 131073;
+    std::vector<float> ramp(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        ramp[i] = static_cast<float>(i);
+    }
+    // Shuffle deterministically (reverse every other pair) so the input
+    // isn't already sorted, without pulling in <random> for this test.
+    for (std::size_t i = 0; i + 1 < n; i += 2) {
+        std::swap(ramp[i], ramp[i + 1]);
+    }
+
+    constexpr std::size_t middleIndex = (n - 1) / 2;
+    EXPECT_NEAR(ysq::median(ramp), static_cast<float>(middleIndex), 1e-3f);
 }
 
 // --- Two-variable statistics ------------------------------------------------

@@ -39,7 +39,7 @@ TEST(ComputeBackendSelection, ForcingCpuAlwaysSucceeds) {
 TEST(ComputeBackendSelection, ForcingAnUnavailableBackendReturnsNullNotACrash) {
     for (const ComputeBackendKind kind :
          {ComputeBackendKind::OpenGL, ComputeBackendKind::Cuda,
-          ComputeBackendKind::Vulkan}) {
+          ComputeBackendKind::Vulkan, ComputeBackendKind::Metal}) {
         if (ysq::computeBackendAvailable(kind)) {
             continue;  // actually available here; nothing to prove for this kind
         }
@@ -53,6 +53,18 @@ TEST(ComputeBackendSelection, ToStringNamesEveryKind) {
     EXPECT_EQ(ysq::toString(ComputeBackendKind::OpenGL), "OpenGL");
     EXPECT_EQ(ysq::toString(ComputeBackendKind::Cuda), "CUDA");
     EXPECT_EQ(ysq::toString(ComputeBackendKind::Vulkan), "Vulkan");
+    EXPECT_EQ(ysq::toString(ComputeBackendKind::Metal), "Metal");
+}
+
+TEST(ComputeBackendSelection, DefaultBackendIsCachedAcrossCalls) {
+    // Same object every time: defaultBackend() must not reprobe (and so not
+    // reopen a device or context) on every call, unlike selectComputeBackend().
+    EXPECT_EQ(&ysq::defaultBackend(), &ysq::defaultBackend());
+}
+
+TEST(ComputeBackendSelection, DefaultBackendReportsItselfAvailable) {
+    const ComputeBackend& backend = ysq::defaultBackend();
+    EXPECT_TRUE(ysq::computeBackendAvailable(backend.kind()));
 }
 
 }  // namespace

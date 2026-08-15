@@ -2,8 +2,6 @@
 # Dependencies flow one way: nothing lower depends on anything higher.
 
 add_subdirectory(Core)
-add_subdirectory(Math)
-add_subdirectory(Units)
 
 # Platform wraps GLFW and GLAD, so it exists only in a graphics build. Nothing
 # in the simulation core may depend on it; that is what keeps a headless build
@@ -12,10 +10,15 @@ if(YSQ_BUILD_GRAPHICS)
     add_subdirectory(Platform)
 endif()
 
-# Compute is added after Platform: its OpenGL backend conditionally links
-# ysq::Platform, which must already be a defined target when that happens. The
-# CPU backend always builds regardless of every option above.
+# Compute is added after Platform (its OpenGL backend conditionally links
+# ysq::Platform, which must already be a defined target when that happens) and
+# before Math (Math links ysq::Compute for its GPU-dispatchable numerical
+# methods, so Compute must already be a defined target when that happens too).
+# The CPU backend always builds regardless of every option above.
 add_subdirectory(Compute)
+
+add_subdirectory(Math)
+add_subdirectory(Units)
 
 # Physics builds on Compute (falling back to its CPU backend with no GPU) and
 # on Math/Units below it; see the root README's Project structure section.

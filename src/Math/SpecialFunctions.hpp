@@ -1,10 +1,13 @@
 #pragma once
 
+#include <Compute/ComputeBackend.hpp>
 #include <Math/Scalar.hpp>
 
 #include <cassert>
 #include <cmath>
 #include <concepts>
+#include <cstddef>
+#include <span>
 
 namespace ysq {
 
@@ -27,6 +30,17 @@ namespace ysq {
 /// (`std::assoc_legendre`), which libc++ (this project's standard library on
 /// macOS) does not implement, so it is computed here from the standard
 /// upward recurrence instead.
+///
+/// `erf`, `erfc`, `gamma`, `logGamma` and `legendreP` each have a batched
+/// overload (`std::span<const T> x, std::span<T> result`) alongside the
+/// scalar one, evaluating independently at every element with no
+/// cross-element dependency; above a size threshold, and only for `T =
+/// float`, that overload dispatches through `Compute::defaultBackend()`
+/// rather than looping the scalar version, transparently to the caller. See
+/// `Compute/ComputeBackend.hpp`'s own comment on this kernel family for why
+/// the GPU path uses different (but float32-safe) approximations than the
+/// scalar path's C99 calls, and why `besselJ`/`besselY` have no batched
+/// overload at all.
 
 namespace detail {
 
@@ -305,6 +319,44 @@ template <class T>
 
 }  // namespace detail
 
+namespace detail {
+
+/// Measured on the development machine (Apple Silicon, Metal backend) by
+/// `benchmarks/compute_thresholds.cpp`, using `batchErf` as the
+/// representative of this file's whole batch-evaluation family
+/// (`erf`/`erfc`/`gamma`/`logGamma`/`legendreP` all share this one
+/// dispatch shape and per-call GPU overhead; only `erf` was measured
+/// directly). The GPU path never won up to 65536 elements, the largest
+/// size tried, so this is a measured floor (double the largest size
+/// tried), not an observed crossover: a single dispatch's fixed buffer
+/// allocation/upload/readback overhead outweighs this family's
+/// per-element cost even at that size. Re-run the benchmark and update
+/// this if the reference machine or backend ever changes.
+inline constexpr std::size_t kSpecialFunctionsGpuDispatchThreshold = 131072;
+
+inline void erfGpu(std::span<const float> x, std::span<float> result) {
+    defaultBackend().batchErf(x, result);
+}
+
+inline void erfcGpu(std::span<const float> x, std::span<float> result) {
+    defaultBackend().batchErfc(x, result);
+}
+
+inline void gammaGpu(std::span<const float> x, std::span<float> result) {
+    defaultBackend().batchGamma(x, result);
+}
+
+inline void logGammaGpu(std::span<const float> x, std::span<float> result) {
+    defaultBackend().batchLogGamma(x, result);
+}
+
+inline void legendrePGpu(unsigned n, unsigned m, std::span<const float> x,
+                         std::span<float> result) {
+    defaultBackend().batchLegendreP(n, m, x, result);
+}
+
+}  // namespace detail
+
 /// The error function, `erf(x) = (2/sqrt(pi)) integral_0^x exp(-t^2) dt`: the
 /// probability a standard normal variable falls within `x sqrt(2)` of its
 /// mean, which is what `Math/Random.hpp`'s normal CDF is built from.
@@ -322,6 +374,40 @@ template <std::floating_point T>
     return detail::erfcOf(x);
 }
 
+/// Batched `erf`, one result per element of `x`. Above a size threshold, and
+/// only for `T = float` (a `double` call always stays on the CPU loop below,
+/// gated with `if constexpr`, matching `Math/LinearSolve.hpp`'s own
+/// convention for the same reason: no GPU backend offers `float64`),
+/// dispatches through `Compute::defaultBackend()`.
+template <std::floating_point T>
+void erf(std::span<const T> x, std::span<T> result) {
+    assert(x.size() == result.size());
+    if constexpr (std::same_as<T, float>) {
+        if (x.size() >= detail::kSpecialFunctionsGpuDispatchThreshold) {
+            detail::erfGpu(x, result);
+            return;
+        }
+    }
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        result[i] = erf(x[i]);
+    }
+}
+
+/// Batched `erfc`; same dispatch policy as batched `erf` above.
+template <std::floating_point T>
+void erfc(std::span<const T> x, std::span<T> result) {
+    assert(x.size() == result.size());
+    if constexpr (std::same_as<T, float>) {
+        if (x.size() >= detail::kSpecialFunctionsGpuDispatchThreshold) {
+            detail::erfcGpu(x, result);
+            return;
+        }
+    }
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        result[i] = erfc(x[i]);
+    }
+}
+
 /// The gamma function, `Gamma(n) = (n-1)!` for a positive integer `n` and the
 /// standard analytic continuation elsewhere, needed by the Maxwell-Boltzmann
 /// speed distribution's normalization.
@@ -336,6 +422,36 @@ template <std::floating_point T>
 template <std::floating_point T>
 [[nodiscard]] T logGamma(T x) {
     return detail::lgammaOf(x);
+}
+
+/// Batched `gamma`; same dispatch policy as batched `erf` above.
+template <std::floating_point T>
+void gamma(std::span<const T> x, std::span<T> result) {
+    assert(x.size() == result.size());
+    if constexpr (std::same_as<T, float>) {
+        if (x.size() >= detail::kSpecialFunctionsGpuDispatchThreshold) {
+            detail::gammaGpu(x, result);
+            return;
+        }
+    }
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        result[i] = gamma(x[i]);
+    }
+}
+
+/// Batched `logGamma`; same dispatch policy as batched `erf` above.
+template <std::floating_point T>
+void logGamma(std::span<const T> x, std::span<T> result) {
+    assert(x.size() == result.size());
+    if constexpr (std::same_as<T, float>) {
+        if (x.size() >= detail::kSpecialFunctionsGpuDispatchThreshold) {
+            detail::logGammaGpu(x, result);
+            return;
+        }
+    }
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        result[i] = logGamma(x[i]);
+    }
 }
 
 /// The associated Legendre polynomial `P_n^m(x)`, `0 <= m <= n`,
@@ -402,6 +518,28 @@ template <std::floating_point T>
 template <std::floating_point T>
 [[nodiscard]] T legendreP(unsigned n, T x) {
     return legendreP(n, 0U, x);
+}
+
+/// Batched `legendreP`, `n`/`m` fixed for the whole batch, one result per
+/// element of `x`. Same dispatch policy as batched `erf` above.
+template <std::floating_point T>
+void legendreP(unsigned n, unsigned m, std::span<const T> x, std::span<T> result) {
+    assert(x.size() == result.size());
+    if constexpr (std::same_as<T, float>) {
+        if (x.size() >= detail::kSpecialFunctionsGpuDispatchThreshold) {
+            detail::legendrePGpu(n, m, x, result);
+            return;
+        }
+    }
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        result[i] = legendreP(n, m, x[i]);
+    }
+}
+
+/// The `m = 0` case of batched `legendreP` above.
+template <std::floating_point T>
+void legendreP(unsigned n, std::span<const T> x, std::span<T> result) {
+    legendreP(n, 0U, x, result);
 }
 
 /// The Bessel function of the first kind, order 0: the radially symmetric

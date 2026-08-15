@@ -1,9 +1,28 @@
 #include <Physics/Acoustics/Acoustic3D.hpp>
 
+#include <Compute/ComputeBackend.hpp>
+
 #include <cmath>
 #include <cstddef>
+#include <vector>
 
 namespace ysq {
+
+namespace {
+
+// Measured on the development machine (Apple Silicon, Metal backend) by
+// benchmarks/compute_thresholds.cpp: the GPU path never won up to 128^3
+// (~2.1M cells), the largest grid tried, matching
+// HeatEquation3D.cpp's own measured floor and for the same reason (O(n)
+// per cell, no O(n^2) inner loop, and this kernel's own two-pass velocity-
+// then-pressure structure adds proportionally more per-cell CPU work too,
+// keeping it CPU-competitive at least as long). Also keeps every existing
+// grid size in tests/unit/acoustics_acoustic3d.cpp on the exact
+// double-precision CPU path. Re-run the benchmark and update this if the
+// reference machine or backend ever changes.
+constexpr std::size_t kGpuDispatchThreshold = 4194304;
+
+}  // namespace
 
 AcousticField3D::AcousticField3D(std::size_t cellCountX, std::size_t cellCountY,
                                  std::size_t cellCountZ, double spacing,
@@ -88,11 +107,63 @@ double AcousticField3D::stableTimeStep(double courantFactor) const {
 }
 
 void AcousticField3D::step(double dt) {
-    const auto nx = static_cast<std::ptrdiff_t>(m_pressure.cellCountX());
-    const auto ny = static_cast<std::ptrdiff_t>(m_pressure.cellCountY());
-    const auto nz = static_cast<std::ptrdiff_t>(m_pressure.cellCountZ());
+    const std::size_t nxCount = m_pressure.cellCountX();
+    const std::size_t nyCount = m_pressure.cellCountY();
+    const std::size_t nzCount = m_pressure.cellCountZ();
     const double dx = m_pressure.spacing();
     const double velocityFactor = (dt / dx) / m_density;
+    const double pressureFactorGpu = m_density * m_soundSpeed * m_soundSpeed * (dt / dx);
+
+    if (nxCount * nyCount * nzCount >= kGpuDispatchThreshold) {
+        const std::size_t total = nxCount * nyCount * nzCount;
+        std::vector<float> pressure(total);
+        std::vector<float> velX(total);
+        std::vector<float> velY(total);
+        std::vector<float> velZ(total);
+        for (std::size_t i = 0; i < nxCount; ++i) {
+            for (std::size_t j = 0; j < nyCount; ++j) {
+                for (std::size_t k = 0; k < nzCount; ++k) {
+                    const auto pi = static_cast<std::ptrdiff_t>(i);
+                    const auto pj = static_cast<std::ptrdiff_t>(j);
+                    const auto pk = static_cast<std::ptrdiff_t>(k);
+                    const std::size_t flat = (i * nyCount + j) * nzCount + k;
+                    pressure[flat] = static_cast<float>(m_pressure(pi, pj, pk));
+                    velX[flat] = static_cast<float>(m_velocityX(pi, pj, pk));
+                    velY[flat] = static_cast<float>(m_velocityY(pi, pj, pk));
+                    velZ[flat] = static_cast<float>(m_velocityZ(pi, pj, pk));
+                }
+            }
+        }
+
+        std::vector<float> nextPressure(total);
+        std::vector<float> nextVelX(total);
+        std::vector<float> nextVelY(total);
+        std::vector<float> nextVelZ(total);
+        defaultBackend().acoustic3DStep(pressure, velX, velY, velZ, nxCount, nyCount,
+                                        nzCount, static_cast<float>(velocityFactor),
+                                        static_cast<float>(pressureFactorGpu),
+                                        nextPressure, nextVelX, nextVelY, nextVelZ);
+
+        for (std::size_t i = 0; i < nxCount; ++i) {
+            for (std::size_t j = 0; j < nyCount; ++j) {
+                for (std::size_t k = 0; k < nzCount; ++k) {
+                    const auto pi = static_cast<std::ptrdiff_t>(i);
+                    const auto pj = static_cast<std::ptrdiff_t>(j);
+                    const auto pk = static_cast<std::ptrdiff_t>(k);
+                    const std::size_t flat = (i * nyCount + j) * nzCount + k;
+                    m_pressure(pi, pj, pk) = static_cast<double>(nextPressure[flat]);
+                    m_velocityX(pi, pj, pk) = static_cast<double>(nextVelX[flat]);
+                    m_velocityY(pi, pj, pk) = static_cast<double>(nextVelY[flat]);
+                    m_velocityZ(pi, pj, pk) = static_cast<double>(nextVelZ[flat]);
+                }
+            }
+        }
+        return;
+    }
+
+    const auto nx = static_cast<std::ptrdiff_t>(nxCount);
+    const auto ny = static_cast<std::ptrdiff_t>(nyCount);
+    const auto nz = static_cast<std::ptrdiff_t>(nzCount);
 
     m_pressure.applyPeriodicBoundary();
     for (std::ptrdiff_t i = 0; i < nx; ++i) {

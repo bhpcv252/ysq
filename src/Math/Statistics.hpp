@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Math/Scalar.hpp>
+#include <Math/Sort.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -203,7 +204,10 @@ template <detail::FloatRange R>
 /// one numpy uses by default, so a result here matches what an analysis script
 /// would report.
 ///
-/// Copies and sorts, so it is O(n log n) and allocates.
+/// Copies and sorts (via `Math/Sort.hpp`'s `sortInPlace`, so a large
+/// `T = float` range dispatches through the GPU automatically above its own
+/// size threshold), so it is O(n log n) (or better, above that threshold)
+/// and allocates.
 template <detail::FloatRange R>
 [[nodiscard]] auto quantile(const R& range, detail::RangeValue<R> p)
     -> detail::RangeValue<R> {
@@ -216,14 +220,13 @@ template <detail::FloatRange R>
         return values.front();
     }
 
-    std::vector<T> sorted(values.begin(), values.end());
-    std::sort(sorted.begin(), sorted.end());
+    std::vector<T> sortedValues = ysq::sorted<T>(values);
 
-    const T position = p * static_cast<T>(sorted.size() - 1);
+    const T position = p * static_cast<T>(sortedValues.size() - 1);
     const T floorPosition = std::floor(position);
     const auto lower = static_cast<std::size_t>(floorPosition);
-    if (lower + 1 == sorted.size()) {
-        return sorted.back();
+    if (lower + 1 == sortedValues.size()) {
+        return sortedValues.back();
     }
     const T fraction = position - floorPosition;
 
@@ -232,9 +235,10 @@ template <detail::FloatRange R>
     // infinity that last term is zero times infinity, which is NaN: the median
     // of {1, inf, 3} would come back undefined when it is plainly 3.
     if (fraction == T{0}) {
-        return sorted[lower];
+        return sortedValues[lower];
     }
-    return sorted[lower] + fraction * (sorted[lower + 1] - sorted[lower]);
+    return sortedValues[lower] +
+           fraction * (sortedValues[lower + 1] - sortedValues[lower]);
 }
 
 template <detail::FloatRange R>

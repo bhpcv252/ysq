@@ -1,5 +1,6 @@
 #include <Math/Eigen.hpp>
 
+#include <Compute/CPU/CpuBackend.hpp>
 #include <Math/Complex.hpp>
 #include <Math/LinearSolve.hpp>
 #include <Math/Scalar.hpp>
@@ -328,4 +329,153 @@ TEST(MathEigen, SvdSingularValuesMatchJacobiEigenSymmetricOfATransposeA) {
                 symmetric.eigenvalues[1], 1e-8);
     EXPECT_NEAR(result.singularValues[1] * result.singularValues[1],
                 symmetric.eigenvalues[0], 1e-8);
+}
+
+TEST(MathEigen, QrDecomposeGpuDispatchMarshalsCorrectly) {
+    // qrDecompose(a) only reaches detail::qrDecomposeGpuDispatch once
+    // rows*cols crosses kEigenGpuDispatchThreshold (131072; measured by
+    // benchmarks/compute_thresholds.cpp), and QR is a host loop of n
+    // sequential GPU dispatches -- reaching that size through the public
+    // API here would need a matrix north of 363x363, which measured in the
+    // tens of seconds (per-dispatch CPU/GPU sync overhead across that many
+    // round trips) for a check that is purely about marshaling, not
+    // numerics. Calling detail::qrDecomposeGpuDispatch directly exercises
+    // the identical marshaling code at a size actually worth running in a
+    // unit test suite; tests/unit/multigrid.cpp's direct calls to
+    // detail::restrictGrid/prolongateAndAdd are the same idea. Kernel
+    // correctness itself is already covered, independently, by
+    // tests/integration/compute_backends_agree.cpp.
+    constexpr std::size_t rows = 12, cols = 8;
+    MatrixN<float> a(rows, cols);
+    std::vector<float> matrixData(rows * cols);
+    for (std::size_t i = 0; i < rows; ++i) {
+        for (std::size_t j = 0; j < cols; ++j) {
+            const float value =
+                std::sin(0.7f * static_cast<float>(i)) - static_cast<float>(j) * 0.3f;
+            a(i, j) = value;
+            matrixData[i * cols + j] = value;
+        }
+    }
+
+    const ysq::QrDecomposition<float> result = ysq::detail::qrDecomposeGpuDispatch(a);
+
+    const ysq::CpuBackend cpu;
+    std::vector<float> qReference(rows * rows);
+    std::vector<float> rReference(rows * cols);
+    cpu.qrDecomposeGpu(matrixData, rows, cols, qReference, rReference);
+
+    for (std::size_t i = 0; i < rows; ++i) {
+        for (std::size_t j = 0; j < cols; ++j) {
+            float total = 0.0f;
+            for (std::size_t k = 0; k < rows; ++k) {
+                total += result.q(i, k) * result.r(k, j);
+            }
+            EXPECT_NEAR(total, matrixData[i * cols + j], 1e-2f)
+                << "QR entry " << i << "," << j;
+        }
+    }
+}
+
+TEST(MathEigen, JacobiEigenSymmetricGpuDispatchMarshalsCorrectly) {
+    // Same reasoning as QrDecomposeGpuDispatchMarshalsCorrectly above:
+    // calls detail::jacobiEigenSymmetricGpuDispatch directly rather than
+    // needing a 363x363 matrix to cross the real threshold through the
+    // public API.
+    constexpr std::size_t n = 10;
+    MatrixN<float> a(n, n);
+    std::vector<float> matrixData(n * n);
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j <= i; ++j) {
+            const float value = std::sin(0.3f * static_cast<float>(i * n + j));
+            a(i, j) = value;
+            a(j, i) = value;
+            matrixData[i * n + j] = value;
+        }
+    }
+
+    const ysq::EigenDecomposition<float> result =
+        ysq::detail::jacobiEigenSymmetricGpuDispatch(a, 100, 0.0f);
+
+    const ysq::CpuBackend cpu;
+    std::vector<float> diagonalReference(n * n);
+    std::vector<float> eigenvectorsReference(n * n);
+    cpu.jacobiEigenSymmetricGpu(matrixData, n, 100, 0.0f, diagonalReference,
+                                eigenvectorsReference);
+    std::vector<float> eigenvaluesReference(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        eigenvaluesReference[i] = diagonalReference[i * n + i];
+    }
+    std::sort(eigenvaluesReference.begin(), eigenvaluesReference.end());
+
+    for (std::size_t i = 0; i < n; ++i) {
+        EXPECT_NEAR(result.eigenvalues[i], eigenvaluesReference[i], 1e-2f)
+            << "eigenvalue " << i;
+    }
+}
+
+TEST(MathEigen, SvdGpuDispatchMarshalsCorrectly) {
+    // Same reasoning as QrDecomposeGpuDispatchMarshalsCorrectly above:
+    // calls detail::svdGpuDispatch directly rather than needing a
+    // 363x363 matrix to cross the real threshold through the public API.
+    constexpr std::size_t rows = 12, cols = 8;
+    MatrixN<float> a(rows, cols);
+    std::vector<float> matrixData(rows * cols);
+    for (std::size_t i = 0; i < rows; ++i) {
+        for (std::size_t j = 0; j < cols; ++j) {
+            const float value = std::cos(0.4f * static_cast<float>(i + j));
+            a(i, j) = value;
+            matrixData[i * cols + j] = value;
+        }
+    }
+
+    const ysq::SvdDecomposition<float> result = ysq::detail::svdGpuDispatch(a, 60, 0.0f);
+
+    for (std::size_t i = 0; i < rows; ++i) {
+        for (std::size_t j = 0; j < cols; ++j) {
+            float total = 0.0f;
+            for (std::size_t k = 0; k < cols; ++k) {
+                total += result.u(i, k) * result.singularValues[k] * result.v(j, k);
+            }
+            EXPECT_NEAR(total, matrixData[i * cols + j], 1e-2f)
+                << "entry " << i << "," << j;
+        }
+    }
+}
+
+TEST(MathEigen, GeneralEigenvaluesAtLargeNStillWorksThroughTheTransitiveGpuPath) {
+    // realSchur/generalEigenvalues have no bespoke GPU kernel of their own
+    // (see src/Compute/README.md): their dominant cost is repeated internal
+    // qrDecompose(block) calls, which get GPU-accelerated transitively once
+    // qrDecompose itself does. This checks that composition still produces
+    // correct results at a size where those internal calls actually cross
+    // qrDecompose's own dispatch threshold at some point during shrinkage
+    // (the leading block starts at n=363, above kEigenGpuDispatchThreshold's
+    // 131072 elements, and shrinks every iteration, so later iterations
+    // fall back to the CPU path within the very same generalEigenvalues
+    // call).
+    constexpr std::size_t n = 363;
+    MatrixN<float> a(n, n);
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j <= i; ++j) {
+            const float value = std::sin(0.05f * static_cast<float>(i * n + j));
+            a(i, j) = value;
+            a(j, i) = value;
+        }
+    }
+
+    const std::vector<Complex<float>> eigenvalues = ysq::generalEigenvalues(a, 500);
+    const ysq::EigenDecomposition<float> symmetric =
+        ysq::jacobiEigenSymmetric(a, 100, 0.0f);
+
+    ASSERT_EQ(eigenvalues.size(), n);
+    std::vector<float> realParts(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        EXPECT_NEAR(eigenvalues[i].im, 0.0f, 1e-1f)
+            << "eigenvalue " << i << " imaginary part";
+        realParts[i] = eigenvalues[i].re;
+    }
+    std::sort(realParts.begin(), realParts.end());
+    for (const std::size_t i : {std::size_t{0}, n / 2, n - 1}) {
+        EXPECT_NEAR(realParts[i], symmetric.eigenvalues[i], 1.0f) << "eigenvalue " << i;
+    }
 }

@@ -19,6 +19,7 @@
 
 #include <array>
 #include <cmath>
+#include <random>
 #include <vector>
 
 namespace {
@@ -114,6 +115,82 @@ TEST(PhysicsGravity, DirectSummationAgreesWithPairwiseForce) {
         }
         EXPECT_QUANTITY_VEC_NEAR(accelerations[i], force / bodies[i].mass,
                                  1e-9 * ysq::units::metrePerSecondSquared);
+    }
+}
+
+TEST(PhysicsGravity, DirectSummationAtLargeNAgreesWithTheSinglePointApi) {
+    // Above Newtonian.cpp's GPU dispatch threshold, with no oblate body, so
+    // this exercises whichever compute backend is actually available on the
+    // machine running the test, not just the CPU pairwise loop.
+    // newtonianAcceleration() (singular) is an entirely separate,
+    // always-CPU function, used here as an independent reference with body
+    // i itself excluded from `sources` (its own zero separation, at zero
+    // softening, would otherwise be a genuine 0/0 in the closed form, not
+    // something either implementation is expected to special-case away).
+    constexpr std::size_t kBodyCount = 1200;
+    std::vector<Body> bodies;
+    bodies.reserve(kBodyCount);
+    std::mt19937 rng(42);
+    std::uniform_real_distribution<double> positionDist(-1.0e11, 1.0e11);
+    std::uniform_real_distribution<double> massDist(1.0e20, 1.0e24);
+    for (std::size_t i = 0; i < kBodyCount; ++i) {
+        bodies.push_back(
+            makeBody(massDist(rng),
+                     Vec3{positionDist(rng), positionDist(rng), positionDist(rng)}));
+    }
+
+    const std::vector<ysq::Acceleration3> accelerations =
+        ysq::newtonianAccelerations(bodies);
+    ASSERT_EQ(accelerations.size(), bodies.size());
+
+    // Checking every body would be as slow as the dispatch itself; a
+    // spot-check across the range (including both ends) is enough to catch
+    // a systematically wrong dispatch without paying for a second full
+    // O(n^2) pass on the CPU for every body.
+    for (const std::size_t i : {std::size_t{0}, kBodyCount / 3, kBodyCount / 2,
+                                (kBodyCount * 2) / 3, kBodyCount - 1}) {
+        std::vector<Body> sourcesWithoutI;
+        sourcesWithoutI.reserve(bodies.size() - 1);
+        for (std::size_t j = 0; j < bodies.size(); ++j) {
+            if (j != i) {
+                sourcesWithoutI.push_back(bodies[j]);
+            }
+        }
+        const ysq::Acceleration3 reference =
+            ysq::newtonianAcceleration(bodies[i].position, sourcesWithoutI);
+        EXPECT_QUANTITY_VEC_NEAR(accelerations[i], reference,
+                                 length(reference.value()) * 1e-2 *
+                                     ysq::units::metrePerSecondSquared)
+            << "body " << i;
+    }
+}
+
+TEST(PhysicsGravity, NewtonianFieldAtLargeNAgreesWithTheDimensionedApi) {
+    // The same GPU-dispatch-threshold crossing as the test above, exercised
+    // through NewtonianField (what the integrators actually call every
+    // step) instead of newtonianAccelerations() directly, cross-checked
+    // against that already-verified function rather than duplicating the
+    // single-point comparison.
+    constexpr std::size_t kBodyCount = 1200;
+    std::vector<Body> bodies;
+    bodies.reserve(kBodyCount);
+    std::mt19937 rng(43);
+    std::uniform_real_distribution<double> positionDist(-1.0e11, 1.0e11);
+    std::uniform_real_distribution<double> massDist(1.0e20, 1.0e24);
+    for (std::size_t i = 0; i < kBodyCount; ++i) {
+        bodies.push_back(
+            makeBody(massDist(rng),
+                     Vec3{positionDist(rng), positionDist(rng), positionDist(rng)}));
+    }
+
+    const std::vector<ysq::Acceleration3> dimensioned =
+        ysq::newtonianAccelerations(bodies);
+    const ysq::NewtonianField field(bodies);
+    const ysq::NBodyState raw = field(0.0, ysq::positionsOf(bodies));
+
+    for (const std::size_t i : {std::size_t{0}, kBodyCount / 2, kBodyCount - 1}) {
+        EXPECT_VEC_NEAR(raw[i], dimensioned[i].value(), length(raw[i]) * 1e-6)
+            << "body " << i;
     }
 }
 

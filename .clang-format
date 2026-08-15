@@ -34,3 +34,32 @@ SeparateDefinitionBlocks: Leave
 SortIncludes: CaseSensitive
 IncludeBlocks: Preserve
 ...
+---
+# Same style as the Cpp document above, for the Metal backend's .mm files
+# (Objective-C++), which clang-format only matches against a document
+# explicitly declaring Language: ObjC.
+Language: ObjC
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+IndentCaseLabels: true
+ColumnLimit: 90
+AccessModifierOffset: -4
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+SpacesBeforeTrailingComments: 2
+
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: Yes
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: NextLine
+SeparateDefinitionBlocks: Leave
+
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+...

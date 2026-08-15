@@ -1,3 +1,4 @@
+#include <Compute/CPU/CpuBackend.hpp>
 #include <Math/Grid3D.hpp>
 #include <Math/Multigrid.hpp>
 
@@ -5,6 +6,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <vector>
 
 namespace {
 
@@ -108,6 +110,91 @@ TEST(Multigrid, ConvergesToAKnownHarmonicFunction) {
         }
     }
     EXPECT_LT(maxError, 1.0e-8);
+}
+
+TEST(Multigrid, RestrictAndProlongateAtLargeNAgreeWithTheComputeCpuReference) {
+    // Above Math/Multigrid.hpp's own GPU dispatch threshold, so
+    // detail::restrictGrid/prolongateAndAdd exercise whichever compute
+    // backend is actually available. ysq::CpuBackend is called directly as
+    // an independent reference (its own agreement with every GPU backend is
+    // already covered by tests/integration/compute_backends_agree.cpp; this
+    // test only checks that Multigrid.hpp's marshaling is wired correctly).
+    // 162^3 = 4251528, above kMultigridGpuDispatchThreshold (4194304;
+    // measured by benchmarks/compute_thresholds.cpp).
+    constexpr std::size_t n = 162;
+    constexpr double spacing = 0.1;
+
+    ysq::Grid3D<double> fine(n, n, n, spacing, 0);
+    std::vector<float> fineData(n * n * n);
+    for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(n); ++i) {
+        for (std::ptrdiff_t j = 0; j < static_cast<std::ptrdiff_t>(n); ++j) {
+            for (std::ptrdiff_t k = 0; k < static_cast<std::ptrdiff_t>(n); ++k) {
+                const double value = std::sin(0.1 * static_cast<double>(i)) +
+                                     static_cast<double>(j) -
+                                     static_cast<double>(k) * 0.5;
+                fine(i, j, k) = value;
+                fineData[(static_cast<std::size_t>(i) * n + static_cast<std::size_t>(j)) *
+                             n +
+                         static_cast<std::size_t>(k)] = static_cast<float>(value);
+            }
+        }
+    }
+
+    const ysq::Grid3D<double> coarse = ysq::detail::restrictGrid(fine);
+
+    const ysq::CpuBackend cpu;
+    constexpr std::size_t cn = n / 2;
+    std::vector<float> coarseReference(cn * cn * cn);
+    cpu.multigridRestrict3D(fineData, n, n, n, coarseReference);
+
+    for (const std::size_t i : {std::size_t{0}, cn / 2, cn - 1}) {
+        for (const std::size_t j : {std::size_t{0}, cn / 2, cn - 1}) {
+            for (const std::size_t k : {std::size_t{0}, cn / 2, cn - 1}) {
+                const std::size_t flat = (i * cn + j) * cn + k;
+                EXPECT_NEAR(coarse(static_cast<std::ptrdiff_t>(i),
+                                   static_cast<std::ptrdiff_t>(j),
+                                   static_cast<std::ptrdiff_t>(k)),
+                            coarseReference[flat], 1e-3)
+                    << "coarse cell " << i << "," << j << "," << k;
+            }
+        }
+    }
+
+    // Built from coarseReference (not the GPU-computed coarse above), so
+    // this stage's own check is isolated from any float32-rounding
+    // difference the restrict stage's actual backend introduced.
+    ysq::Grid3D<double> coarseFromReference(cn, cn, cn, spacing * 2.0, 0);
+    for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(cn); ++i) {
+        for (std::ptrdiff_t j = 0; j < static_cast<std::ptrdiff_t>(cn); ++j) {
+            for (std::ptrdiff_t k = 0; k < static_cast<std::ptrdiff_t>(cn); ++k) {
+                const std::size_t flat =
+                    (static_cast<std::size_t>(i) * cn + static_cast<std::size_t>(j)) *
+                        cn +
+                    static_cast<std::size_t>(k);
+                coarseFromReference(i, j, k) = static_cast<double>(coarseReference[flat]);
+            }
+        }
+    }
+
+    ysq::Grid3D<double> fineAfterProlongate = fine;
+    ysq::detail::prolongateAndAdd(fineAfterProlongate, coarseFromReference);
+
+    std::vector<float> nextFineReference(n * n * n);
+    cpu.multigridProlongateAndAdd3D(fineData, coarseReference, n, n, n,
+                                    nextFineReference);
+
+    for (const std::size_t i : {std::size_t{0}, n / 2, n - 1}) {
+        for (const std::size_t j : {std::size_t{0}, n / 2, n - 1}) {
+            for (const std::size_t k : {std::size_t{0}, n / 2, n - 1}) {
+                const std::size_t flat = (i * n + j) * n + k;
+                EXPECT_NEAR(fineAfterProlongate(static_cast<std::ptrdiff_t>(i),
+                                                static_cast<std::ptrdiff_t>(j),
+                                                static_cast<std::ptrdiff_t>(k)),
+                            nextFineReference[flat], 1e-3)
+                    << "fine cell " << i << "," << j << "," << k;
+            }
+        }
+    }
 }
 
 }  // namespace

@@ -48,6 +48,7 @@
 #include <Math/Random.hpp>
 #include <Math/RootFinding.hpp>
 #include <Math/Scalar.hpp>
+#include <Math/Sort.hpp>
 #include <Math/SpatialPartition/Bvh.hpp>
 #include <Math/SpatialPartition/KdTree.hpp>
 #include <Math/SpatialPartition/Octree.hpp>
@@ -100,6 +101,8 @@ template class ysq::MatrixN<float>;
 template class ysq::MatrixN<double>;
 template class ysq::Polynomial<float>;
 template class ysq::Polynomial<double>;
+template class ysq::CubicSpline<float>;
+template class ysq::CubicSpline<double>;
 
 // The composition this whole design exists for: a vector over a dual scalar.
 // If Dual ever stops satisfying Numeric, this is where it stops compiling.
@@ -482,6 +485,12 @@ T exerciseNumerics() {
     acc += ysq::standardDeviation(values) + ysq::sampleStandardDeviation(values);
     acc += ysq::minimum(values) + ysq::maximum(values) + ysq::range(values);
     acc += ysq::median(values) + ysq::quantile(values, T{0.25});
+    std::vector<T> sortable(data.begin(), data.end());
+    ysq::sortInPlace<T>(sortable);
+    acc += sortable[0];
+    acc += ysq::sorted<T>(values)[0];
+    acc += ysq::kthSmallest<T>(values, 0);
+    acc += ysq::kthLargest<T>(values, 0);
     acc += ysq::covariance(values, values) + ysq::correlation(values, values);
     acc += ysq::linearFit(values, values).slope;
     acc += ysq::linearFit(values, values).intercept;
@@ -647,6 +656,14 @@ T exerciseNumerics() {
     acc += static_cast<T>(ysq::poisson(engine, 3.0));
     acc += ysq::normalCdf(T{0.5});
     acc += ysq::monteCarloIntegrate(square, T{0}, T{1}, 8, engine);
+
+    std::vector<T> parallelUniform(8);
+    ysq::parallelUniformReal<T>(42, 0, parallelUniform, T{0}, T{1});
+    acc += parallelUniform[0];
+    std::vector<T> parallelGaussian(8);
+    ysq::parallelNormal<T>(42, 0, parallelGaussian, T{0}, T{1});
+    acc += parallelGaussian[0];
+    acc += ysq::parallelMonteCarloIntegrate(square, T{0}, T{1}, 8, 42);
 
     const auto scalarField = [](const V3& v) { return dot(v, v); };
     const V3 startPoint{T{1}, T{1}, T{1}};

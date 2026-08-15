@@ -128,6 +128,7 @@ git submodule update --init --recursive
 | Option                   | Default | Effect                                          |
 | ------------------------ | ------- | ----------------------------------------------- |
 | `YSQ_BUILD_TESTS`        | `OFF`   | Build the test suite                             |
+| `YSQ_BUILD_BENCHMARKS`   | `OFF`   | Build the developer benchmark tools under `benchmarks/` |
 | `YSQ_BUILD_COMPILE_FAIL_TESTS` | `ON` | Build the tests that assert something does *not* compile. Only reached when `YSQ_BUILD_TESTS` is on; each costs a nested compiler invocation. |
 | `YSQ_BUILD_GRAPHICS`     | `ON`    | Build against GLFW, GLAD and Dear ImGui. `OFF` drops them entirely, for headless and CI builds. |
 | `YSQ_WARNINGS_AS_ERRORS` | `OFF`   | Treat warnings as errors. CI builds with this on. |
@@ -209,6 +210,16 @@ only of programs that compile cannot check a guarantee like that. Those live in
 positive form of the same construct in an ordinary test, since a failing build
 proves nothing on its own about *why* it failed.
 
+## Benchmarking
+
+`benchmarks/` holds developer timing tools, not correctness tests — not
+built by default; enable with `-DYSQ_BUILD_BENCHMARKS=ON`. Currently one:
+`benchmark_compute_thresholds`, which measures the CPU-vs-GPU crossover
+point for every GPU-dispatchable operation in `Math` and reports the size
+each header's own `kXxxGpuDispatchThreshold` constant should be set to.
+See [src/Compute/README.md](src/Compute/README.md#dispatch-threshold-calibration)
+for how those measurements feed back into the engine.
+
 Everything runs CPU-only and needs no GPU, no window and no display. The one
 exception is the OpenGL context test, which still needs no display: it uses a
 software context where there is no display server, and skips where even that is
@@ -289,13 +300,19 @@ against those libraries and build to executables. Every library module carries a
 `README.md` describing its interface and dependencies. Tests under `tests/` link
 the modules they exercise plus GoogleTest, outside the library dependency graph.
 
-Dependencies flow one way. At the base is the system layer: `Core`, `Math`,
-`Units`, and `Platform` (window, GL context, input), with `Units` built on `Math`.
-`Compute` builds on that — its OpenGL backend uses Platform's context, while the
-CPU, CUDA, and Vulkan backends are standalone. `Physics` builds on `Compute` and
-falls back to the CPU backend when no GPU is present. `Renderer` and `UI` form the
-presentation layer, drawing on `Platform` and `Math`. `Applications` sit on top.
-Nothing lower depends on anything higher. A headless visual run uses an offscreen
+Dependencies flow one way. `Core` and `Platform` (window, GL context, input) sit
+at the true base. `Compute` builds on `Core` alone for its CPU, CUDA and Vulkan
+backends, and additionally on `Platform` for its OpenGL backend and on Apple's
+native Metal API for its Metal backend. Every one of those is a domain-neutral
+"how do we compute" primitive, not a physical quantity, which is what lets
+`Math` build on `Compute` in turn: `Math`'s handful of numerical methods large
+enough to benefit from GPU dispatch (large FFTs, dense linear solves and
+eigendecomposition, batched per-point evaluation, parallel random sampling,
+sorting) reach it the same way `Physics` does. `Units` builds on
+`Math`. `Physics` builds on `Compute`, `Math` and `Units`, falling back to the
+CPU backend when no GPU is present. `Renderer` and `UI` form the presentation
+layer, drawing on `Platform` and `Math`. `Applications` sit on top. Nothing
+lower depends on anything higher. A headless visual run uses an offscreen
 context; the simulation core and tests need no graphics context at all.
 
 Directory layout; each library module under `src/` carries its own `README.md`
@@ -377,10 +394,10 @@ ysq/
 | Module         | Contents                                                                                                                                                                                                                                             |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Core`         | Logging (spdlog behind a facade), timing (simulation and wall-clock), UUIDs, events, configuration, CSV data loading                                                                                                                                                                                   |
-| `Math`         | Vectors, matrices, quaternions, complex/dual numbers, tensors, statistics, interpolation, calculus, ODE interface and integrators (Euler, RK4, adaptive, symplectic), root-finding, general linear solving, symmetric and general eigendecomposition, SVD/QR, special functions (error, gamma, Legendre, Bessel), closed-form polynomial roots, randomness, gradient-based optimization, Euclidean geometry (intersection, closest-point, convex hull, oriented bounding boxes), spatial partitioning (k-d tree, BVH, octree), and FFT (1D and 3D) |
+| `Math`         | Vectors, matrices, quaternions, complex/dual numbers, tensors, statistics, sorting and order statistics, interpolation, calculus, ODE interface and integrators (Euler, RK4, adaptive, symplectic), root-finding, general linear solving, symmetric and general eigendecomposition, SVD/QR, special functions (error, gamma, Legendre, Bessel), closed-form polynomial roots, randomness (a sequential engine plus a second, GPU-dispatching parallel/counter-based family), gradient-based optimization, Euclidean geometry (intersection, closest-point, convex hull, oriented bounding boxes), spatial partitioning (k-d tree, BVH, octree), and FFT (1D and 3D) |
 | `Units`        | Dimensioned quantities (scalar or vector) built from the SI's seven base dimensions: length, mass, time, velocity, acceleration, force, energy, temperature, electromagnetism, fluids, chemistry, elasticity, luminosity, and the constants that define the SI. Built on `Math` |
 | `Platform`     | Window, GL context, and input, wrapping GLFW                                                                                                                                                                                                         |
-| `Compute`      | Backend `Physics` dispatches to: a CPU reference implementation plus GPU acceleration (OpenGL compute shaders, CUDA, Vulkan)                                                                                                                         |
+| `Compute`      | Backend `Physics` and `Math` dispatch to: a CPU reference implementation plus GPU acceleration (Metal on Apple platforms, OpenGL compute shaders, CUDA, Vulkan)                                                                                     |
 | `Physics`      | Mechanics (incl. springs, drag, collision, friction, constraints, rigid-body inertia); relativistic spacetime (Minkowski, Schwarzschild, Kerr, FLRW) with a geodesic solver; gravity (Newtonian with spherical-harmonics oblateness, post-Newtonian, Barnes-Hut summation); electromagnetism (quasi-static fields plus a 1D/3D Maxwell FDTD solver); acoustics (1D/3D linear wave equation); fluids (SPH, and Eulerian in 1D/3D); continuum mechanics (elastic chains); thermodynamics (ideal gas, black-body, statistical mechanics, radiative transfer, 1D/3D heat equation); optics (propagation, lensing, frequency shift, radiation pressure, diffraction, aberration); quantum mechanics (1D/3D time-independent and time-dependent Schrödinger equation) |
 | `Renderer`     | Camera and controllers, shaders, instanced meshes, textures, immediate-mode debug drawing and text labels, and both a forward rasterizer and a fragment-shader ray tracer                                                                          |
 | `UI`           | Dear ImGui panels bound to plain references, Dear ImPlot charts, a stats overlay                                                                                                                                                                    |

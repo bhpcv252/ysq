@@ -34,6 +34,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(YSQ_BUILD_TESTS "Build the YSQ test suite" OFF)
+option(YSQ_BUILD_BENCHMARKS
+    "Build the developer benchmark tools under benchmarks/" OFF)
 option(YSQ_BUILD_COMPILE_FAIL_TESTS
     "Build the tests that assert something does not compile" ON)
 option(YSQ_BUILD_GRAPHICS "Build graphics-dependent modules (GLFW, GLAD, Dear ImGui)" ON)
@@ -49,6 +51,10 @@ option(YSQ_REQUIRE_HEADLESS_GL
 # "require it". See src/Compute/CMakeLists.txt.
 option(YSQ_BUILD_COMPUTE_CUDA "Build the CUDA compute backend if the toolkit is found" ON)
 option(YSQ_BUILD_COMPUTE_VULKAN "Build the Vulkan compute backend if the SDK is found" ON)
+# Metal ships with the OS on every Mac, so there is no SDK to detect: this
+# only ever matters on APPLE, where it means "build it" rather than "use it
+# if found". See src/Compute/CMakeLists.txt.
+option(YSQ_BUILD_COMPUTE_METAL "Build the Metal compute backend (Apple platforms only)" ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -75,9 +81,14 @@ if(YSQ_BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
+if(YSQ_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
+
 message(STATUS "YSQ ${PROJECT_VERSION}")
 message(STATUS "  tests:        ${YSQ_BUILD_TESTS}")
 message(STATUS "  compile-fail: ${YSQ_BUILD_COMPILE_FAIL_TESTS}")
+message(STATUS "  benchmarks:   ${YSQ_BUILD_BENCHMARKS}")
 message(STATUS "  graphics:     ${YSQ_BUILD_GRAPHICS}")
 if(YSQ_BUILD_GRAPHICS)
     message(STATUS "  require GL:   ${YSQ_REQUIRE_HEADLESS_GL}")

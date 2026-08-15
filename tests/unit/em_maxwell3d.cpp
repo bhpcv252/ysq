@@ -1,5 +1,6 @@
 #include <Physics/Electromagnetism/Maxwell3D.hpp>
 
+#include <Compute/CPU/CpuBackend.hpp>
 #include <Math/Scalar.hpp>
 #include <Physics/Electromagnetism/Maxwell.hpp>
 #include <Units/Constants.hpp>
@@ -7,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -214,4 +216,71 @@ TEST(ElectromagnetismMaxwell3D, ADiagonalPlaneWavePropagatesAtApproximatelyC) {
     const double omegaMeasured = std::atan2(sinProjection, cosProjection) / t;
 
     EXPECT_NEAR(omegaMeasured, omegaContinuum, omegaContinuum * 0.05);
+}
+
+TEST(ElectromagnetismMaxwell3D, StepAtLargeNAgreesWithTheComputeCpuReference) {
+    // Above Maxwell3D.cpp's own GPU dispatch threshold, so step() exercises
+    // whichever compute backend is actually available. ysq::CpuBackend is
+    // called directly as an independent reference (its own agreement with
+    // every GPU backend is already covered by
+    // tests/integration/compute_backends_agree.cpp; this test only checks
+    // that Maxwell3D.cpp's dispatch wiring feeds it the right data and
+    // reads the result back correctly).
+    // 129^3 = 2146689, above kGpuDispatchThreshold (2097152; measured by
+    // benchmarks/compute_thresholds.cpp).
+    constexpr std::size_t n = 129;
+    ysq::MaxwellField3D field(n, n, n, kSpacing);
+
+    std::vector<float> ex(n * n * n);
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < n; ++j) {
+            for (std::size_t k = 0; k < n; ++k) {
+                const double center = static_cast<double>(n / 2) * kSpacing;
+                const double x = static_cast<double>(i) * kSpacing;
+                const double value = gaussian(x, center, 0.05);
+                field.setElectricFieldY(i, j, k, value);
+                ex[(i * n + j) * n + k] = 0.0f;
+            }
+        }
+    }
+    const std::vector<float> ey = [&] {
+        std::vector<float> values(n * n * n);
+        for (std::size_t i = 0; i < n; ++i) {
+            for (std::size_t j = 0; j < n; ++j) {
+                for (std::size_t k = 0; k < n; ++k) {
+                    values[(i * n + j) * n + k] =
+                        static_cast<float>(field.electricFieldY(i, j, k));
+                }
+            }
+        }
+        return values;
+    }();
+    const std::vector<float> zero(n * n * n, 0.0f);
+
+    const double dt = field.stableTimeStep(0.9);
+    field.step(dt);
+
+    const ysq::CpuBackend cpu;
+    const double c = ysq::constants::speedOfLight.value();
+    const float bFactor = static_cast<float>(dt / kSpacing);
+    const float eFactor = static_cast<float>(c * c * dt / kSpacing);
+    std::vector<float> nextExReference(n * n * n);
+    std::vector<float> nextEyReference(n * n * n);
+    std::vector<float> nextEzReference(n * n * n);
+    std::vector<float> nextBxReference(n * n * n);
+    std::vector<float> nextByReference(n * n * n);
+    std::vector<float> nextBzReference(n * n * n);
+    cpu.maxwell3DStep(ex, ey, zero, zero, zero, zero, n, n, n, bFactor, eFactor,
+                      nextExReference, nextEyReference, nextEzReference, nextBxReference,
+                      nextByReference, nextBzReference);
+
+    for (const std::size_t i : {std::size_t{0}, n / 2, n - 1}) {
+        for (const std::size_t j : {std::size_t{0}, n / 2, n - 1}) {
+            for (const std::size_t k : {std::size_t{0}, n / 2, n - 1}) {
+                const std::size_t flat = (i * n + j) * n + k;
+                EXPECT_NEAR(field.electricFieldY(i, j, k), nextEyReference[flat], 1e-3)
+                    << "cell " << i << "," << j << "," << k;
+            }
+        }
+    }
 }

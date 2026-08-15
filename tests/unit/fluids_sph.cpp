@@ -1,10 +1,14 @@
+#include <Compute/CPU/CpuBackend.hpp>
 #include <Math/Vector3.hpp>
 #include <Physics/Fluids/SPH.hpp>
 #include <support/MathApprox.hpp>
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
+#include <random>
 #include <vector>
 
 namespace {
@@ -135,6 +139,72 @@ TEST(FluidsSPH, TwoCompressedParticlesRepelEachOther) {
     // a is pushed further in -x, b further in +x: they separate.
     EXPECT_LT(accelerations[0].x, 0.0);
     EXPECT_GT(accelerations[1].x, 0.0);
+}
+
+TEST(FluidsSPH, DensityAndAccelerationsAtLargeNAgreeWithTheComputeCpuReference) {
+    // Above SPH.cpp's own GPU dispatch threshold, so
+    // computeDensityAndPressure/pressureAccelerations exercise whichever
+    // compute backend is actually available. ysq::CpuBackend is called
+    // directly here as an independent reference (its own agreement with
+    // every GPU backend is already covered by
+    // tests/integration/compute_backends_agree.cpp; this test is only
+    // checking that Physics/Fluids/SPH.cpp's dispatch wiring feeds it the
+    // right data and reads the result back correctly).
+    constexpr std::size_t kCount = 1200;
+    constexpr double h = 1.0;
+    std::mt19937 rng(9);
+    std::uniform_real_distribution<double> posDist(-3.0, 3.0);
+    std::uniform_real_distribution<double> massDist(0.5, 2.0);
+
+    std::vector<SPHParticle> particles(kCount);
+    std::vector<float> posX(kCount);
+    std::vector<float> posY(kCount);
+    std::vector<float> posZ(kCount);
+    std::vector<float> mass(kCount);
+    for (std::size_t i = 0; i < kCount; ++i) {
+        const Vec3 p{posDist(rng), posDist(rng), posDist(rng)};
+        const double m = massDist(rng);
+        particles[i].position = p;
+        particles[i].mass = m;
+        posX[i] = static_cast<float>(p.x);
+        posY[i] = static_cast<float>(p.y);
+        posZ[i] = static_cast<float>(p.z);
+        mass[i] = static_cast<float>(m);
+    }
+
+    ysq::computeDensityAndPressure(particles, h, 1.0, 2.0);
+
+    const ysq::CpuBackend cpu;
+    std::vector<float> densityReference(kCount);
+    std::vector<float> pressureReference(kCount);
+    cpu.sphDensityPressure(posX, posY, posZ, mass, static_cast<float>(h), 1.0f, 2.0f,
+                           densityReference, pressureReference);
+
+    for (const std::size_t i : {std::size_t{0}, kCount / 2, kCount - 1}) {
+        EXPECT_NEAR(particles[i].density, densityReference[i], densityReference[i] * 1e-2)
+            << "particle " << i;
+    }
+
+    const std::vector<Vec3> accelerations = ysq::pressureAccelerations(particles, h);
+    std::vector<float> density(kCount);
+    std::vector<float> pressure(kCount);
+    for (std::size_t i = 0; i < kCount; ++i) {
+        density[i] = static_cast<float>(particles[i].density);
+        pressure[i] = static_cast<float>(particles[i].pressure);
+    }
+    std::vector<float> accXReference(kCount);
+    std::vector<float> accYReference(kCount);
+    std::vector<float> accZReference(kCount);
+    cpu.sphPressureAcceleration(posX, posY, posZ, mass, density, pressure,
+                                static_cast<float>(h), accXReference, accYReference,
+                                accZReference);
+
+    for (const std::size_t i : {std::size_t{0}, kCount / 2, kCount - 1}) {
+        const double tolerance = std::max(std::abs(accXReference[i]), 1.0f) * 2e-2;
+        EXPECT_NEAR(accelerations[i].x, accXReference[i], tolerance) << "particle " << i;
+        EXPECT_NEAR(accelerations[i].y, accYReference[i], tolerance) << "particle " << i;
+        EXPECT_NEAR(accelerations[i].z, accZReference[i], tolerance) << "particle " << i;
+    }
 }
 
 }  // namespace

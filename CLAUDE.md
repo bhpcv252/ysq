@@ -26,10 +26,16 @@ in `Applications/`, not internal design notes.
 
 Dependencies flow one way. Nothing lower depends on anything higher.
 
-- **Base / system:** `Core`, `Math`, `Units`, `Platform` (window, GL context, input)
-- **`Compute`** builds on the base — CPU reference backend plus GPU backends
-  (OpenGL compute, CUDA, Vulkan)
-- **`Physics`** builds on `Compute`, falling back to the CPU backend with no GPU
+- **Base / system:** `Core`, `Platform` (window, GL context, input)
+- **`Compute`** builds on `Core` alone for its CPU, CUDA and Vulkan backends,
+  and additionally on `Platform` (OpenGL context) and Apple's native Metal API
+  for its OpenGL and Metal backends
+- **`Math`** builds on `Compute`, for the handful of numerical methods large
+  enough to benefit from GPU dispatch — `Compute`'s kernels are domain-neutral
+  "how do we compute" primitives, not physical quantities, so this is not a
+  layering violation; `Units` builds on `Math`
+- **`Physics`** builds on `Compute`, `Math` and `Units`, falling back to the
+  CPU backend with no GPU
 - **`Renderer`, `UI`** — presentation layer
 - **`Applications`** — on top, consuming the engine
 
