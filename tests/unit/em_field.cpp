@@ -7,10 +7,14 @@
 #include <Units/Mass.hpp>
 #include <Units/Unit.hpp>
 #include <support/MathApprox.hpp>
+#include <support/UnitsApprox.hpp>
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
+#include <random>
+#include <vector>
 
 namespace {
 
@@ -84,6 +88,72 @@ TEST(ElectromagnetismField, MovingChargeMagneticFieldFollowsTheRightHandRule) {
     const double expectedMagnitude = ysq::constants::vacuumPermeability.value() /
                                      (4.0 * ysq::kPi<double>)*1.0e-6 * 5.0 / (2.0 * 2.0);
     EXPECT_NEAR(field.value().z, expectedMagnitude, expectedMagnitude * 1e-9);
+}
+
+TEST(ElectromagnetismField, ElectricFieldsAtLargeNAgreesWithTheSinglePointApi) {
+    // Above Field.cpp's own GPU dispatch threshold, so this exercises
+    // whichever compute backend is actually available. electricField()
+    // (singular) is safe to call with the full body list including the
+    // query body itself: it skips a source at zero separation without
+    // producing a NaN (unlike Gravity's softened term at zero softening),
+    // so it is a genuine independent reference here, not a restatement.
+    constexpr std::size_t kBodyCount = 1200;
+    std::vector<Body> bodies;
+    bodies.reserve(kBodyCount);
+    std::mt19937 rng(7);
+    std::uniform_real_distribution<double> positionDist(-10.0, 10.0);
+    std::uniform_real_distribution<double> chargeDist(-1.0e-6, 1.0e-6);
+    for (std::size_t i = 0; i < kBodyCount; ++i) {
+        bodies.push_back(
+            makePointCharge(chargeDist(rng), Vec3{positionDist(rng), positionDist(rng),
+                                                  positionDist(rng)}));
+    }
+
+    const std::vector<ysq::ElectricField3> fields = ysq::electricFields(bodies);
+    ASSERT_EQ(fields.size(), bodies.size());
+
+    for (const std::size_t i : {std::size_t{0}, kBodyCount / 2, kBodyCount - 1}) {
+        const ysq::ElectricField3 reference =
+            ysq::electricField(bodies[i].position, bodies);
+        EXPECT_QUANTITY_VEC_NEAR(fields[i], reference,
+                                 length(reference.value()) * 1e-2 *
+                                     ysq::units::voltPerMetre)
+            << "body " << i;
+    }
+}
+
+TEST(ElectromagnetismField, MagneticFieldsAtLargeNAgreesWithTheSinglePointApi) {
+    constexpr std::size_t kBodyCount = 1200;
+    std::vector<Body> bodies;
+    bodies.reserve(kBodyCount);
+    std::mt19937 rng(8);
+    std::uniform_real_distribution<double> positionDist(-10.0, 10.0);
+    std::uniform_real_distribution<double> velocityDist(-1.0e3, 1.0e3);
+    std::uniform_real_distribution<double> chargeDist(-1.0e-6, 1.0e-6);
+    for (std::size_t i = 0; i < kBodyCount; ++i) {
+        bodies.push_back(makePointCharge(
+            chargeDist(rng),
+            Vec3{positionDist(rng), positionDist(rng), positionDist(rng)},
+            Vec3{velocityDist(rng), velocityDist(rng), velocityDist(rng)}));
+    }
+
+    const std::vector<ysq::MagneticFluxDensity3> fields = ysq::magneticFields(bodies);
+    ASSERT_EQ(fields.size(), bodies.size());
+
+    for (const std::size_t i : {std::size_t{0}, kBodyCount / 2, kBodyCount - 1}) {
+        const ysq::MagneticFluxDensity3 reference =
+            ysq::magneticField(bodies[i].position, bodies);
+        const double referenceMagnitude = length(reference.value());
+        // A tesla-scale absolute floor as well as a relative one: this
+        // configuration's field values span many orders of magnitude
+        // (random charges/velocities can nearly cancel), and a purely
+        // relative tolerance is meaningless once the reference itself is
+        // close to zero.
+        EXPECT_QUANTITY_VEC_NEAR(fields[i], reference,
+                                 std::max(referenceMagnitude * 1e-2, 1e-20) *
+                                     ysq::units::tesla)
+            << "body " << i;
+    }
 }
 
 }  // namespace

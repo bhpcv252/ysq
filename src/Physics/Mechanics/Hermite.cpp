@@ -1,10 +1,32 @@
 #include <Physics/Mechanics/Hermite.hpp>
 
+#include <Compute/ComputeBackend.hpp>
+
 #include <cassert>
 #include <cmath>
 #include <limits>
+#include <vector>
 
 namespace ysq {
+
+namespace {
+
+// nextMover() runs once per single-body update, not once per timestep, so
+// dispatch overhead is paid far more often here than in a per-step field
+// like Newtonian.cpp's -- reflected in the measured value being an order
+// of magnitude higher. Measured on the development machine (Apple
+// Silicon, Metal backend) by benchmarks/compute_thresholds.cpp
+// (`minIndex`, the same simple O(n) reduction scan both this file's
+// below-threshold path and Compute::CpuBackend's own reference use, so no
+// adjustment for a mismatched CPU shape is needed here the way
+// Gravity/Newtonian.cpp's and Fluids/SPH.cpp's own thresholds needed):
+// the GPU path never won up to 16384 bodies, the largest count tried, so
+// this is a measured floor (double the largest size tried), not an
+// observed crossover. Re-run the benchmark and update this if the
+// reference machine or backend ever changes.
+constexpr std::size_t kGpuDispatchThreshold = 32768;
+
+}  // namespace
 
 std::pair<Vec3, Vec3> hermitePredict(const Vec3& position, const Vec3& velocity,
                                      const Vec3& acceleration, const Vec3& jerk,
@@ -91,9 +113,33 @@ IndividualTimestepScheduler::IndividualTimestepScheduler(
 }
 
 std::pair<std::size_t, double> IndividualTimestepScheduler::nextMover() const {
+    const std::size_t n = bodyCount();
+
+    if (n >= kGpuDispatchThreshold) {
+        // Cast to float relative to m_currentTime, not the raw absolute
+        // time: over a long run m_lastUpdateTime grows arbitrarily large
+        // while every body's own step stays bounded by baseInterval, and
+        // float32 has only about 7 decimal digits, so casting the raw sum
+        // directly could easily scramble which body is genuinely soonest
+        // once accumulated time is large enough. The offset keeps every
+        // value small (a few times baseInterval at most, by construction:
+        // nothing here lets a body's own next time fall far behind
+        // m_currentTime), so the ordering minIndex finds is trustworthy;
+        // the actual returned time is still read back from the double
+        // arrays at the winning index, never reconstructed from the float
+        // reduction.
+        std::vector<float> relativeNextTimes(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            relativeNextTimes[i] =
+                static_cast<float>(m_lastUpdateTime[i] + m_timestep[i] - m_currentTime);
+        }
+        const std::size_t mover = defaultBackend().minIndex(relativeNextTimes);
+        return {mover, m_lastUpdateTime[mover] + m_timestep[mover]};
+    }
+
     std::size_t mover = 0;
     double moverNextTime = std::numeric_limits<double>::infinity();
-    for (std::size_t i = 0; i < bodyCount(); ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         const double nextTime = m_lastUpdateTime[i] + m_timestep[i];
         if (nextTime < moverNextTime) {
             moverNextTime = nextTime;

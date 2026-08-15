@@ -5,7 +5,57 @@ interpolation, calculus, and the ODE integrators. Everything the engine
 computes with, and nothing that knows what it is computing about.
 
 **Target:** `ysq::Math` (INTERFACE, header-only)
-**Depends on:** nothing. Not even `Core`: Math is usable without a logger.
+**Depends on:** `ysq::Compute`. `Math/Multigrid.hpp`'s `detail::restrictGrid`/
+`detail::prolongateAndAdd` (the geometric-multigrid transfer operators),
+`Math/FFT.hpp`'s `fft`/`ifft`/`fft3D`/`ifft3D`, `Math/LinearSolve.hpp`'s
+matrix-vector/matrix-matrix `operator*` and `luDecompose`/`choleskyDecompose`,
+`Math/Eigen.hpp`'s `qrDecompose`/`jacobiEigenSymmetric`/`svd`,
+`Math/SpecialFunctions.hpp`'s batched `erf`/`erfc`/`gamma`/`logGamma`/
+`legendreP` overloads, `Math/Polynomial.hpp`'s `Polynomial::operator()`
+batched overload, `Math/Interpolation.hpp`'s `CubicSpline::operator()`
+batched overload, `Math/Random.hpp`'s `parallelUniformReal`/
+`parallelNormal`, and `Math/Sort.hpp`'s `sortInPlace` all route through
+`Compute::defaultBackend()` above a size threshold, the same
+automatic-dispatch pattern `Physics` uses; below it, or on a machine with
+no GPU, the plain CPU path runs instead. All dispatch only when
+instantiated for `float` (`Complex<float>` for FFT, `MatrixN<float>`/
+`VectorN<float>` for LinearSolve and Eigen, `float` for the batched
+evaluation, parallel-RNG and sort families): `Compute`'s GPU interface
+is `float`-only
+throughout, so a `double` call stays on the CPU path always, gated with
+`if constexpr`, rather than silently narrowing through a `float` kernel.
+`LinearSolve.hpp`'s `luDecompose`/`choleskyDecompose` and `Eigen.hpp`'s
+`qrDecompose`/`jacobiEigenSymmetric`/`svd` are the cases here where the GPU
+path is a full host-side loop of dispatches (one iteration per pivot
+column/factorization column/sweep round, not a small fixed number), since
+elimination and Jacobi rotation are inherently sequential across steps or
+rounds; see `src/Compute/README.md`'s own section on why that's still just
+the existing kernel building blocks (a reduction, an elementwise update)
+chained by a host loop, not a different kind of thing.
+`Math/Eigen.hpp`'s `realSchur`/`generalEigenvalues` have no kernel of their
+own at all: their repeated internal `qrDecompose` calls (the actual
+O(n^3)-per-iteration cost) dispatch transitively once `qrDecompose` itself
+does, with no extra code needed. The batched-evaluation family
+(`SpecialFunctions.hpp`/`Polynomial.hpp`/`Interpolation.hpp`) is the
+simplest dispatch shape here: one GPU thread per element, no reduction, no
+sequential host loop, matching the scalar function/method these overloads
+sit alongside exactly except for `besselJ`/`besselY`, which deliberately
+have no batched overload at all — see `src/Compute/README.md`'s own
+section on why float32 cannot carry that specific rational approximation's
+internal cancellation. `Math/Sort.hpp`'s `sortInPlace` dispatches via a
+bitonic sort, accepting any size (not just a power of two) since each GPU
+backend pads with `+infinity` and truncates back internally, invisibly to
+the caller; `Math/Sort.hpp`'s own `kthSmallest`/`kthLargest` and
+`Math/Statistics.hpp`'s `quantile`/`median` need no kernel of their own,
+the same "composes an already-dispatching building block" design
+`generalEigenvalues` uses for `qrDecompose`. `Compute`'s kernels are
+domain-neutral or
+equation-independent, "how do we compute" primitives, not physical
+quantities, so this is not a layering violation; see
+`src/Compute/README.md`. Not `Core`: Math is usable without a logger, and
+never needed one for this either. Every consumer of Math picks up `Compute`
+transitively, since Math is `INTERFACE`; that is the accepted cost of a
+header-only module gaining a real dependency.
 
 ## Contents
 
@@ -18,8 +68,9 @@ computes with, and nothing that knows what it is computing about.
 | `Math/Complex.hpp`              | Complex numbers                                              |
 | `Math/Dual.hpp`                 | Dual numbers: forward-mode automatic differentiation         |
 | `Math/Tensor.hpp`               | Fixed rank and dimension, with the index algebra             |
-| `Math/Statistics.hpp`           | Summaries, compensated summation, an online accumulator      |
-| `Math/Interpolation.hpp`        | Lerp through natural cubic splines                           |
+| `Math/Statistics.hpp`           | Summaries, compensated summation, an online accumulator, GPU-dispatching quantile/median via `Math/Sort.hpp` |
+| `Math/Sort.hpp`                 | Ascending sort (GPU-dispatching above a size threshold) and the order statistics built on it |
+| `Math/Interpolation.hpp`        | Lerp through natural cubic splines, with a batched (GPU-dispatching) spline evaluation overload |
 | `Math/Geometry/Primitives.hpp`  | `Ray3`, `Sphere3`, `Plane3`, `Segment3`, `AABB3`, `Triangle3`, `OBB3` |
 | `Math/Geometry/Intersection.hpp` | Ray/sphere/plane/triangle/AABB crossings, sphere/AABB/plane overlap |
 | `Math/Geometry/Queries.hpp`     | Closest point on a segment/plane/AABB/triangle, point-in-polygon |
@@ -32,9 +83,9 @@ computes with, and nothing that knows what it is computing about.
 | `Math/RootFinding.hpp`          | Newton-Raphson, secant and bisection                          |
 | `Math/LinearSolve.hpp`          | Dynamic `MatrixN`/`VectorN`, LU and Cholesky solves           |
 | `Math/Eigen.hpp`                | Symmetric (cyclic Jacobi) and general (Schur/QR-algorithm) eigenvalues, QR decomposition, SVD |
-| `Math/SpecialFunctions.hpp`     | Error, gamma, associated Legendre and Bessel functions        |
-| `Math/Polynomial.hpp`           | Evaluation, differentiation, closed-form roots to degree 4, deflation above it |
-| `Math/Random.hpp`               | Uniform/normal/Poisson sampling, normal CDF, Monte Carlo integration |
+| `Math/SpecialFunctions.hpp`     | Error, gamma, associated Legendre and Bessel functions, with batched (GPU-dispatching) overloads for all but Bessel |
+| `Math/Polynomial.hpp`           | Evaluation (with a batched, GPU-dispatching overload), differentiation, closed-form roots to degree 4, deflation above it |
+| `Math/Random.hpp`               | Uniform/normal/Poisson sampling, normal CDF, Monte Carlo integration, plus a second GPU-dispatching parallel (Philox-based) RNG family |
 | `Math/Optimization.hpp`         | Gradient descent with backtracking line search, Nelder-Mead      |
 | `Math/CoordinateSystems.hpp`    | Spherical, cylindrical and polar, with their local bases     |
 | `Math/ODE.hpp`                  | The integrator interface, state types, and the drivers       |

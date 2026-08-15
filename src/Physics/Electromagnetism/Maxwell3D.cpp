@@ -1,12 +1,30 @@
 #include <Physics/Electromagnetism/Maxwell3D.hpp>
 
+#include <Compute/ComputeBackend.hpp>
 #include <Physics/Electromagnetism/Field.hpp>
 #include <Units/Constants.hpp>
 
 #include <cmath>
 #include <cstddef>
+#include <vector>
 
 namespace ysq {
+
+namespace {
+
+// Measured on the development machine (Apple Silicon, Metal backend) by
+// benchmarks/compute_thresholds.cpp: unlike HeatEquation3D.cpp's and
+// Acoustic3D.cpp's own copies of this idea, this one is a real observed
+// crossover, not a floor -- six field arrays read and six written each
+// step (rather than one or four), so this kernel's higher per-cell work
+// crosses over to GPU-favorable within the sizes actually tried (128^3,
+// ~2.1M cells), if only narrowly. Also keeps every existing grid size in
+// tests/unit/em_maxwell3d.cpp on the exact double-precision CPU path.
+// Re-run the benchmark and update this if the reference machine or
+// backend ever changes.
+constexpr std::size_t kGpuDispatchThreshold = 2097152;
+
+}  // namespace
 
 MaxwellField3D::MaxwellField3D(std::size_t cellCountX, std::size_t cellCountY,
                                std::size_t cellCountZ, double spacing)
@@ -92,10 +110,69 @@ double MaxwellField3D::stableTimeStep(double courantFactor) const {
 
 void MaxwellField3D::step(double dt) {
     const double c = constants::speedOfLight.value();
-    const auto nx = static_cast<std::ptrdiff_t>(m_ex.cellCountX());
-    const auto ny = static_cast<std::ptrdiff_t>(m_ex.cellCountY());
-    const auto nz = static_cast<std::ptrdiff_t>(m_ex.cellCountZ());
+    const std::size_t nxCount = m_ex.cellCountX();
+    const std::size_t nyCount = m_ex.cellCountY();
+    const std::size_t nzCount = m_ex.cellCountZ();
     const double h = m_ex.spacing();
+
+    if (nxCount * nyCount * nzCount >= kGpuDispatchThreshold) {
+        const std::size_t total = nxCount * nyCount * nzCount;
+        std::vector<float> ex(total);
+        std::vector<float> ey(total);
+        std::vector<float> ez(total);
+        std::vector<float> bx(total);
+        std::vector<float> by(total);
+        std::vector<float> bz(total);
+        for (std::size_t i = 0; i < nxCount; ++i) {
+            for (std::size_t j = 0; j < nyCount; ++j) {
+                for (std::size_t k = 0; k < nzCount; ++k) {
+                    const auto pi = static_cast<std::ptrdiff_t>(i);
+                    const auto pj = static_cast<std::ptrdiff_t>(j);
+                    const auto pk = static_cast<std::ptrdiff_t>(k);
+                    const std::size_t flat = (i * nyCount + j) * nzCount + k;
+                    ex[flat] = static_cast<float>(m_ex(pi, pj, pk));
+                    ey[flat] = static_cast<float>(m_ey(pi, pj, pk));
+                    ez[flat] = static_cast<float>(m_ez(pi, pj, pk));
+                    bx[flat] = static_cast<float>(m_bx(pi, pj, pk));
+                    by[flat] = static_cast<float>(m_by(pi, pj, pk));
+                    bz[flat] = static_cast<float>(m_bz(pi, pj, pk));
+                }
+            }
+        }
+
+        std::vector<float> nextEx(total);
+        std::vector<float> nextEy(total);
+        std::vector<float> nextEz(total);
+        std::vector<float> nextBx(total);
+        std::vector<float> nextBy(total);
+        std::vector<float> nextBz(total);
+        defaultBackend().maxwell3DStep(ex, ey, ez, bx, by, bz, nxCount, nyCount, nzCount,
+                                       static_cast<float>(dt / h),
+                                       static_cast<float>(c * c * dt / h), nextEx, nextEy,
+                                       nextEz, nextBx, nextBy, nextBz);
+
+        for (std::size_t i = 0; i < nxCount; ++i) {
+            for (std::size_t j = 0; j < nyCount; ++j) {
+                for (std::size_t k = 0; k < nzCount; ++k) {
+                    const auto pi = static_cast<std::ptrdiff_t>(i);
+                    const auto pj = static_cast<std::ptrdiff_t>(j);
+                    const auto pk = static_cast<std::ptrdiff_t>(k);
+                    const std::size_t flat = (i * nyCount + j) * nzCount + k;
+                    m_ex(pi, pj, pk) = static_cast<double>(nextEx[flat]);
+                    m_ey(pi, pj, pk) = static_cast<double>(nextEy[flat]);
+                    m_ez(pi, pj, pk) = static_cast<double>(nextEz[flat]);
+                    m_bx(pi, pj, pk) = static_cast<double>(nextBx[flat]);
+                    m_by(pi, pj, pk) = static_cast<double>(nextBy[flat]);
+                    m_bz(pi, pj, pk) = static_cast<double>(nextBz[flat]);
+                }
+            }
+        }
+        return;
+    }
+
+    const auto nx = static_cast<std::ptrdiff_t>(nxCount);
+    const auto ny = static_cast<std::ptrdiff_t>(nyCount);
+    const auto nz = static_cast<std::ptrdiff_t>(nzCount);
 
     // B half-step: needs each E field's ghost cells on the +1 side, since
     // (e.g.) cell n-1's Bx update reads Ez[n], the wrapped-around copy of

@@ -1,8 +1,12 @@
 #include <Math/SpecialFunctions.hpp>
 
+#include <Compute/CPU/CpuBackend.hpp>
+
 #include <gtest/gtest.h>
 
 #include <cmath>
+#include <cstddef>
+#include <vector>
 
 TEST(MathSpecialFunctions, ErfIsZeroAtTheOrigin) {
     EXPECT_NEAR(ysq::erf(0.0), 0.0, 1e-15);
@@ -152,5 +156,140 @@ TEST(MathSpecialFunctions, BesselJAndYSatisfyTheirWronskianIdentity) {
             const double rhs = -2.0 / (ysq::kPi<double> * x);
             EXPECT_NEAR(lhs, rhs, 1e-6);
         }
+    }
+}
+
+TEST(MathSpecialFunctions, BatchedErfMatchesTheScalarOverloadElementwise) {
+    const std::vector<double> x{0.0, 0.5, 1.0, -1.0, 2.0};
+    std::vector<double> result(x.size());
+
+    ysq::erf<double>(x, result);
+
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        EXPECT_NEAR(result[i], ysq::erf(x[i]), 1e-15) << "element " << i;
+    }
+}
+
+TEST(MathSpecialFunctions, BatchedErfcMatchesTheScalarOverloadElementwise) {
+    const std::vector<double> x{0.0, 0.5, 1.0, -1.0, 2.0};
+    std::vector<double> result(x.size());
+
+    ysq::erfc<double>(x, result);
+
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        EXPECT_NEAR(result[i], ysq::erfc(x[i]), 1e-15) << "element " << i;
+    }
+}
+
+TEST(MathSpecialFunctions, BatchedGammaMatchesTheScalarOverloadElementwise) {
+    const std::vector<double> x{1.0, 2.0, 3.0, 4.0, 0.5};
+    std::vector<double> result(x.size());
+
+    ysq::gamma<double>(x, result);
+
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        EXPECT_NEAR(result[i], ysq::gamma(x[i]), 1e-12) << "element " << i;
+    }
+}
+
+TEST(MathSpecialFunctions, BatchedLogGammaMatchesTheScalarOverloadElementwise) {
+    const std::vector<double> x{1.0, 2.0, 3.0, 4.0, 5.0};
+    std::vector<double> result(x.size());
+
+    ysq::logGamma<double>(x, result);
+
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        EXPECT_NEAR(result[i], ysq::logGamma(x[i]), 1e-12) << "element " << i;
+    }
+}
+
+TEST(MathSpecialFunctions, BatchedLegendrePMatchesTheScalarOverloadElementwise) {
+    const std::vector<double> x{0.0, 0.5, 1.0, -1.0};
+    std::vector<double> result(x.size());
+
+    ysq::legendreP<double>(2, 1, x, result);
+
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        EXPECT_NEAR(result[i], ysq::legendreP(2, 1, x[i]), 1e-12) << "element " << i;
+    }
+}
+
+TEST(MathSpecialFunctions, BatchedLegendrePWithZeroOrderMatchesTheOrdinaryOverload) {
+    const std::vector<double> x{0.0, 0.5, 1.0, -1.0};
+    std::vector<double> result(x.size());
+
+    ysq::legendreP<double>(3, x, result);
+
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        EXPECT_NEAR(result[i], ysq::legendreP(3, x[i]), 1e-12) << "element " << i;
+    }
+}
+
+TEST(MathSpecialFunctions,
+     BatchedErfAtLargeNAgreesWithTheComputeCpuReferenceOnTheGpuPath) {
+    // Above SpecialFunctions.hpp's own GPU dispatch threshold and T = float
+    // (the only type that ever dispatches). ysq::CpuBackend is called
+    // directly as an independent reference (its own agreement with every
+    // GPU backend is already covered by
+    // tests/integration/compute_backends_agree.cpp; this test only checks
+    // that the batched erf overload's marshaling is wired correctly).
+    // At the threshold (measured by benchmarks/compute_thresholds.cpp).
+    constexpr std::size_t n = 131072;
+    std::vector<float> x(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        x[i] = -3.0f + 6.0f * static_cast<float>(i) / static_cast<float>(n - 1);
+    }
+
+    std::vector<float> result(n);
+    ysq::erf<float>(x, result);
+
+    const ysq::CpuBackend cpu;
+    std::vector<float> resultReference(n);
+    cpu.batchErf(x, resultReference);
+
+    for (const std::size_t i : {std::size_t{0}, n / 2, n - 1}) {
+        EXPECT_NEAR(result[i], resultReference[i], 1e-5f) << "element " << i;
+    }
+}
+
+TEST(MathSpecialFunctions,
+     BatchedGammaAtLargeNAgreesWithTheComputeCpuReferenceOnTheGpuPath) {
+    // At the threshold (measured by benchmarks/compute_thresholds.cpp).
+    constexpr std::size_t n = 131072;
+    std::vector<float> x(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        x[i] = 1.0f + 0.01f * static_cast<float>(i % 200);
+    }
+
+    std::vector<float> result(n);
+    ysq::gamma<float>(x, result);
+
+    const ysq::CpuBackend cpu;
+    std::vector<float> resultReference(n);
+    cpu.batchGamma(x, resultReference);
+
+    for (const std::size_t i : {std::size_t{0}, n / 2, n - 1}) {
+        EXPECT_NEAR(result[i], resultReference[i], 1e-2f) << "element " << i;
+    }
+}
+
+TEST(MathSpecialFunctions,
+     BatchedLegendrePAtLargeNAgreesWithTheComputeCpuReferenceOnTheGpuPath) {
+    // At the threshold (measured by benchmarks/compute_thresholds.cpp).
+    constexpr std::size_t n = 131072;
+    std::vector<float> x(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        x[i] = -1.0f + 2.0f * static_cast<float>(i) / static_cast<float>(n - 1);
+    }
+
+    std::vector<float> result(n);
+    ysq::legendreP<float>(4, 2, x, result);
+
+    const ysq::CpuBackend cpu;
+    std::vector<float> resultReference(n);
+    cpu.batchLegendreP(4, 2, x, resultReference);
+
+    for (const std::size_t i : {std::size_t{0}, n / 2, n - 1}) {
+        EXPECT_NEAR(result[i], resultReference[i], 1e-3f) << "element " << i;
     }
 }

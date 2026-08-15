@@ -41,6 +41,8 @@ target_compile_definitions(test_core_version PRIVATE
     YSQ_EXPECTED_VERSION_STRING="${PROJECT_VERSION}")
 ysq_add_test(test_math_statistics SOURCES math_statistics.cpp
     LIBS ysq::Math ysq::TestSupport)
+ysq_add_test(test_math_sort SOURCES math_sort.cpp
+    LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_interpolation SOURCES math_interpolation.cpp
     LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_math_calculus SOURCES math_calculus.cpp
@@ -70,7 +72,7 @@ ysq_add_test(test_grid3d SOURCES grid3d.cpp
 ysq_add_test(test_finite_difference SOURCES finite_difference.cpp
     LIBS ysq::Math ysq::TestSupport)
 ysq_add_test(test_multigrid SOURCES multigrid.cpp
-    LIBS ysq::Math ysq::TestSupport)
+    LIBS ysq::Math ysq::Compute ysq::TestSupport)
 
 # Units links ysq::Units for the module itself and ysq::TestSupport only for
 # the tests/ include root, which is what makes <support/UnitsApprox.hpp>
@@ -183,11 +185,11 @@ ysq_add_test(test_em_lorentz SOURCES em_lorentz.cpp
 ysq_add_test(test_em_maxwell SOURCES em_maxwell.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_em_maxwell3d SOURCES em_maxwell3d.cpp
-    LIBS ysq::Physics ysq::TestSupport)
+    LIBS ysq::Physics ysq::Compute ysq::TestSupport)
 ysq_add_test(test_acoustics_acoustic SOURCES acoustics_acoustic.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_acoustics_acoustic3d SOURCES acoustics_acoustic3d.cpp
-    LIBS ysq::Physics ysq::TestSupport)
+    LIBS ysq::Physics ysq::Compute ysq::TestSupport)
 ysq_add_test(test_physics_continuum_elasticity SOURCES physics_continuum_elasticity.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_physics_continuum_elasticchain SOURCES physics_continuum_elasticchain.cpp
@@ -206,18 +208,18 @@ ysq_add_test(test_physics_quantummechanics_wavepacket3d
     LIBS ysq::Physics ysq::TestSupport)
 
 ysq_add_test(test_fluids_sph SOURCES fluids_sph.cpp
-    LIBS ysq::Physics ysq::TestSupport)
+    LIBS ysq::Physics ysq::Compute ysq::TestSupport)
 ysq_add_test(test_fluids_eulerian SOURCES fluids_eulerian.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_fluids_eulerian3d SOURCES fluids_eulerian3d.cpp
-    LIBS ysq::Physics ysq::TestSupport)
+    LIBS ysq::Physics ysq::Compute ysq::TestSupport)
 
 ysq_add_test(test_thermodynamics SOURCES thermodynamics.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_thermodynamics_heatequation SOURCES thermodynamics_heatequation.cpp
     LIBS ysq::Physics ysq::TestSupport)
 ysq_add_test(test_thermodynamics_heatequation3d SOURCES thermodynamics_heatequation3d.cpp
-    LIBS ysq::Physics ysq::TestSupport)
+    LIBS ysq::Physics ysq::Compute ysq::TestSupport)
 
 # Applications' scenario-construction code, not the windowed executables
 # themselves; see src/Applications/README.md. No graphics dependency.

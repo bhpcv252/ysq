@@ -120,6 +120,48 @@ TEST(PhysicsMechanicsHermite, TimestepFallsBackToBaseIntervalWhenJerkIsZero) {
     EXPECT_DOUBLE_EQ(dt, 50.0);
 }
 
+TEST(PhysicsMechanicsHermite, SchedulerPicksTheSoonestBodyAtLargeBodyCount) {
+    // Above Hermite.cpp's own GPU dispatch threshold for nextMover(), so
+    // this exercises whichever compute backend is actually available,
+    // not just the CPU linear scan. Every body starts with the same
+    // (large) jerk-free step except one, given a tiny jerk so its own
+    // step is far shorter than every other body's baseInterval fallback:
+    // that body must be the very first one advanceTo() updates.
+    constexpr std::size_t kBodyCount = 5000;
+    constexpr std::size_t kSoonestBody = 3333;
+    constexpr double eta = 0.01;
+    constexpr double baseInterval = 1000.0;
+    const Vec3 calmAcceleration{1.0, 0.0, 0.0};
+    const Vec3 noJerk{0.0, 0.0, 0.0};
+    const Vec3 sharpJerk{1.0e6, 0.0, 0.0};  // forces a much smaller step
+
+    ysq::NBodyState positions(kBodyCount);
+    ysq::NBodyState velocities(kBodyCount);
+    ysq::NBodyState accelerations(kBodyCount);
+    ysq::NBodyState jerks(kBodyCount);
+    for (std::size_t i = 0; i < kBodyCount; ++i) {
+        positions[i] = Vec3::zero();
+        velocities[i] = Vec3::zero();
+        accelerations[i] = calmAcceleration;
+        jerks[i] = (i == kSoonestBody) ? sharpJerk : noJerk;
+    }
+
+    ysq::IndividualTimestepScheduler scheduler(positions, velocities, accelerations,
+                                               jerks, 0.0, eta, baseInterval);
+
+    std::size_t moverSeen = kBodyCount;  // out of range: "never called"
+    const auto recordingJerkField = [&](std::size_t bodyIndex, const ysq::NBodyState&,
+                                        const ysq::NBodyState&) {
+        moverSeen = bodyIndex;
+        return std::pair<Vec3, Vec3>{calmAcceleration,
+                                     (bodyIndex == kSoonestBody) ? sharpJerk : noJerk};
+    };
+
+    scheduler.advanceTo(recordingJerkField, baseInterval, 1);
+
+    EXPECT_EQ(moverSeen, kSoonestBody);
+}
+
 TEST(PhysicsMechanicsHermite, CurrentTimeAdvancesEvenWhenNoBodyIsDueYet) {
     // Regression test: currentTime() must track targetTime even when
     // advanceTo() does zero updates because nothing is due yet -- not stay

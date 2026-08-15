@@ -1,5 +1,6 @@
 #include <Physics/Acoustics/Acoustic3D.hpp>
 
+#include <Compute/CPU/CpuBackend.hpp>
 #include <Math/Scalar.hpp>
 #include <Physics/Acoustics/Acoustic.hpp>
 
@@ -7,6 +8,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <vector>
 
 namespace {
 
@@ -193,4 +195,59 @@ TEST(AcousticsAcoustic3D,
     const double omegaMeasured = std::atan2(sinProjection, cosProjection) / t;
 
     EXPECT_NEAR(omegaMeasured, omegaContinuum, omegaContinuum * 0.05);
+}
+
+TEST(AcousticsAcoustic3D, StepAtLargeNAgreesWithTheComputeCpuReference) {
+    // Above Acoustic3D.cpp's own GPU dispatch threshold, so step()
+    // exercises whichever compute backend is actually available.
+    // ysq::CpuBackend is called directly as an independent reference (its
+    // own agreement with every GPU backend is already covered by
+    // tests/integration/compute_backends_agree.cpp; this test only checks
+    // that Acoustic3D.cpp's dispatch wiring feeds it the right data and
+    // reads the result back correctly).
+    // 162^3 = 4251528, above kGpuDispatchThreshold (4194304; measured by
+    // benchmarks/compute_thresholds.cpp).
+    constexpr std::size_t n = 162;
+    ysq::AcousticField3D field(n, n, n, kSpacing, kMediumDensity, kSoundSpeed);
+
+    std::vector<float> pressure(n * n * n);
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < n; ++j) {
+            for (std::size_t k = 0; k < n; ++k) {
+                const double center = static_cast<double>(n / 2) * kSpacing;
+                const double x = static_cast<double>(i) * kSpacing;
+                const double value = gaussian(x, center, 0.05);
+                field.setPressure(i, j, k, value);
+                pressure[(i * n + j) * n + k] = static_cast<float>(value);
+            }
+        }
+    }
+    const std::vector<float> velX(n * n * n, 0.0f);
+    const std::vector<float> velY(n * n * n, 0.0f);
+    const std::vector<float> velZ(n * n * n, 0.0f);
+
+    const double dt = field.stableTimeStep(0.9);
+    field.step(dt);
+
+    const ysq::CpuBackend cpu;
+    const float velocityFactor = static_cast<float>((dt / kSpacing) / kMediumDensity);
+    const float pressureFactor =
+        static_cast<float>(kMediumDensity * kSoundSpeed * kSoundSpeed * (dt / kSpacing));
+    std::vector<float> nextPressureReference(n * n * n);
+    std::vector<float> nextVelXReference(n * n * n);
+    std::vector<float> nextVelYReference(n * n * n);
+    std::vector<float> nextVelZReference(n * n * n);
+    cpu.acoustic3DStep(pressure, velX, velY, velZ, n, n, n, velocityFactor,
+                       pressureFactor, nextPressureReference, nextVelXReference,
+                       nextVelYReference, nextVelZReference);
+
+    for (const std::size_t i : {std::size_t{0}, n / 2, n - 1}) {
+        for (const std::size_t j : {std::size_t{0}, n / 2, n - 1}) {
+            for (const std::size_t k : {std::size_t{0}, n / 2, n - 1}) {
+                const std::size_t flat = (i * n + j) * n + k;
+                EXPECT_NEAR(field.pressure(i, j, k), nextPressureReference[flat], 1e-3)
+                    << "cell " << i << "," << j << "," << k;
+            }
+        }
+    }
 }

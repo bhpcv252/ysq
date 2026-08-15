@@ -1,8 +1,12 @@
 #include <Math/Polynomial.hpp>
 
+#include <Compute/CPU/CpuBackend.hpp>
+
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstddef>
+#include <vector>
 
 namespace {
 
@@ -150,5 +154,46 @@ TEST(MathPolynomial, DeflatedQuotientSatisfiesTheOriginalPolynomialAtEveryFoundR
     const Polynomial<double> p{-120.0, 274.0, -225.0, 85.0, -15.0, 1.0};
     for (double root : ysq::realRoots(p)) {
         EXPECT_NEAR(p(root), 0.0, 1e-6);
+    }
+}
+
+TEST(MathPolynomial, BatchedEvaluateMatchesTheScalarOverloadElementwise) {
+    // p(x) = 1 + 2x + 3x^2
+    const Polynomial<double> p{1.0, 2.0, 3.0};
+    const std::vector<double> x{0.0, 1.0, 2.0, -1.0, 0.5};
+    std::vector<double> result(x.size());
+
+    p(x, result);
+
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        EXPECT_DOUBLE_EQ(result[i], p(x[i])) << "element " << i;
+    }
+}
+
+TEST(MathPolynomial,
+     BatchedEvaluateAtLargeNAgreesWithTheComputeCpuReferenceOnTheGpuPath) {
+    // Above Polynomial.hpp's own GPU dispatch threshold and T = float (the
+    // only type that ever dispatches). ysq::CpuBackend is called directly
+    // as an independent reference (its own agreement with every GPU backend
+    // is already covered by tests/integration/compute_backends_agree.cpp;
+    // this test only checks that the batched operator()'s marshaling is
+    // wired correctly).
+    const Polynomial<float> p{1.0f, -0.5f, 0.25f, -0.1f};
+    // At the threshold (measured by benchmarks/compute_thresholds.cpp).
+    constexpr std::size_t n = 131072;
+    std::vector<float> x(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        x[i] = -2.0f + 4.0f * static_cast<float>(i) / static_cast<float>(n - 1);
+    }
+
+    std::vector<float> result(n);
+    p(x, result);
+
+    const ysq::CpuBackend cpu;
+    std::vector<float> resultReference(n);
+    cpu.batchPolynomialEval(p.coefficients(), x, resultReference);
+
+    for (const std::size_t i : {std::size_t{0}, n / 2, n - 1}) {
+        EXPECT_NEAR(result[i], resultReference[i], 1e-2f) << "element " << i;
     }
 }

@@ -1,11 +1,13 @@
 #pragma once
 
+#include <Compute/ComputeBackend.hpp>
 #include <Math/Complex.hpp>
 #include <Math/LinearSolve.hpp>
 #include <Math/Scalar.hpp>
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <concepts>
 #include <cstddef>
 #include <limits>
@@ -41,6 +43,62 @@ struct EigenDecomposition {
     MatrixN<T> eigenvectors;
 };
 
+namespace detail {
+
+/// Measured on the development machine (Apple Silicon, Metal backend) by
+/// `benchmarks/compute_thresholds.cpp`: `qrDecompose`, `jacobiEigenSymmetric`
+/// and `svd` (`jacobiSvdGpu`) all measured to the same crossover size, so
+/// one shared constant is a genuine fit here, unlike `Math/LinearSolve.hpp`'s
+/// three separate ones. All three are host loops of `n` (or `min(rows,
+/// cols)`) sequential GPU dispatches, so the crossover is dominated by
+/// per-dispatch CPU/GPU synchronization overhead accumulating across that
+/// many round trips, not raw throughput -- the GPU path never won in the
+/// sizes tried (up to 256x256), so this is a measured floor (double the
+/// largest size tried) rather than an observed crossover. Re-run the
+/// benchmark and update this if the reference machine or backend ever
+/// changes.
+inline constexpr std::size_t kEigenGpuDispatchThreshold = 131072;
+
+/// Same dispatch policy as every other GPU path in this file. The GPU
+/// kernel's own numerical iteration uses round-robin (not cyclic) pair
+/// ordering (see src/Compute/README.md), but the sort-into-ascending-order
+/// step below is identical to jacobiEigenSymmetric's own CPU path, applied
+/// here to the GPU's converged (unsorted) diagonal and eigenvectors.
+inline EigenDecomposition<float>
+jacobiEigenSymmetricGpuDispatch(const MatrixN<float>& a, int maxSweeps, float tolerance) {
+    const std::size_t n = a.rows();
+    std::vector<float> matrixData(n * n);
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j <= i; ++j) {
+            matrixData[i * n + j] = a(i, j);
+        }
+    }
+
+    std::vector<float> diagonalData(n * n);
+    std::vector<float> eigenvectorsData(n * n);
+    defaultBackend().jacobiEigenSymmetricGpu(matrixData, n, maxSweeps, tolerance,
+                                             diagonalData, eigenvectorsData);
+
+    std::vector<std::size_t> order(n);
+    std::iota(order.begin(), order.end(), std::size_t{0});
+    std::sort(order.begin(), order.end(),
+              [&diagonalData, n](std::size_t lhs, std::size_t rhs) {
+                  return diagonalData[lhs * n + lhs] < diagonalData[rhs * n + rhs];
+              });
+
+    VectorN<float> eigenvalues(n);
+    MatrixN<float> eigenvectors(n, n);
+    for (std::size_t col = 0; col < n; ++col) {
+        eigenvalues[col] = diagonalData[order[col] * n + order[col]];
+        for (std::size_t row = 0; row < n; ++row) {
+            eigenvectors(row, col) = eigenvectorsData[row * n + order[col]];
+        }
+    }
+    return EigenDecomposition<float>{eigenvalues, eigenvectors};
+}
+
+}  // namespace detail
+
 /// The cyclic Jacobi eigenvalue algorithm: repeatedly zero one off-diagonal
 /// entry with a plane rotation chosen to do exactly that, cycling through
 /// every entry above the diagonal in a fixed order rather than always
@@ -59,12 +117,20 @@ struct EigenDecomposition {
 ///
 /// Only the lower triangle of `a` is read, matching `choleskyDecompose`'s
 /// convention: an asymmetric input is silently treated as if its lower
-/// triangle described the whole (implicitly symmetric) matrix.
+/// triangle described the whole (implicitly symmetric) matrix. Above a size
+/// threshold, and only for `MatrixN<float>`, dispatches through
+/// `Compute::defaultBackend()` instead (see `Math/LinearSolve.hpp`'s
+/// `operator*`/`luDecompose`/`choleskyDecompose` for the same policy).
 template <std::floating_point T>
 [[nodiscard]] EigenDecomposition<T>
 jacobiEigenSymmetric(MatrixN<T> a, int maxSweeps = 100, T tolerance = T{0}) {
     assert(a.rows() == a.cols());
     const std::size_t n = a.rows();
+    if constexpr (std::same_as<T, float>) {
+        if (n * n >= detail::kEigenGpuDispatchThreshold) {
+            return detail::jacobiEigenSymmetricGpuDispatch(a, maxSweeps, tolerance);
+        }
+    }
 
     // Fill in the upper triangle from the lower one so the rotation below,
     // which reads and writes both, sees a genuinely symmetric matrix.
@@ -166,11 +232,52 @@ struct QrDecomposition {
     MatrixN<T> r;
 };
 
+namespace detail {
+
+inline QrDecomposition<float> qrDecomposeGpuDispatch(const MatrixN<float>& a) {
+    const std::size_t m = a.rows();
+    const std::size_t n = a.cols();
+    std::vector<float> matrixData(m * n);
+    for (std::size_t i = 0; i < m; ++i) {
+        for (std::size_t j = 0; j < n; ++j) {
+            matrixData[i * n + j] = a(i, j);
+        }
+    }
+
+    std::vector<float> qData(m * m);
+    std::vector<float> rData(m * n);
+    defaultBackend().qrDecomposeGpu(matrixData, m, n, qData, rData);
+
+    MatrixN<float> q(m, m);
+    for (std::size_t i = 0; i < m; ++i) {
+        for (std::size_t j = 0; j < m; ++j) {
+            q(i, j) = qData[i * m + j];
+        }
+    }
+    MatrixN<float> r(m, n);
+    for (std::size_t i = 0; i < m; ++i) {
+        for (std::size_t j = 0; j < n; ++j) {
+            r(i, j) = rData[i * n + j];
+        }
+    }
+    return QrDecomposition<float>{q, r};
+}
+
+}  // namespace detail
+
+/// Same GPU dispatch policy as `Math/LinearSolve.hpp`'s `operator*`/
+/// `luDecompose`/`choleskyDecompose`: above a size threshold, and only for
+/// `MatrixN<float>`, dispatches through `Compute::defaultBackend()`.
 template <std::floating_point T>
 [[nodiscard]] QrDecomposition<T> qrDecompose(MatrixN<T> a) {
     const std::size_t m = a.rows();
     const std::size_t n = a.cols();
     assert(m >= n);
+    if constexpr (std::same_as<T, float>) {
+        if (m * n >= detail::kEigenGpuDispatchThreshold) {
+            return detail::qrDecomposeGpuDispatch(a);
+        }
+    }
 
     MatrixN<T> q = MatrixN<T>::identity(m);
     const std::size_t steps = std::min(m, n);
@@ -489,11 +596,79 @@ struct SvdDecomposition {
     MatrixN<T> v;
 };
 
+namespace detail {
+
+/// Same dispatch policy as every other GPU path in this file (round-robin
+/// pair ordering inside the kernel; the extract-singular-values/sort/
+/// normalize finalization below is identical to svd's own CPU path,
+/// applied here to the GPU's converged (unnormalized) working matrix).
+inline SvdDecomposition<float> svdGpuDispatch(const MatrixN<float>& a, int maxSweeps,
+                                              float tolerance) {
+    const std::size_t m = a.rows();
+    const std::size_t n = a.cols();
+    std::vector<float> matrixData(m * n);
+    for (std::size_t i = 0; i < m; ++i) {
+        for (std::size_t j = 0; j < n; ++j) {
+            matrixData[i * n + j] = a(i, j);
+        }
+    }
+
+    std::vector<float> resultAData(m * n);
+    std::vector<float> resultVData(n * n);
+    defaultBackend().jacobiSvdGpu(matrixData, m, n, maxSweeps, tolerance, resultAData,
+                                  resultVData);
+
+    const float effectiveTolerance =
+        (tolerance > 0.0f) ? tolerance : std::numeric_limits<float>::epsilon() * 100.0f;
+
+    std::vector<float> singularValues(n);
+    for (std::size_t col = 0; col < n; ++col) {
+        float normSquared = 0.0f;
+        for (std::size_t i = 0; i < m; ++i) {
+            normSquared += resultAData[i * n + col] * resultAData[i * n + col];
+        }
+        singularValues[col] = std::sqrt(normSquared);
+    }
+
+    std::vector<std::size_t> order(n);
+    std::iota(order.begin(), order.end(), std::size_t{0});
+    std::sort(order.begin(), order.end(),
+              [&singularValues](std::size_t lhs, std::size_t rhs) {
+                  return singularValues[lhs] > singularValues[rhs];
+              });
+
+    MatrixN<float> u(m, n);
+    MatrixN<float> vSorted(n, n);
+    VectorN<float> sortedValues(n);
+    for (std::size_t col = 0; col < n; ++col) {
+        const std::size_t source = order[col];
+        sortedValues[col] = singularValues[source];
+        const float sigma = singularValues[source];
+        for (std::size_t row = 0; row < m; ++row) {
+            u(row, col) = (sigma > effectiveTolerance)
+                              ? resultAData[row * n + source] / sigma
+                              : 0.0f;
+        }
+        for (std::size_t row = 0; row < n; ++row) {
+            vSorted(row, col) = resultVData[row * n + source];
+        }
+    }
+    return SvdDecomposition<float>{u, sortedValues, vSorted};
+}
+
+}  // namespace detail
+
+/// Same GPU dispatch policy as `qrDecompose`/`jacobiEigenSymmetric` above.
 template <std::floating_point T>
 [[nodiscard]] SvdDecomposition<T> svd(MatrixN<T> a, int maxSweeps = 60) {
     assert(a.rows() >= a.cols());
     const std::size_t m = a.rows();
     const std::size_t n = a.cols();
+    if constexpr (std::same_as<T, float>) {
+        if (m * n >= detail::kEigenGpuDispatchThreshold) {
+            return detail::svdGpuDispatch(a, maxSweeps, 0.0f);
+        }
+    }
     MatrixN<T> v = MatrixN<T>::identity(n);
 
     const T tolerance = std::numeric_limits<T>::epsilon() * T{100};

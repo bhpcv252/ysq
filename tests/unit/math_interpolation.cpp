@@ -492,4 +492,54 @@ TEST(MathInterpolation, WorksAtSinglePrecision) {
     EXPECT_NEAR((*spline)(1.5f), 3.75f, 1e-5f);
 }
 
+// --- Batched evaluation ------------------------------------------------------
+
+TEST(MathSpline, BatchedEvaluateMatchesTheScalarOverloadElementwise) {
+    const std::vector<double> xs{0.0, 1.0, 2.0, 3.0};
+    const std::vector<double> ys{0.0, 1.0, 4.0, 9.0};
+    const auto spline = ysq::CubicSpline<double>::natural(xs, ys);
+    ASSERT_TRUE(spline.has_value());
+
+    const std::vector<double> at{-1.0, 0.0, 0.5, 1.5, 2.5, 3.0, 5.0};
+    std::vector<double> result(at.size());
+
+    (*spline)(at, result);
+
+    for (std::size_t i = 0; i < at.size(); ++i) {
+        EXPECT_DOUBLE_EQ(result[i], (*spline)(at[i])) << "element " << i;
+    }
+}
+
+TEST(MathSpline, BatchedEvaluateAtLargeNAgreesWithTheScalarOverloadOnTheGpuPath) {
+    // Above Interpolation.hpp's own GPU dispatch threshold and T = float
+    // (the only type that ever dispatches), so this exercises the batched
+    // operator()'s GPU marshaling. The spline's second derivatives are a
+    // private implementation detail (unlike Polynomial's coefficients(),
+    // there is no public accessor to feed ysq::CpuBackend directly), so the
+    // independent reference here is the already-verified scalar operator()
+    // itself rather than a second, independently marshaled CpuBackend call.
+    std::vector<float> xs(50);
+    std::vector<float> ys(50);
+    for (std::size_t i = 0; i < xs.size(); ++i) {
+        xs[i] = static_cast<float>(i);
+        ys[i] = static_cast<float>(i) * static_cast<float>(i) * 0.1f;
+    }
+    const auto spline = ysq::CubicSpline<float>::natural(xs, ys);
+    ASSERT_TRUE(spline.has_value());
+
+    // At the threshold (measured by benchmarks/compute_thresholds.cpp).
+    constexpr std::size_t n = 131072;
+    std::vector<float> at(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        at[i] = 49.0f * static_cast<float>(i) / static_cast<float>(n - 1);
+    }
+
+    std::vector<float> result(n);
+    (*spline)(at, result);
+
+    for (const std::size_t i : {std::size_t{0}, n / 2, n - 1}) {
+        EXPECT_NEAR(result[i], (*spline)(at[i]), 1e-2f) << "element " << i;
+    }
+}
+
 }  // namespace

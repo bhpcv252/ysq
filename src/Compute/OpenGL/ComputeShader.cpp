@@ -104,6 +104,15 @@ void ComputeShader::setUniform(std::string_view name, float value) const {
     glUniform1f(glGetUniformLocation(m_program, std::string{name}.c_str()), value);
 }
 
+void ComputeShader::setUniform(std::string_view name, int value) const {
+    glUniform1i(glGetUniformLocation(m_program, std::string{name}.c_str()), value);
+}
+
+void ComputeShader::setUniform4(std::string_view name, float x, float y, float z,
+                                float w) const {
+    glUniform4f(glGetUniformLocation(m_program, std::string{name}.c_str()), x, y, z, w);
+}
+
 void ComputeShader::dispatch(unsigned groupsX, unsigned groupsY, unsigned groupsZ) const {
     glDispatchCompute(groupsX, groupsY, groupsZ);
     glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);

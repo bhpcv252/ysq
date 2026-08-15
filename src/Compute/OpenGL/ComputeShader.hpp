@@ -31,6 +31,8 @@ public:
     void bindBuffer(unsigned binding, unsigned bufferHandle) const;
 
     void setUniform(std::string_view name, float value) const;
+    void setUniform(std::string_view name, int value) const;
+    void setUniform4(std::string_view name, float x, float y, float z, float w) const;
 
     /// Dispatches groupsX * groupsY * groupsZ work groups and waits for every
     /// shader storage write to become visible before returning.

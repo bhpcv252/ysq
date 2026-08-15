@@ -169,3 +169,85 @@ TEST(MathFFT, Forward3DWithTwoFlatAxesAgreesWithThePlain1DTransform) {
         EXPECT_NEAR(via3D[i].im, via1D[i].im, 1e-9);
     }
 }
+
+TEST(MathFFT, ForwardTransformAtLargeNAgreesWithTheDcBinPropertyOnTheGpuPath) {
+    // Above Math/FFT.hpp's own GPU dispatch threshold and Complex<float>
+    // (the only type that ever dispatches; see detail::fftGpu), so fft()
+    // exercises whichever compute backend is actually available. Checks
+    // the same hand-derivable property
+    // ForwardTransformOfAConstantSignalIsAllEnergyAtZeroFrequency does at
+    // small N (a constant signal's DFT is n at bin 0, 0 elsewhere), which
+    // fftGpu's marshaling has to get exactly right end to end to pass.
+    // Above kGpuDispatchThreshold (16384; measured by
+    // benchmarks/compute_thresholds.cpp).
+    constexpr std::size_t kN = 16384;
+    std::vector<Complex<float>> data(kN, Complex<float>{3.0f, 0.0f});
+
+    ysq::fft(data);
+
+    EXPECT_NEAR(data[0].re, 3.0f * static_cast<float>(kN), 1.0f);
+    EXPECT_NEAR(data[0].im, 0.0f, 1.0f);
+    for (const std::size_t i : {kN / 4, kN / 2, kN - 1}) {
+        EXPECT_NEAR(data[i].re, 0.0f, 1.0f) << "bin " << i;
+        EXPECT_NEAR(data[i].im, 0.0f, 1.0f) << "bin " << i;
+    }
+}
+
+TEST(MathFFT, InverseUndoesForwardAtLargeNOnTheGpuPath) {
+    constexpr std::size_t kN = 16384;  // above kGpuDispatchThreshold
+    std::vector<Complex<float>> original(kN);
+    for (std::size_t i = 0; i < kN; ++i) {
+        original[i] = Complex<float>{std::sin(0.01f * static_cast<float>(i)),
+                                     std::cos(0.02f * static_cast<float>(i))};
+    }
+
+    std::vector<Complex<float>> roundTripped = original;
+    ysq::fft(roundTripped);
+    ysq::ifft(roundTripped);
+
+    for (const std::size_t i : {std::size_t{0}, kN / 3, kN - 1}) {
+        EXPECT_NEAR(roundTripped[i].re, original[i].re, 1e-2f) << "index " << i;
+        EXPECT_NEAR(roundTripped[i].im, original[i].im, 1e-2f) << "index " << i;
+    }
+}
+
+TEST(MathFFT, Forward3DAtLargeNAgreesWithTheDcBinPropertyOnTheGpuPath) {
+    // Above the GPU dispatch threshold and Complex<float>, so all three
+    // axis passes inside detail::fft3DGpu dispatch: a bug in the x or y
+    // pass's line-extraction/scatter indexing would leak energy into a
+    // non-DC bin here, which the small-N CPU-path equivalent test above
+    // cannot exercise at all.
+    // 32*32*16 = 16384, at kGpuDispatchThreshold (measured by
+    // benchmarks/compute_thresholds.cpp).
+    constexpr std::size_t kNx = 32, kNy = 32, kNz = 16;
+    std::vector<Complex<float>> data(kNx * kNy * kNz, Complex<float>{2.0f, 0.0f});
+
+    ysq::fft3D(data, kNx, kNy, kNz);
+
+    EXPECT_NEAR(data[0].re, 2.0f * static_cast<float>(data.size()), 1.0f);
+    EXPECT_NEAR(data[0].im, 0.0f, 1.0f);
+    for (const std::size_t i : {data.size() / 4, data.size() / 2, data.size() - 1}) {
+        EXPECT_NEAR(data[i].re, 0.0f, 1.0f) << "index " << i;
+        EXPECT_NEAR(data[i].im, 0.0f, 1.0f) << "index " << i;
+    }
+}
+
+TEST(MathFFT, Inverse3DUndoesForward3DAtLargeNOnTheGpuPath) {
+    constexpr std::size_t kNx = 32, kNy = 32, kNz = 16;  // 32*32*16 = 16384
+    ysq::RandomEngine rng = ysq::makeRandomEngine(7);
+    std::vector<Complex<float>> original(kNx * kNy * kNz);
+    for (Complex<float>& c : original) {
+        c = Complex<float>{ysq::uniformReal<float>(rng, -1.0f, 1.0f),
+                           ysq::uniformReal<float>(rng, -1.0f, 1.0f)};
+    }
+
+    std::vector<Complex<float>> roundTripped = original;
+    ysq::fft3D(roundTripped, kNx, kNy, kNz);
+    ysq::ifft3D(roundTripped, kNx, kNy, kNz);
+
+    for (const std::size_t i :
+         {std::size_t{0}, original.size() / 2, original.size() - 1}) {
+        EXPECT_NEAR(roundTripped[i].re, original[i].re, 1e-2f) << "index " << i;
+        EXPECT_NEAR(roundTripped[i].im, original[i].im, 1e-2f) << "index " << i;
+    }
+}

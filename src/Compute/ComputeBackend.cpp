@@ -12,8 +12,12 @@
 #if defined(YSQ_COMPUTE_HAS_VULKAN)
 #include <Compute/Vulkan/VulkanBackend.hpp>
 #endif
+#if defined(YSQ_COMPUTE_HAS_METAL)
+#include <Compute/Metal/MetalBackend.hpp>
+#endif
 
 #include <array>
+#include <memory>
 
 namespace ysq {
 
@@ -25,6 +29,8 @@ std::string_view toString(ComputeBackendKind kind) noexcept {
             return "CUDA";
         case ComputeBackendKind::Vulkan:
             return "Vulkan";
+        case ComputeBackendKind::Metal:
+            return "Metal";
         case ComputeBackendKind::Cpu:
             break;
     }
@@ -55,6 +61,12 @@ std::unique_ptr<ComputeBackend> createBackend(ComputeBackendKind kind) {
 #else
             return nullptr;
 #endif
+        case ComputeBackendKind::Metal:
+#if defined(YSQ_COMPUTE_HAS_METAL)
+            return MetalBackend::create();
+#else
+            return nullptr;
+#endif
     }
     return nullptr;
 }
@@ -76,9 +88,14 @@ selectComputeBackend(std::optional<ComputeBackendKind> forceBackend) {
         return backend;
     }
 
-    constexpr std::array<ComputeBackendKind, 4> kPriority{
-        ComputeBackendKind::Cuda, ComputeBackendKind::Vulkan, ComputeBackendKind::OpenGL,
-        ComputeBackendKind::Cpu};
+    // Metal leads: it is the only backend that can reach a GPU on macOS at
+    // all (OpenGL compute needs 4.3, which Apple never shipped; CUDA needs
+    // an NVIDIA GPU, which Apple Silicon and modern Macs never have). On
+    // every other platform this probe fails immediately (YSQ_COMPUTE_HAS_METAL
+    // is only ever defined on Apple), so it costs nothing there.
+    constexpr std::array<ComputeBackendKind, 5> kPriority{
+        ComputeBackendKind::Metal, ComputeBackendKind::Cuda, ComputeBackendKind::Vulkan,
+        ComputeBackendKind::OpenGL, ComputeBackendKind::Cpu};
     for (const ComputeBackendKind kind : kPriority) {
         if (std::unique_ptr<ComputeBackend> backend = createBackend(kind)) {
             logging::debug("Selected the {} compute backend", toString(kind));
@@ -86,6 +103,11 @@ selectComputeBackend(std::optional<ComputeBackendKind> forceBackend) {
         }
     }
     return nullptr;  // unreachable: CpuBackend::create() always succeeds
+}
+
+ComputeBackend& defaultBackend() {
+    static const std::unique_ptr<ComputeBackend> backend = selectComputeBackend();
+    return *backend;
 }
 
 }  // namespace ysq

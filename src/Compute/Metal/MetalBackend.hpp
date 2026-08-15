@@ -2,17 +2,36 @@
 
 #include <Compute/ComputeBackend.hpp>
 
+#include <memory>
+
 namespace ysq {
 
-/// The reference implementation. Always available, and correctness is defined
-/// by this: every other backend is validated against it within tolerance,
-/// never the reverse. See src/Compute/README.md.
-class CpuBackend final : public ComputeBackend {
+/// Dispatches through Apple's native Metal API: the priority backend on
+/// macOS, since it is the only one of the four GPU backends that can reach
+/// this platform's actual hardware. OpenGL compute needs a 4.3 context,
+/// which Apple never shipped; CUDA needs an NVIDIA GPU, absent from Apple
+/// Silicon and every recent Mac. See src/Compute/README.md.
+///
+/// Compiled in only when YSQ_BUILD_COMPUTE_METAL is set (APPLE-only). The
+/// Objective-C++ implementation lives entirely in MetalBackend.mm; this
+/// header stays plain C++, via a pimpl, so it can be included from any
+/// translation unit regardless of language mode, the same reason
+/// Platform/Window.hpp keeps GLFW's own types out of its own header.
+class MetalBackend final : public ComputeBackend {
 public:
+    /// Nullptr if MTLCreateSystemDefaultDevice() returns nil (should not
+    /// happen on any Mac since 2012, but reported rather than assumed) or
+    /// any reference kernel fails to compile.
     [[nodiscard]] static std::unique_ptr<ComputeBackend> create();
 
+    MetalBackend(const MetalBackend&) = delete;
+    MetalBackend& operator=(const MetalBackend&) = delete;
+    MetalBackend(MetalBackend&&) = delete;
+    MetalBackend& operator=(MetalBackend&&) = delete;
+    ~MetalBackend() override;
+
     [[nodiscard]] ComputeBackendKind kind() const noexcept override {
-        return ComputeBackendKind::Cpu;
+        return ComputeBackendKind::Metal;
     }
 
     void saxpy(std::span<const float> x, std::span<float> y, float a) const override;
@@ -125,11 +144,10 @@ public:
                                      std::span<float> nextFine) const override;
     [[nodiscard]] std::size_t minIndex(std::span<const float> x) const override;
 
-    /// Outside ComputeBackend: no GPU backend can offer float64, so these are
-    /// not virtual. For scenarios that must stay on CPU for accuracy
-    /// regardless of hardware; see src/Compute/README.md.
-    void saxpyD(std::span<const double> x, std::span<double> y, double a) const;
-    [[nodiscard]] double sumD(std::span<const double> x) const;
+private:
+    struct Impl;
+    explicit MetalBackend(std::unique_ptr<Impl> impl) noexcept;
+    std::unique_ptr<Impl> m_impl;
 };
 
 }  // namespace ysq

@@ -1,11 +1,13 @@
 #pragma once
 
+#include <Compute/ComputeBackend.hpp>
 #include <Math/Scalar.hpp>
 
 #include <cassert>
 #include <cmath>
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <initializer_list>
 #include <optional>
 #include <vector>
@@ -144,9 +146,94 @@ template <std::floating_point T>
     return result;
 }
 
+namespace detail {
+
+/// Measured on the development machine (Apple Silicon, Metal backend) by
+/// `benchmarks/compute_thresholds.cpp`: each is the smallest size at which
+/// the GPU path was actually faster than the CPU reference for that
+/// specific operation. Three separate constants rather than one shared
+/// value, unlike this file's earlier draft: matVec, matMul, and
+/// LU/Cholesky have measurably different crossover points (`matVec`'s is
+/// roughly 8x `luCholesky`'s), and a single shared threshold would force
+/// the most conservative one onto operations that benefit from GPU
+/// dispatch far earlier. LU and Cholesky share one value: structurally
+/// near-identical dispatch shape (both are `n` sequential host-loop
+/// dispatches of otherwise-ordinary kernels), so only LU was measured
+/// directly and Cholesky, slightly cheaper per step, uses the same value
+/// as a safe (if marginally conservative) stand-in. Re-run the benchmark
+/// and update these if the reference machine or backend ever changes.
+inline constexpr std::size_t kMatVecGpuDispatchThreshold = 4194304;
+inline constexpr std::size_t kMatMulGpuDispatchThreshold = 2097152;
+inline constexpr std::size_t kLuCholeskyGpuDispatchThreshold = 524288;
+
+inline VectorN<float> matVecGpu(const MatrixN<float>& m, const VectorN<float>& v) {
+    const std::size_t rows = m.rows();
+    const std::size_t cols = m.cols();
+    std::vector<float> matrixData(rows * cols);
+    for (std::size_t r = 0; r < rows; ++r) {
+        for (std::size_t c = 0; c < cols; ++c) {
+            matrixData[r * cols + c] = m(r, c);
+        }
+    }
+    std::vector<float> vectorData(cols);
+    for (std::size_t c = 0; c < cols; ++c) {
+        vectorData[c] = v[c];
+    }
+
+    std::vector<float> resultData(rows);
+    defaultBackend().matVec(matrixData, rows, cols, vectorData, resultData);
+
+    VectorN<float> result(rows);
+    for (std::size_t r = 0; r < rows; ++r) {
+        result[r] = resultData[r];
+    }
+    return result;
+}
+
+inline MatrixN<float> matMulGpu(const MatrixN<float>& a, const MatrixN<float>& b) {
+    const std::size_t aRows = a.rows();
+    const std::size_t aCols = a.cols();
+    const std::size_t bCols = b.cols();
+    std::vector<float> aData(aRows * aCols);
+    for (std::size_t r = 0; r < aRows; ++r) {
+        for (std::size_t c = 0; c < aCols; ++c) {
+            aData[r * aCols + c] = a(r, c);
+        }
+    }
+    std::vector<float> bData(aCols * bCols);
+    for (std::size_t r = 0; r < aCols; ++r) {
+        for (std::size_t c = 0; c < bCols; ++c) {
+            bData[r * bCols + c] = b(r, c);
+        }
+    }
+
+    std::vector<float> resultData(aRows * bCols);
+    defaultBackend().matMul(aData, aRows, aCols, bData, bCols, resultData);
+
+    MatrixN<float> result(aRows, bCols);
+    for (std::size_t r = 0; r < aRows; ++r) {
+        for (std::size_t c = 0; c < bCols; ++c) {
+            result(r, c) = resultData[r * bCols + c];
+        }
+    }
+    return result;
+}
+
+}  // namespace detail
+
+/// Above a size threshold, and only for `MatrixN<float>` (the GPU interface
+/// is `float`-only; a `MatrixN<double>` call stays on the CPU path always,
+/// gated with `if constexpr`, matching `Math/FFT.hpp`'s and
+/// `Math/Multigrid.hpp`'s own convention for the same reason), dispatches
+/// through `Compute::defaultBackend()`.
 template <std::floating_point T>
 [[nodiscard]] VectorN<T> operator*(const MatrixN<T>& m, const VectorN<T>& v) {
     assert(m.cols() == v.size());
+    if constexpr (std::same_as<T, float>) {
+        if (m.rows() * m.cols() >= detail::kMatVecGpuDispatchThreshold) {
+            return detail::matVecGpu(m, v);
+        }
+    }
     VectorN<T> result(m.rows());
     for (std::size_t r = 0; r < m.rows(); ++r) {
         T total{};
@@ -158,9 +245,18 @@ template <std::floating_point T>
     return result;
 }
 
+/// Same `if constexpr`-gated, `float`-only dispatch policy as the
+/// matrix-vector `operator*` above, via its own (lower)
+/// `kMatMulGpuDispatchThreshold`: `matMul`'s O(n^3) work crosses over to
+/// GPU-favorable at a smaller size than `matVec`'s O(n^2) work does.
 template <std::floating_point T>
 [[nodiscard]] MatrixN<T> operator*(const MatrixN<T>& a, const MatrixN<T>& b) {
     assert(a.cols() == b.rows());
+    if constexpr (std::same_as<T, float>) {
+        if (a.rows() * a.cols() * b.cols() >= detail::kMatMulGpuDispatchThreshold) {
+            return detail::matMulGpu(a, b);
+        }
+    }
     MatrixN<T> result(a.rows(), b.cols());
     for (std::size_t r = 0; r < a.rows(); ++r) {
         for (std::size_t k = 0; k < a.cols(); ++k) {
@@ -185,6 +281,42 @@ struct LuDecomposition {
     std::vector<std::size_t> pivot;
 };
 
+namespace detail {
+
+/// Same dispatch policy as matVecGpu/matMulGpu above. `nullopt` on the
+/// singular/non-finite case, exactly matching what CPU luDecompose returns
+/// for the same condition.
+inline std::optional<LuDecomposition<float>>
+luDecomposeGpuDispatch(const MatrixN<float>& a) {
+    const std::size_t n = a.rows();
+    std::vector<float> matrixData(n * n);
+    for (std::size_t r = 0; r < n; ++r) {
+        for (std::size_t c = 0; c < n; ++c) {
+            matrixData[r * n + c] = a(r, c);
+        }
+    }
+
+    std::vector<float> luData(n * n);
+    std::vector<std::uint32_t> pivotData(n);
+    if (!defaultBackend().luDecomposeGpu(matrixData, n, luData, pivotData)) {
+        return std::nullopt;
+    }
+
+    MatrixN<float> lu(n, n);
+    for (std::size_t r = 0; r < n; ++r) {
+        for (std::size_t c = 0; c < n; ++c) {
+            lu(r, c) = luData[r * n + c];
+        }
+    }
+    std::vector<std::size_t> pivot(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        pivot[i] = static_cast<std::size_t>(pivotData[i]);
+    }
+    return LuDecomposition<float>{lu, pivot};
+}
+
+}  // namespace detail
+
 /// Gaussian elimination with partial pivoting, same conditioning rationale
 /// as `Matrix2.hpp`'s `detail::solveByElimination`: without pivoting, a
 /// small (or zero) diagonal entry either divides by nearly nothing or halts
@@ -192,11 +324,17 @@ struct LuDecomposition {
 /// never that fragile because every other row's elimination factor against
 /// it is at most 1 in magnitude. `nullopt` for a singular or non-finite
 /// matrix; near-singular is not detected, matching `Matrix4.hpp`'s
-/// `tryInverse`.
+/// `tryInverse`. Same `if constexpr`-gated, `float`-only dispatch policy as
+/// `operator*` above, via its own `kLuCholeskyGpuDispatchThreshold`.
 template <std::floating_point T>
 [[nodiscard]] std::optional<LuDecomposition<T>> luDecompose(MatrixN<T> a) {
     assert(a.rows() == a.cols());
     const std::size_t n = a.rows();
+    if constexpr (std::same_as<T, float>) {
+        if (n * n >= detail::kLuCholeskyGpuDispatchThreshold) {
+            return detail::luDecomposeGpuDispatch(a);
+        }
+    }
     std::vector<std::size_t> pivot(n);
     for (std::size_t i = 0; i < n; ++i) {
         pivot[i] = i;
@@ -280,6 +418,38 @@ template <std::floating_point T>
     return luSolve(*decomposition, b);
 }
 
+namespace detail {
+
+/// Same dispatch policy as luDecomposeGpuDispatch above; `a`'s upper
+/// triangle is never read here either (matching choleskyDecompose), since
+/// the flattening below only ever fills in what the GPU kernel itself
+/// reads (the lower triangle plus the diagonal).
+inline std::optional<MatrixN<float>>
+choleskyDecomposeGpuDispatch(const MatrixN<float>& a) {
+    const std::size_t n = a.rows();
+    std::vector<float> aData(n * n);
+    for (std::size_t r = 0; r < n; ++r) {
+        for (std::size_t c = 0; c <= r; ++c) {
+            aData[r * n + c] = a(r, c);
+        }
+    }
+
+    std::vector<float> lData(n * n);
+    if (!defaultBackend().choleskyDecomposeGpu(aData, n, lData)) {
+        return std::nullopt;
+    }
+
+    MatrixN<float> l(n, n);
+    for (std::size_t r = 0; r < n; ++r) {
+        for (std::size_t c = 0; c <= r; ++c) {
+            l(r, c) = lData[r * n + c];
+        }
+    }
+    return l;
+}
+
+}  // namespace detail
+
 /// The Cholesky factorization `a = L L^T` of a symmetric positive-definite
 /// `a`: about half the arithmetic of LU, and no pivoting is needed because
 /// positive-definiteness alone already keeps every pivot both positive and
@@ -290,11 +460,19 @@ template <std::floating_point T>
 /// doubles as the positive-definiteness check, not a separate one run
 /// first). Only the lower triangle of `a` is read, so an asymmetric input is
 /// silently treated as if its lower triangle described the whole matrix.
+/// Same `if constexpr`-gated, `float`-only dispatch policy as
+/// `operator*`/`luDecompose` above, sharing `luDecompose`'s own
+/// `kLuCholeskyGpuDispatchThreshold`.
 template <std::floating_point T>
 [[nodiscard]] std::optional<MatrixN<T>> choleskyDecompose(const MatrixN<T>& a) {
     assert(a.rows() == a.cols());
     using std::sqrt;
     const std::size_t n = a.rows();
+    if constexpr (std::same_as<T, float>) {
+        if (n * n >= detail::kLuCholeskyGpuDispatchThreshold) {
+            return detail::choleskyDecomposeGpuDispatch(a);
+        }
+    }
     MatrixN<T> l(n, n);
 
     for (std::size_t i = 0; i < n; ++i) {

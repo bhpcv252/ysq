@@ -68,6 +68,25 @@ if(Vulkan_FOUND)
     target_compile_definitions(ysq_compute PRIVATE YSQ_COMPUTE_HAS_VULKAN)
 endif()
 
+# --- Metal backend ---------------------------------------------------------------
+# Apple-only, and unlike CUDA/Vulkan there is no SDK to detect: Metal ships
+# with the OS on every Mac since 2012, so YSQ_BUILD_COMPUTE_METAL means
+# "build it" rather than "use it if found". The implementation is
+# Objective-C++ (.mm); AppleClang compiles that without any extra toolchain
+# setup. This is the priority backend on macOS; see src/Compute/README.md.
+if(APPLE AND YSQ_BUILD_COMPUTE_METAL)
+    target_sources(ysq_compute PRIVATE
+        Metal/MetalBackend.hpp
+        Metal/MetalBackend.mm)
+    find_library(YSQ_METAL_FRAMEWORK Metal REQUIRED)
+    find_library(YSQ_FOUNDATION_FRAMEWORK Foundation REQUIRED)
+    target_link_libraries(ysq_compute PRIVATE
+        ${YSQ_METAL_FRAMEWORK} ${YSQ_FOUNDATION_FRAMEWORK})
+    target_compile_definitions(ysq_compute PRIVATE YSQ_COMPUTE_HAS_METAL)
+    set_source_files_properties(Metal/MetalBackend.mm PROPERTIES
+        COMPILE_FLAGS "-fobjc-arc")
+endif()
+
 # CUDAToolkit_FOUND / Vulkan_FOUND are only ever set by find_package above,
 # which only runs when the matching YSQ_BUILD_COMPUTE_* option is on; with the
 # option off they are unset, which would otherwise print as a blank line
@@ -88,8 +107,17 @@ else()
     set(_ysq_compute_vulkan_status "not found")
 endif()
 
+if(NOT APPLE)
+    set(_ysq_compute_metal_status "not applicable (Apple platforms only)")
+elseif(NOT YSQ_BUILD_COMPUTE_METAL)
+    set(_ysq_compute_metal_status "disabled by option")
+else()
+    set(_ysq_compute_metal_status "ON")
+endif()
+
 message(STATUS "Compute backends:")
 message(STATUS "  CPU:    always")
 message(STATUS "  OpenGL: ${YSQ_BUILD_GRAPHICS} (compiled in; a 4.3+ context is a runtime, per-machine check)")
 message(STATUS "  CUDA:   ${_ysq_compute_cuda_status}")
 message(STATUS "  Vulkan: ${_ysq_compute_vulkan_status}")
+message(STATUS "  Metal:  ${_ysq_compute_metal_status}")

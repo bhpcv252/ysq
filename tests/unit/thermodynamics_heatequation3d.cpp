@@ -1,11 +1,13 @@
 #include <Physics/Thermodynamics/HeatEquation3D.hpp>
 
+#include <Compute/CPU/CpuBackend.hpp>
 #include <Physics/Thermodynamics/HeatEquation.hpp>
 
 #include <gtest/gtest.h>
 
 #include <cmath>
 #include <cstddef>
+#include <vector>
 
 namespace {
 
@@ -181,6 +183,53 @@ TEST(ThermodynamicsHeatEquation3D,
         for (std::size_t j = 0; j < kFlatCount; ++j) {
             for (std::size_t k = 0; k < kFlatCount; ++k) {
                 EXPECT_NEAR(heat3D.temperature(i, j, k), heat1D.temperature(i), 1e-9)
+                    << "cell " << i << "," << j << "," << k;
+            }
+        }
+    }
+}
+
+TEST(ThermodynamicsHeatEquation3D, StepAtLargeNAgreesWithTheComputeCpuReference) {
+    // Above HeatEquation3D.cpp's own GPU dispatch threshold, so step()
+    // exercises whichever compute backend is actually available.
+    // ysq::CpuBackend is called directly as an independent reference (its
+    // own agreement with every GPU backend is already covered by
+    // tests/integration/compute_backends_agree.cpp; this test only checks
+    // that HeatEquation3D.cpp's dispatch wiring feeds it the right data
+    // and reads the result back correctly), with a float32-appropriate
+    // tolerance rather than the double-precision exactness the
+    // below-threshold tests above expect.
+    // 162^3 = 4251528, above kGpuDispatchThreshold (4194304; measured by
+    // benchmarks/compute_thresholds.cpp).
+    constexpr std::size_t n = 162;
+    ysq::HeatEquation3D heat(n, n, n, kSpacing, kDiffusivity);
+
+    std::vector<float> temperature(n * n * n);
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < n; ++j) {
+            for (std::size_t k = 0; k < n; ++k) {
+                const double value = 50.0 * gaussianPulse(n, kSpacing, 0.1, i) *
+                                     gaussianPulse(n, kSpacing, 0.1, j) *
+                                     gaussianPulse(n, kSpacing, 0.1, k);
+                heat.setTemperature(i, j, k, value);
+                temperature[(i * n + j) * n + k] = static_cast<float>(value);
+            }
+        }
+    }
+
+    const double dt = heat.stableTimeStep(0.9);
+    heat.step(dt);
+
+    const ysq::CpuBackend cpu;
+    const float factor = static_cast<float>(kDiffusivity * dt / (kSpacing * kSpacing));
+    std::vector<float> nextReference(n * n * n);
+    cpu.heatEquation3DStep(temperature, n, n, n, factor, nextReference);
+
+    for (const std::size_t i : {std::size_t{0}, n / 2, n - 1}) {
+        for (const std::size_t j : {std::size_t{0}, n / 2, n - 1}) {
+            for (const std::size_t k : {std::size_t{0}, n / 2, n - 1}) {
+                EXPECT_NEAR(heat.temperature(i, j, k), nextReference[(i * n + j) * n + k],
+                            1e-4)
                     << "cell " << i << "," << j << "," << k;
             }
         }

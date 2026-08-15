@@ -6,6 +6,7 @@
 #include <Units/Force.hpp>
 
 #include <span>
+#include <vector>
 
 namespace ysq {
 
@@ -63,5 +64,20 @@ inline constexpr CoulombConstant coulombConstant{
 /// `sources`, superposed.
 [[nodiscard]] MagneticFluxDensity3 magneticField(const Length3& at,
                                                  std::span<const Body> sources);
+
+/// The electric field at every point charge's own position, from every
+/// other point charge in `bodies`: the N-body-style direct-summation
+/// analog of electricField() (which evaluates at one arbitrary point), the
+/// same "one function per point, one for the whole system" pairing
+/// Gravity/Newtonian.hpp's newtonianAcceleration/newtonianAccelerations
+/// already has. Dispatches through Compute::defaultBackend() above a size
+/// threshold; see Field.cpp.
+[[nodiscard]] std::vector<ElectricField3> electricFields(std::span<const Body> bodies);
+
+/// The magnetic field at every point charge's own position, from every
+/// other moving point charge in `bodies`: the N-body-style analog of
+/// magneticField().
+[[nodiscard]] std::vector<MagneticFluxDensity3>
+magneticFields(std::span<const Body> bodies);
 
 }  // namespace ysq

@@ -13,10 +13,22 @@ of them needs to know about the others' scenarios either.
 **Target:** `ysq::Physics` (static)
 **Depends on:** `ysq::Math`, `ysq::Units`, both `PUBLIC` since every header
 here hands back a `Quantity` or a `Math` type. `ysq::Core` and `ysq::Compute`
-are linked `PRIVATE` and not yet used by anything: the `Compute` edge exists
-so the dependency graph in the root `README.md`'s Project structure section
-is true from the start, ahead of the GPU-accelerated N-body kernel that will
-actually use it; see src/Compute/README.md.
+are linked `PRIVATE`. `Gravity/Newtonian.hpp`'s `newtonianAccelerations()`
+and `NewtonianField`, and `Electromagnetism/Field.hpp`'s `electricFields()`
+and `magneticFields()`, all dispatch through `Compute::defaultBackend()`
+above a size threshold (point-mass bodies only for gravity; see
+`Newtonian.cpp`), falling back to CPU below it or when nothing better is
+available. `Mechanics/Hermite.hpp`'s `IndividualTimestepScheduler` does the
+same for finding the next body due to update, and `Fluids/SPH.hpp`'s
+`computeDensityAndPressure`/`pressureAccelerations` for the SPH kernel sum
+(direct O(n^2) with a distance cutoff on GPU, `Math/SpatialPartition::KdTree3`
+on CPU). `Thermodynamics/HeatEquation3D.hpp`'s `step()`,
+`Acoustics/Acoustic3D.hpp`'s `step()`, `Electromagnetism/Maxwell3D.hpp`'s
+`step()`, and `Fluids/Eulerian3D.hpp`'s `step()` (three dispatches, one per
+dimensional-split sweep axis) dispatch the same way for their grid stencil
+update, each above its own cell-count threshold; the GPU kernel computes
+periodic wraparound with modular index arithmetic rather than the CPU
+path's ghost cells. See src/Compute/README.md.
 
 This module is being built in stages; only what is listed below exists so
 far.

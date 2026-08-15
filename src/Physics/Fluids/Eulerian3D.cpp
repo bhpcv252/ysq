@@ -1,5 +1,7 @@
 #include <Physics/Fluids/Eulerian3D.hpp>
 
+#include <Compute/ComputeBackend.hpp>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -9,6 +11,20 @@
 namespace ysq {
 
 namespace {
+
+// Measured on the development machine (Apple Silicon, Metal backend) by
+// benchmarks/compute_thresholds.cpp: a real observed crossover, and lower
+// than the rest of the grid-stencil family (HeatEquation3D.cpp,
+// Acoustic3D.cpp, Maxwell3D.cpp, Math/Multigrid.hpp, all measured floors)
+// -- this kernel reads five conserved-quantity arrays and writes five
+// more per cell, and (unlike the others) does real equation-of-state and
+// Rusanov-flux work per face, not just neighbor averaging/differencing,
+// so its higher per-cell cost crosses over to GPU-favorable at a smaller
+// grid. Also keeps every existing grid in
+// tests/unit/fluids_eulerian3d.cpp (at most 16^3) on the exact
+// double-precision CPU path. Re-run the benchmark and update this if the
+// reference machine or backend ever changes.
+constexpr std::size_t kGpuDispatchThreshold = 262144;
 
 struct Conserved {
     double density;
@@ -89,6 +105,62 @@ struct Flux {
 void sweep(Grid3D<double>& density, Grid3D<double>& momentumA, Grid3D<double>& momentumB,
            Grid3D<double>& momentumC, Grid3D<double>& energy, double gamma, double dt,
            double dx, int axis) {
+    const std::size_t nxCount = density.cellCountX();
+    const std::size_t nyCount = density.cellCountY();
+    const std::size_t nzCount = density.cellCountZ();
+
+    if (nxCount * nyCount * nzCount >= kGpuDispatchThreshold) {
+        const std::size_t total = nxCount * nyCount * nzCount;
+        std::vector<float> densityData(total);
+        std::vector<float> momentumAData(total);
+        std::vector<float> momentumBData(total);
+        std::vector<float> momentumCData(total);
+        std::vector<float> energyData(total);
+        for (std::size_t i = 0; i < nxCount; ++i) {
+            for (std::size_t j = 0; j < nyCount; ++j) {
+                for (std::size_t k = 0; k < nzCount; ++k) {
+                    const auto pi = static_cast<std::ptrdiff_t>(i);
+                    const auto pj = static_cast<std::ptrdiff_t>(j);
+                    const auto pk = static_cast<std::ptrdiff_t>(k);
+                    const std::size_t flat = (i * nyCount + j) * nzCount + k;
+                    densityData[flat] = static_cast<float>(density(pi, pj, pk));
+                    momentumAData[flat] = static_cast<float>(momentumA(pi, pj, pk));
+                    momentumBData[flat] = static_cast<float>(momentumB(pi, pj, pk));
+                    momentumCData[flat] = static_cast<float>(momentumC(pi, pj, pk));
+                    energyData[flat] = static_cast<float>(energy(pi, pj, pk));
+                }
+            }
+        }
+
+        std::vector<float> nextDensity(total);
+        std::vector<float> nextMomentumA(total);
+        std::vector<float> nextMomentumB(total);
+        std::vector<float> nextMomentumC(total);
+        std::vector<float> nextEnergy(total);
+        defaultBackend().eulerianFluid3DSweep(
+            densityData, momentumAData, momentumBData, momentumCData, energyData, nxCount,
+            nyCount, nzCount, axis, static_cast<float>(gamma),
+            static_cast<float>(dt / dx), nextDensity, nextMomentumA, nextMomentumB,
+            nextMomentumC, nextEnergy);
+
+        for (std::size_t i = 0; i < nxCount; ++i) {
+            for (std::size_t j = 0; j < nyCount; ++j) {
+                for (std::size_t k = 0; k < nzCount; ++k) {
+                    const auto pi = static_cast<std::ptrdiff_t>(i);
+                    const auto pj = static_cast<std::ptrdiff_t>(j);
+                    const auto pk = static_cast<std::ptrdiff_t>(k);
+                    const std::size_t flat = (i * nyCount + j) * nzCount + k;
+                    density(pi, pj, pk) = static_cast<double>(nextDensity[flat]);
+                    momentumA(pi, pj, pk) = static_cast<double>(nextMomentumA[flat]);
+                    momentumB(pi, pj, pk) = static_cast<double>(nextMomentumB[flat]);
+                    momentumC(pi, pj, pk) = static_cast<double>(nextMomentumC[flat]);
+                    energy(pi, pj, pk) = static_cast<double>(nextEnergy[flat]);
+                }
+            }
+        }
+        return;
+    }
+
     density.applyPeriodicBoundary();
     momentumA.applyPeriodicBoundary();
     momentumB.applyPeriodicBoundary();
