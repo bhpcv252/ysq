@@ -254,6 +254,12 @@ names a fixed list of applications — a new one under `Applications/` is
 picked up automatically the next time this runs, as long as it follows the
 same `install()` convention.
 
+The same workflow also runs on every pull request into `main`, building and
+packaging on all three platforms so a Release-config regression (this is the
+one build CI's own matrix doesn't cover) is caught before merge. The publish
+step only runs on a push to `main`, so a PR never touches the rolling
+`latest` release.
+
 ## Warnings
 
 `cmake/YsqWarnings.cmake` defines two `INTERFACE` targets, linked `PRIVATE` so
